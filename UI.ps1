@@ -3,7 +3,7 @@ Add-Type -AssemblyName System.Windows.Forms
 
 # Create Form
 $form = New-Object System.Windows.Forms.Form
-$form.Text = "PowerShell Script Runner"
+$form.Text = "Script Manager"
 $form.Size = New-Object System.Drawing.Size(400, 300)
 $form.StartPosition = "CenterScreen"
 
@@ -22,6 +22,7 @@ function Execute-Script {
         
         # Check exit code to ensure script ran successfully
         if ($process.ExitCode -eq 0) {
+            # Script executed successfully
         } else {
             [System.Windows.Forms.MessageBox]::Show("Script execution failed with exit code $($process.ExitCode).", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
         }
@@ -30,27 +31,62 @@ function Execute-Script {
     }
 }
 
+# Function to create responsive buttons with automatic placement
+function Create-ResponsiveButtons {
+    param (
+        [System.Windows.Forms.Form]$form,
+        [Array]$buttonDefinitions
+    )
 
-# Create Buttons
-$button1 = New-Object System.Windows.Forms.Button
-$button1.Text = "Check Disk Space"
-$button1.Location = New-Object System.Drawing.Point(50, 50)
-$button1.Size = New-Object System.Drawing.Size(120, 40)
-$button1.Add_Click({
-    Execute-Script -scriptPath "C:\AutomationProject\AutomationProject\LowFreeSpace-DataDisk.ps1"
-})
+    $yOffset = 20  # Initial offset from the top
+    $spacing = 10  # Spacing between buttons
 
-$button2 = New-Object System.Windows.Forms.Button
-$button2.Text = "Exit"
-$button2.Location = New-Object System.Drawing.Point(200, 50)
-$button2.Size = New-Object System.Drawing.Size(120, 40)
-$button2.Add_Click({
-    $form.Close()
-})
+    foreach ($definition in $buttonDefinitions) {
+        # Create the button
+        $button = New-Object System.Windows.Forms.Button
+        $button.Text = $definition.Text
 
-# Add Controls to Form
-$form.Controls.Add($button1)
-$form.Controls.Add($button2)
+        # Measure the text size
+        $graphics = [System.Drawing.Graphics]::FromImage((New-Object System.Drawing.Bitmap 1,1))
+        $textSize = $graphics.MeasureString($button.Text, $button.Font)
+        $button.Size = New-Object System.Drawing.Size(($textSize.Width + 50), ($textSize.Height + 20)) # Add padding
+
+        # Set button location
+        $button.Location = New-Object System.Drawing.Point(20, $yOffset)
+        $yOffset += $button.Height + $spacing  # Update offset for next button
+
+        # Add click event
+        $button.Add_Click($definition.OnClick)
+
+        # Add the button to the form
+        $form.Controls.Add($button)
+    }
+}
+
+# Define buttons
+$buttons = @(
+    @{
+        Text = "Low Free Space - Data Disk"
+        OnClick = {
+            Execute-Script -scriptPath "C:\AutomationProject\AutomationProject\LowFreeSpace-DataDisk.ps1"
+        }
+    },
+    @{
+        Text = "Another Script"
+        OnClick = {
+            Execute-Script -scriptPath "C:\AutomationProject\AutomationProject\AnotherScript.ps1"
+        }
+    },
+    @{
+        Text = "Exit"
+        OnClick = {
+            $form.Close()
+        }
+    }
+)
+
+# Create buttons
+Create-ResponsiveButtons -form $form -buttonDefinitions $buttons
 
 # Show Form
 $form.ShowDialog()

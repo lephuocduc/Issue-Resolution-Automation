@@ -4,7 +4,7 @@ Add-Type -AssemblyName System.Windows.Forms
 # Create Form
 $form = New-Object System.Windows.Forms.Form
 $form.Text = "Script Manager"
-$form.Size = New-Object System.Drawing.Size(400, 300)
+$form.Size = New-Object System.Drawing.Size(500, 300)
 $form.StartPosition = "CenterScreen"
 
 # Function to Execute PowerShell Script
@@ -55,6 +55,11 @@ function Create-ResponsiveButtons {
         $button.Location = New-Object System.Drawing.Point(20, $yOffset)
         $yOffset += $button.Height + $spacing  # Update offset for next button
 
+        # Add BackColor if specified
+        if ($definition.BackColor) {
+            $button.BackColor = $definition.BackColor
+        }
+
         # Add click event
         $button.Add_Click($definition.OnClick)
 
@@ -68,7 +73,7 @@ $buttons = @(
     @{
         Text = "Low Free Space - Data Disk"
         OnClick = {
-            Execute-Script -scriptPath "C:\AutomationProject\AutomationProject\LowFreeSpace-DataDisk.ps1"
+            Execute-Script -scriptPath ".\LowFreeSpace-DataDisk.ps1"
         }
     },
     @{
@@ -79,6 +84,7 @@ $buttons = @(
     },
     @{
         Text = "Exit"
+        BackColor = [System.Drawing.Color]::LightCoral
         OnClick = {
             $form.Close()
         }

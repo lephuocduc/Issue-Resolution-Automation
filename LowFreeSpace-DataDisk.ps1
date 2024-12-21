@@ -1,53 +1,78 @@
+# Load Windows Forms Assembly
+Add-Type -AssemblyName System.Windows.Forms
+
 # Function to prompt for server name and check availability
-function Get-ValidServerName {
-    $serverName = $null
-    do {
-        $serverName = Read-Host "Enter server name"
-        $pingResult = Test-Connection -ComputerName $serverName -Count 1 -Quiet
-        if (-not $pingResult) {
-            Write-Host "Server not available, please retype."
-        }
-    } while (-not $pingResult)
-    return $serverName
+function Test-ServerAvailability {
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$serverName
+    )
+    if (-not (Test-Connection -ComputerName $serverName -Count 1 -Quiet)) {
+        return $false
+    }
+    else {
+        return $true
+    }
 }
 
 # Function to attempt to create a session and handle credential failures
 function Get-Session {
     param($serverName)
-    
+    $statusLabel.Text = "Logging in to $serverName..."
+    $retryCount = 0
+    $maxRetries = 3
     do {
-        $credential = Get-Credential -Message "Enter your credentials"
-        if ($credential -eq $null) {
-            Write-Host "Login cancelled" -ForegroundColor Yellow
-            exit
+        $retryCount++
+        $credential = Get-Credential
+        if ($credential -eq $null -or $retryCount -ge $maxRetries) {
+            $statusLabel.Text = "Session creation canceled or retry limit reached."
+            return $null
         }
-        
+
         try {
             Set-Item WSMan:\localhost\Client\TrustedHosts -Value "$serverName" -Concatenate -Force
             $session = New-PSSession -ComputerName $serverName -Credential $credential -ErrorAction Stop
-            Write-Host "Successfully connected to $serverName" -ForegroundColor Green
+            $statusLabel.Text = "Session created successfully."
             return $session
         } catch {
-            Write-Host "Failed to connect to $serverName. Error: $($_.Exception.Message)" -ForegroundColor Red
+            $statusLabel.Text = "Failed to create session. Error: $_"
         }
     } while ($true)
 }
 
 # Function to check if disk exists on the server
-function Check-DiskExistence {
-    param($session, $diskName)
-    $diskExists = Invoke-Command -Session $session -ScriptBlock {
-        param($diskName)
-        $disk = Get-PSDrive -Name $diskName -ErrorAction SilentlyContinue
-        return $disk -ne $null
-    } -ArgumentList $diskName
-    return $diskExists
+function Test-DiskAvailability {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory=$true)]
+        [System.Management.Automation.Runspaces.PSSession]$session,
+        [Parameter(Mandatory=$true)]
+        [string]$diskName
+    )
+    try {
+        $diskExists = Invoke-Command -Session $session -ScriptBlock {
+            param($diskName)
+            
+            $disk = Get-PSDrive -Name $diskName -ErrorAction SilentlyContinue
+            if ($null -eq $disk) {
+                return $false
+            }
+            else {
+                return $true
+            }
+        } -ArgumentList $diskName -ErrorAction Stop
+        return $diskExists
+    }
+    catch {
+        [System.Windows.Forms.MessageBox]::Show($_.Exception.Message, "Error")
+        return $false
+    }
 }
 
 # Check Disk Info
 function Get-DiskSpaceInfo {
     param($session, $diskName)
-    
+
     $diskInfo = Invoke-Command -Session $session -ScriptBlock {
         param($diskName)
         $drive = Get-PSDrive -Name $diskName
@@ -75,19 +100,6 @@ function Get-DiskSpaceInfo {
     $output += "Used: $($diskInfo.UsedPercentage)%`n"
     $output += "-----------------------------------------`n"
     return $output
-}
-
-# Function to prompt for disk name and verify its existence
-function Get-ValidDiskName {
-    param($session)
-    do {
-        $diskName = Read-Host "Enter disk name"
-        $diskExists = Check-DiskExistence -session $session -diskName $diskName
-        if (-not $diskExists) {
-            Write-Host "Disk '$diskName' does not exist on server '$serverName'. Please enter a valid disk name."
-        }
-    } while (-not $diskExists)
-    return $diskName
 }
 
 # Function to list and sort sizes of items (both folders and files) within each first-level folder
@@ -159,29 +171,103 @@ function Export-DiskReport {
     $reportContent += $folderSizes
     $reportContent += "`nReport generated on: $(Get-Date)"
 
-    # Display to console
-    Write-Host "`nServer name: $serverName" -ForegroundColor Cyan
-    Write-Host $diskInfo
-    Write-Host $folderSizes
-    Write-Host "Report generated on: $(Get-Date)" -ForegroundColor Gray
-
     # Write report to file
     $reportContent | Out-File -FilePath $reportPath -Force
-
-    Write-Host "`nThe report has been exported to $reportPath" -ForegroundColor Green
+    $statusLabel.Text = "The report has been exported to $reportPath"   
 }
 
-# Main script
-$serverName = Get-ValidServerName
-$session = Get-Session -serverName $serverName
-$diskName = Get-ValidDiskName -session $session
+# Create Form
+$form = New-Object System.Windows.Forms.Form
+$form.Text = "LowFreeSpace-DataDisk"
+$form.Size = New-Object System.Drawing.Size(400, 300)
+$form.StartPosition = "CenterScreen"
 
-# Get information
-$diskInfo = Get-DiskSpaceInfo -session $session -diskName $diskName
-$folderSizes = Get-SecondLevelFolderSizes -session $session -diskName $diskName
+# Server Name Label
+$labelServer = New-Object System.Windows.Forms.Label
+$labelServer.Location = New-Object System.Drawing.Point(20, 20)
+$labelServer.Size = New-Object System.Drawing.Size(100, 20)
+$labelServer.Text = "Server Name:"
+$form.Controls.Add($labelServer)
 
-# Export report
-Export-DiskReport -serverName $serverName -diskName $diskName -diskInfo $diskInfo -folderSizes $folderSizes
+# Server Name TextBox
+$textBoxServer = New-Object System.Windows.Forms.TextBox
+$textBoxServer.Location = New-Object System.Drawing.Point(120, 20)
+$textBoxServer.Size = New-Object System.Drawing.Size(200, 20)
+$form.Controls.Add($textBoxServer)
 
-# Clean up session
-Remove-PSSession -Session $session
+# Disk Name Label
+$labelDisk = New-Object System.Windows.Forms.Label
+$labelDisk.Location = New-Object System.Drawing.Point(20, 50)
+$labelDisk.Size = New-Object System.Drawing.Size(100, 20)
+$labelDisk.Text = "Disk Name:"
+$form.Controls.Add($labelDisk)
+
+# Disk Name TextBox
+$textBoxDisk = New-Object System.Windows.Forms.TextBox
+$textBoxDisk.Location = New-Object System.Drawing.Point(120, 50)
+$textBoxDisk.Size = New-Object System.Drawing.Size(200, 20)
+$form.Controls.Add($textBoxDisk)
+
+# Status Label for Checking
+$statusLabel = New-Object System.Windows.Forms.Label
+$statusLabel.Location = New-Object System.Drawing.Point(20, 110)
+$statusLabel.Size = New-Object System.Drawing.Size(350, 50)
+$form.Controls.Add($statusLabel)
+
+# OK Button
+$buttonOK = New-Object System.Windows.Forms.Button
+$buttonOK.Location = New-Object System.Drawing.Point(120, 80)
+$buttonOK.Size = New-Object System.Drawing.Size(75, 23)
+$buttonOK.Text = "OK"
+$buttonOK.Add_Click({
+    $serverName = $textBoxServer.Text
+    $diskName = $textBoxDisk.Text
+    
+    if ([string]::IsNullOrEmpty($serverName) -or [string]::IsNullOrEmpty($diskName)) {
+        [System.Windows.Forms.MessageBox]::Show("Please enter both server name and disk name.", "Validation Error")
+        return
+    }
+
+    $statusLabel.Text = "Connecting to '$serverName...'"
+    if (-not (Test-ServerAvailability -serverName $serverName)) {
+        $statusLabel.Text = "Server '$serverName' is not reachable."
+        return
+    }
+    $statusLabel.Text = "Connected to '$serverName'"
+
+    
+
+    $session = Get-Session -serverName $serverName
+    $statusLabel.Text = "Checking disk $diskName on $serverName..."
+    if ($null -eq $session -or -not (Test-DiskAvailability -session $session -diskName $diskName)) {
+        $statusLabel.Text = "Disk $diskName not found on $serverName."
+        return
+    }
+
+    try {
+        $statusLabel.Text = "Checking disk $diskName on $serverName..."
+        $diskInfo = Get-DiskSpaceInfo -session $session -diskName $diskName 
+        $folderSizes = Get-SecondLevelFolderSizes -session $session -diskName $diskName
+                        
+        # Export report
+        Export-DiskReport -serverName $serverName -diskName $diskName -diskInfo $diskInfo -folderSizes $folderSizes
+        Remove-PSSession -Session $session
+    } catch {
+        [System.Windows.Forms.MessageBox]::Show($_.Exception.Message, "Error")
+    }
+})
+$form.Controls.Add($buttonOK)
+
+# Exit Button
+$buttonExit = New-Object System.Windows.Forms.Button
+$buttonExit.Location = New-Object System.Drawing.Point(200, 80)
+$buttonExit.Size = New-Object System.Drawing.Size(75, 23)
+$buttonExit.Text = "Exit"
+$buttonExit.BackColor = [System.Drawing.Color]::LightCoral
+$buttonExit.Add_Click({ $form.Close() })
+$form.Controls.Add($buttonExit)
+
+
+# Show Form
+$form.ShowDialog()
+

@@ -18,24 +18,20 @@ function Test-ServerAvailability {
 # Function to attempt to create a session and handle credential failures
 function Get-Session {
     param($serverName)
-    $statusLabel.Text = "Logging in to $serverName..."
     $retryCount = 0
     $maxRetries = 3
     do {
         $retryCount++
         $credential = Get-Credential
         if ($credential -eq $null -or $retryCount -ge $maxRetries) {
-            $statusLabel.Text = "Session creation canceled or retry limit reached."
             return $null
         }
 
         try {
             Set-Item WSMan:\localhost\Client\TrustedHosts -Value "$serverName" -Concatenate -Force
             $session = New-PSSession -ComputerName $serverName -Credential $credential -ErrorAction Stop
-            $statusLabel.Text = "Session created successfully."
             return $session
         } catch {
-            $statusLabel.Text = "Failed to create session. Error: $_"
         }
     } while ($true)
 }
@@ -233,11 +229,14 @@ $buttonOK.Add_Click({
         $statusLabel.Text = "Server '$serverName' is not reachable."
         return
     }
-    $statusLabel.Text = "Connected to '$serverName'"
 
     
-
+    $statusLabel.Text = "Logging in to $serverName..."
     $session = Get-Session -serverName $serverName
+    if ($null -eq $session) {
+        $statusLabel.Text = "Session creation canceled or retry limit reached."
+        return
+    }
     $statusLabel.Text = "Checking disk $diskName on $serverName..."
     if ($null -eq $session -or -not (Test-DiskAvailability -session $session -diskName $diskName)) {
         $statusLabel.Text = "Disk $diskName not found on $serverName."
@@ -271,3 +270,4 @@ $form.Controls.Add($buttonExit)
 # Show Form
 $form.ShowDialog()
 
+Test-ServerAvailability -serverName "localhost"

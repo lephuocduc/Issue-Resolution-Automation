@@ -179,7 +179,7 @@ function Export-DiskReport {
 # Create Form
 $form = New-Object System.Windows.Forms.Form
 $form.Text = "LowFreeSpace-DataDisk"
-$form.Size = New-Object System.Drawing.Size(400, 300)
+$form.Size = New-Object System.Drawing.Size(400, 250)
 $form.StartPosition = "CenterScreen"
 
 # Server Name Label

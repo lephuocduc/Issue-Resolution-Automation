@@ -8,7 +8,7 @@ $form.Size = New-Object System.Drawing.Size(500, 300)
 $form.StartPosition = "CenterScreen"
 
 # Function to Execute PowerShell Script
-function Execute-Script {
+function Invoke-Script {
     param ($scriptPath)
     try {
         # Verify script exists
@@ -18,7 +18,7 @@ function Execute-Script {
         }
 
         # Run the script
-        $process = Start-Process -FilePath "powershell.exe" -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$scriptPath`"" -NoNewWindow -Wait -PassThru
+        $process = Start-Process -FilePath "powershell.exe" -ArgumentList "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$scriptPath`"" -NoNewWindow -Wait -PassThru
         
         # Check exit code to ensure script ran successfully
         if ($process.ExitCode -eq 0) {
@@ -32,7 +32,7 @@ function Execute-Script {
 }
 
 # Function to create responsive buttons with automatic placement
-function Create-ResponsiveButtons {
+function New-ResponsiveButtons {
     param (
         [System.Windows.Forms.Form]$form,
         [Array]$buttonDefinitions
@@ -73,13 +73,13 @@ $buttons = @(
     @{
         Text = "Low Free Space - Data Disk"
         OnClick = {
-            Execute-Script -scriptPath ".\LowFreeSpace-DataDisk.ps1"
+            Invoke-Script -scriptPath ".\LowFreeSpace-DataDisk.ps1"
         }
     },
     @{
         Text = "Another Script"
         OnClick = {
-            Execute-Script -scriptPath "C:\AutomationProject\AutomationProject\AnotherScript.ps1"
+            Invoke-Script -scriptPath "C:\AutomationProject\AutomationProject\AnotherScript.ps1"
         }
     },
     @{
@@ -92,7 +92,7 @@ $buttons = @(
 )
 
 # Create buttons
-Create-ResponsiveButtons -form $form -buttonDefinitions $buttons
+New-ResponsiveButtons -form $form -buttonDefinitions $buttons
 
 # Show Form
 $form.ShowDialog()

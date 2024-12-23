@@ -17,13 +17,16 @@ function Test-ServerAvailability {
 
 # Function to attempt to create a session and handle credential failures
 function Get-Session {
-    param($serverName)
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$serverName
+    )
     $retryCount = 0
     $maxRetries = 3
     do {
         $retryCount++
         $credential = Get-Credential
-        if ($credential -eq $null -or $retryCount -ge $maxRetries) {
+        if ($null -eq $credential -or $retryCount -ge $maxRetries) {
             return $null
         }
 
@@ -32,13 +35,13 @@ function Get-Session {
             $session = New-PSSession -ComputerName $serverName -Credential $credential -ErrorAction Stop
             return $session
         } catch {
+            continue
         }
     } while ($true)
 }
 
 # Function to check if disk exists on the server
 function Test-DiskAvailability {
-    [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true)]
         [System.Management.Automation.Runspaces.PSSession]$session,
@@ -60,14 +63,18 @@ function Test-DiskAvailability {
         return $diskExists
     }
     catch {
-        [System.Windows.Forms.MessageBox]::Show($_.Exception.Message, "Error")
         return $false
     }
 }
 
 # Check Disk Info
 function Get-DiskSpaceInfo {
-    param($session, $diskName)
+    param(
+        [Parameter(Mandatory=$true)]
+        [System.Management.Automation.Runspaces.PSSession]$session,
+        [Parameter(Mandatory=$true)]
+        [string]$diskName
+    )
 
     $diskInfo = Invoke-Command -Session $session -ScriptBlock {
         param($diskName)
@@ -83,14 +90,7 @@ function Get-DiskSpaceInfo {
         }
     } -ArgumentList $diskName
 
-    # Color coding based on used percentage
-    $color = switch($diskInfo.UsedPercentage) {
-        {$_ -ge 90} {'Red'}
-        {$_ -ge 80} {'Yellow'}
-        default {'Green'}
-    }
-
-    $output = "`nDisk ${diskName} Space Information:`n"
+    $output = "`nDisk ${diskName} Information:`n"
     $output += "Total Size: $($diskInfo.TotalSize) GB`n"
     $output += "Free Space: $($diskInfo.FreeSpace) GB`n"
     $output += "Used: $($diskInfo.UsedPercentage)%`n"
@@ -100,7 +100,12 @@ function Get-DiskSpaceInfo {
 
 # Function to list and sort sizes of items (both folders and files) within each first-level folder
 function Get-SecondLevelFolderSizes {
-    param($session, $diskName)
+    param(
+        [Parameter(Mandatory=$true)]
+        [System.Management.Automation.Runspaces.PSSession]$session,
+        [Parameter(Mandatory=$true)]
+        [string]$diskName
+    )
     $folderStructure = Invoke-Command -Session $session -ScriptBlock {
         param($diskName)
         $firstLevelFolders = Get-ChildItem -Path "$($diskName):\" -Directory -ErrorAction SilentlyContinue
@@ -269,5 +274,3 @@ $form.Controls.Add($buttonExit)
 
 # Show Form
 $form.ShowDialog()
-
-Test-ServerAvailability -serverName "localhost"

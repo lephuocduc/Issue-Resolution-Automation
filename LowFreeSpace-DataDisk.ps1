@@ -1,3 +1,40 @@
+#NOTES
+# Name:   LowFreeSpace-DataDisk.ps1
+# Author:  Duc Le
+# Version:  1.0
+# Major Release History:
+
+#DESCRIPTION
+# This script is designed to check the disk space of a specified disk on a remote server, and export a report with disk information and the sizes of items within each first-level folder on the disk.
+
+#REQUIREMENT
+# The script requires the user to input the server name and disk name to check the disk space.
+# The script also requires the user to enter credentials to connect to the remote server.
+
+
+#INPUTS
+# The script prompts the user to input the server name and disk name to check the disk space.
+# The script also prompts the user to enter credentials to connect to the remote server.
+
+
+#OUTPUTS
+# The script outputs a report with the following information:
+# - Server name
+# - Disk name
+# - Total size of the disk
+# - Free space on the disk
+# - Percentage of disk space used
+# - Sizes of items (both folders and files) within each first-level folder on the disk
+
+#EXAMPLE
+# To run the script, open a PowerShell console and run the following command:
+# .\LowFreeSpace-DataDisk.ps1
+# The script will prompt you to enter the server name, disk name, and credentials to connect to the remote server.
+# The script will then generate a report with the disk information and the sizes of items within each first-level folder on the disk.
+# The report will be exported to a text file in the C:\temp directory with a timestamp in the file name.
+
+
+
 # Load Windows Forms Assembly
 Add-Type -AssemblyName System.Windows.Forms
 
@@ -186,27 +223,27 @@ $form.StartPosition = "CenterScreen"
 # Server Name Label
 $labelServer = New-Object System.Windows.Forms.Label
 $labelServer.Location = New-Object System.Drawing.Point(20, 20)
-$labelServer.Size = New-Object System.Drawing.Size(100, 20)
+$labelServer.Size = New-Object System.Drawing.Size(100, 30)
 $labelServer.Text = "Server Name:"
 $form.Controls.Add($labelServer)
 
 # Server Name TextBox
 $textBoxServer = New-Object System.Windows.Forms.TextBox
 $textBoxServer.Location = New-Object System.Drawing.Point(120, 20)
-$textBoxServer.Size = New-Object System.Drawing.Size(200, 20)
+$textBoxServer.Size = New-Object System.Drawing.Size(200, 30)
 $form.Controls.Add($textBoxServer)
 
 # Disk Name Label
 $labelDisk = New-Object System.Windows.Forms.Label
 $labelDisk.Location = New-Object System.Drawing.Point(20, 50)
-$labelDisk.Size = New-Object System.Drawing.Size(100, 20)
+$labelDisk.Size = New-Object System.Drawing.Size(100, 30)
 $labelDisk.Text = "Disk Name:"
 $form.Controls.Add($labelDisk)
 
 # Disk Name TextBox
 $textBoxDisk = New-Object System.Windows.Forms.TextBox
 $textBoxDisk.Location = New-Object System.Drawing.Point(120, 50)
-$textBoxDisk.Size = New-Object System.Drawing.Size(200, 20)
+$textBoxDisk.Size = New-Object System.Drawing.Size(200, 30)
 $form.Controls.Add($textBoxDisk)
 
 # Status Label for Checking

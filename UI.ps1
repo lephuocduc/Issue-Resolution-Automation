@@ -1,5 +1,33 @@
+#NOTES
+# Name:   UI.ps1
+# Author:  Duc Le
+# Version:  1.0
+# Major Release History:
+
+#DESCRIPTION
+# This script provides a simple user interface to execute PowerShell scripts. The form contains buttons that, when clicked, execute the corresponding script. The script paths are hard-coded in the button definitions, but you can modify the script to load the paths from a configuration file or other source.
+
+#REQUIREMENT
+# Run this script as an administrator to ensure the execution of PowerShell scripts is allowed.
+
+#INPUTS
+# None
+
+#OUTPUTS
+# None
+
+#EXAMPLE
+# .\UI.ps1
+# This example runs the script and displays the user interface form. Clicking the buttons will execute the corresponding PowerShell scripts.
+# The "Exit" button closes the form.
+
+
+
 # Load Windows Forms Assembly
-Add-Type -AssemblyName System.Windows.Forms
+$Parameters = @{
+	AssemblyName = 'System.Windows.Forms'
+}
+Add-Type @Parameters
 
 # Create Form
 $form = New-Object System.Windows.Forms.Form

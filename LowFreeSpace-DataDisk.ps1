@@ -34,9 +34,29 @@
 # The report will be exported to a text file in the C:\temp directory with a timestamp in the file name.
 
 
+# Pass the server name as a parameter from UI.ps1
+param(
+    [Parameter(Mandatory=$true)]
+    [string]$ServerName
+)
 
 # Load Windows Forms Assembly
 Add-Type -AssemblyName System.Windows.Forms
+
+# Function to write message to user about script execution
+function Write-Message {
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$message
+    )
+
+    # Create temp directory if not exists
+    if (-not (Test-Path "C:\temp")) { 
+        New-Item -ItemType Directory -Path "C:\temp"
+    }
+
+    $message | Out-File "C:\temp\script_status.txt" -Force
+}
 
 # Function to prompt for server name and check availability
 function Test-ServerAvailability {
@@ -211,7 +231,7 @@ function Export-DiskReport {
 
     # Write report to file
     $reportContent | Out-File -FilePath $reportPath -Force
-    $statusLabel.Text = "The report has been exported to $reportPath"   
+    Write-Message -message "Report exported to: $reportPath"
 }
 
 # Create Form
@@ -219,19 +239,7 @@ $form = New-Object System.Windows.Forms.Form
 $form.Text = "LowFreeSpace-DataDisk"
 $form.Size = New-Object System.Drawing.Size(400, 250)
 $form.StartPosition = "CenterScreen"
-
-# Server Name Label
-$labelServer = New-Object System.Windows.Forms.Label
-$labelServer.Location = New-Object System.Drawing.Point(20, 20)
-$labelServer.Size = New-Object System.Drawing.Size(100, 30)
-$labelServer.Text = "Server Name:"
-$form.Controls.Add($labelServer)
-
-# Server Name TextBox
-$textBoxServer = New-Object System.Windows.Forms.TextBox
-$textBoxServer.Location = New-Object System.Drawing.Point(120, 20)
-$textBoxServer.Size = New-Object System.Drawing.Size(200, 30)
-$form.Controls.Add($textBoxServer)
+$form.TopMost = $true  # Keep form on top
 
 # Disk Name Label
 $labelDisk = New-Object System.Windows.Forms.Label
@@ -246,53 +254,33 @@ $textBoxDisk.Location = New-Object System.Drawing.Point(120, 50)
 $textBoxDisk.Size = New-Object System.Drawing.Size(200, 30)
 $form.Controls.Add($textBoxDisk)
 
-# Status Label for Checking
-$statusLabel = New-Object System.Windows.Forms.Label
-$statusLabel.Location = New-Object System.Drawing.Point(20, 110)
-$statusLabel.Size = New-Object System.Drawing.Size(350, 50)
-$form.Controls.Add($statusLabel)
-
 # OK Button
 $buttonOK = New-Object System.Windows.Forms.Button
 $buttonOK.Location = New-Object System.Drawing.Point(120, 80)
 $buttonOK.Size = New-Object System.Drawing.Size(75, 23)
 $buttonOK.Text = "OK"
 $buttonOK.Add_Click({
-    $serverName = $textBoxServer.Text
     $diskName = $textBoxDisk.Text
     
-    if ([string]::IsNullOrEmpty($serverName) -or [string]::IsNullOrEmpty($diskName)) {
-        [System.Windows.Forms.MessageBox]::Show("Please enter both server name and disk name.", "Validation Error")
+    if ([string]::IsNullOrEmpty($diskName)) {
+        [System.Windows.Forms.MessageBox]::Show("Please enter disk name.", "Validation Error")
         return
     }
-
-    $statusLabel.Text = "Connecting to '$serverName...'"
-    if (-not (Test-ServerAvailability -serverName $serverName)) {
-        $statusLabel.Text = "Server '$serverName' is not reachable."
-        return
-    }
-
-    
-    $statusLabel.Text = "Logging in to $serverName..."
-    $session = Get-Session -serverName $serverName
-    if ($null -eq $session) {
-        $statusLabel.Text = "Session creation canceled or retry limit reached."
-        return
-    }
-    $statusLabel.Text = "Checking disk $diskName on $serverName..."
+ 
     if ($null -eq $session -or -not (Test-DiskAvailability -session $session -diskName $diskName)) {
-        $statusLabel.Text = "Disk $diskName not found on $serverName."
+        Write-Message -message "Disk '$diskName' is not available on server '$serverName'."
+        [System.Windows.Forms.MessageBox]::Show("Disk '$diskName' is not available on server '$serverName'.", "Error")
         return
     }
 
     try {
-        $statusLabel.Text = "Checking disk $diskName on $serverName..."
         $diskInfo = Get-DiskSpaceInfo -session $session -diskName $diskName 
         $folderSizes = Get-SecondLevelFolderSizes -session $session -diskName $diskName
                         
         # Export report
         Export-DiskReport -serverName $serverName -diskName $diskName -diskInfo $diskInfo -folderSizes $folderSizes
         Remove-PSSession -Session $session
+        $form.Close()
     } catch {
         [System.Windows.Forms.MessageBox]::Show($_.Exception.Message, "Error")
     }
@@ -305,9 +293,22 @@ $buttonExit.Location = New-Object System.Drawing.Point(200, 80)
 $buttonExit.Size = New-Object System.Drawing.Size(75, 23)
 $buttonExit.Text = "Exit"
 $buttonExit.BackColor = [System.Drawing.Color]::LightCoral
-$buttonExit.Add_Click({ $form.Close() })
+$buttonExit.Add_Click({
+    Write-Message -message "Script execution canceled."
+    $form.Close()
+}
+)
 $form.Controls.Add($buttonExit)
 
+    if (-not (Test-ServerAvailability -serverName $serverName)) {
+        Write-Message -message "Server '$serverName' is not reachable."
+        return # Exit script
+    }
 
-# Show Form
-$form.ShowDialog()
+    $session = Get-Session -serverName $serverName
+    if ($null -eq $session) {
+        Write-Message -message "Session creation canceled or retry limit reached."
+        return
+    }
+
+    $form.ShowDialog()

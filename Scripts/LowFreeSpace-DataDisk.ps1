@@ -61,15 +61,9 @@ function Write-Message {
 # Function to prompt for server name and check availability
 function Test-ServerAvailability {
     param(
-        [Parameter(Mandatory=$true)]
         [string]$serverName
     )
-    if (-not (Test-Connection -ComputerName $serverName -Count 1 -Quiet)) {
-        return $false
-    }
-    else {
-        return $true
-    }
+    return Test-Connection -ComputerName $serverName -Count 1 -Quiet
 }
 
 # Function to attempt to create a session and handle credential failures
@@ -300,6 +294,10 @@ $buttonExit.Add_Click({
 )
 $form.Controls.Add($buttonExit)
 
+function MainFunction {
+    param(
+        [string]$serverName
+    )
     if (-not (Test-ServerAvailability -serverName $serverName)) {
         Write-Message -message "Server '$serverName' is not reachable."
         return # Exit script
@@ -312,3 +310,8 @@ $form.Controls.Add($buttonExit)
     }
 
     $form.ShowDialog()
+    
+}
+
+# Entry Point
+MainFunction -serverName $ServerName

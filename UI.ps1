@@ -164,7 +164,7 @@ $buttons = @(
     @{
         Text = "Low Free Space - Data Disk"
         OnClick = {
-            Invoke-Script -scriptPath ".\Scripts\LowFreeSpace-DataDisk.ps1"
+            Invoke-Script -scriptPath "$PSScriptRoot\Scripts\LowFreeSpace-DataDisk.ps1"
         }
     },
     @{

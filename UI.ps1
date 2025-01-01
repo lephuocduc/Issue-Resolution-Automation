@@ -114,6 +114,13 @@ $form.Controls.Add($labelServer)
 $textBoxServer = New-Object System.Windows.Forms.TextBox
 $textBoxServer.Location = New-Object System.Drawing.Point(400, 30)
 $textBoxServer.Size = New-Object System.Drawing.Size(200, 60)
+$textBoxServer.Add_KeyDown({
+    param($sender, $e)
+    if ($e.Control -and $e.KeyCode -eq [System.Windows.Forms.Keys]::A) {
+        $textBoxServer.SelectAll()
+        $e.SuppressKeyPress = $true
+    }
+})
 $form.Controls.Add($textBoxServer)
 
 # Create TextBox instead of Label for selection support
@@ -157,7 +164,13 @@ $buttons = @(
     @{
         Text = "Low Free Space - Data Disk"
         OnClick = {
-            Invoke-Script -scriptPath ".\LowFreeSpace-DataDisk.ps1"
+            Invoke-Script -scriptPath ".\Scripts\LowFreeSpace-DataDisk.ps1"
+        }
+    },
+    @{
+        Text = "Low Free Space - C Disk"
+        OnClick = {
+            Invoke-Script -scriptPath ".\Scripts\LowFreeSpace-C-Disk.ps1"
         }
     },
     @{

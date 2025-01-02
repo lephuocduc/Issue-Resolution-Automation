@@ -37,7 +37,7 @@
 # Pass the server name as a parameter from UI.ps1
 param(
     [Parameter(Mandatory=$true)]
-    [string]$ServerName
+    [string]$ServerName = "TestServer"
 )
 
 # Load Windows Forms Assembly
@@ -314,4 +314,4 @@ function MainFunction {
 }
 
 # Entry Point
-MainFunction -serverName $ServerName
+#MainFunction -serverName $ServerName

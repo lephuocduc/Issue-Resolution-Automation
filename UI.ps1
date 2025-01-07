@@ -103,14 +103,14 @@ function New-ResponsiveButtons {
     }
 }
 
-# Right Side Server Name Label
+# Server Name Label
 $labelServer = New-Object System.Windows.Forms.Label
 $labelServer.Location = New-Object System.Drawing.Point(300, 30)
 $labelServer.Size = New-Object System.Drawing.Size(100, 30)
 $labelServer.Text = "Server Name:"
 $form.Controls.Add($labelServer)
 
-# Right Side Server Name TextBox
+# Server Name TextBox
 $textBoxServer = New-Object System.Windows.Forms.TextBox
 $textBoxServer.Location = New-Object System.Drawing.Point(400, 30)
 $textBoxServer.Size = New-Object System.Drawing.Size(200, 60)
@@ -123,7 +123,7 @@ $textBoxServer.Add_KeyDown({
 })
 $form.Controls.Add($textBoxServer)
 
-# Create TextBox instead of Label for selection support
+# Status Label
 $statusLabel = New-Object System.Windows.Forms.TextBox
 $statusLabel.Location = New-Object System.Drawing.Point(300, 60)
 $statusLabel.Size = New-Object System.Drawing.Size(300, 60)

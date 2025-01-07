@@ -39,6 +39,12 @@ $form.Text = "Script Manager"
 $form.Size = New-Object System.Drawing.Size(650, 300)
 $form.StartPosition = "CenterScreen"
 
+# Set the icon
+$iconPath = "$PSScriptRoot\icon.ico"  # Path to your icon file
+if (Test-Path $iconPath) {
+    $form.Icon = [System.Drawing.Icon]::ExtractAssociatedIcon($iconPath)
+}
+
 # Function to Execute PowerShell Script
 function Invoke-Script {
     param ($scriptPath)

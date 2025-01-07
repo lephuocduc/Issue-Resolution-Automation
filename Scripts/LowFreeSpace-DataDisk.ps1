@@ -224,10 +224,14 @@ $buttonOK.Add_Click({
     }
 
     try {
-        $diskInfo = Get-DiskSpaceInfo -session $session -diskName $diskName 
+        Write-Message -message "Checking disk space for '$diskName' disk on server '$serverName'..."
+        $diskInfo = Get-DiskSpaceInfo -session $session -diskName $diskName
+
+        Write-Message -message "Getting folder sizes for '$diskName' disk on server '$serverName'..."
         $folderSizes = Get-SecondLevelFolderSizes -session $session -diskName $diskName
                         
         # Export report
+        Write-Message -message "Exporting report..."
         Export-DiskReport -serverName $serverName -diskName $diskName -diskInfo $diskInfo -folderSizes $folderSizes
         Remove-PSSession -Session $session
         $form.Close()
@@ -250,24 +254,28 @@ $buttonExit.Add_Click({
 )
 $form.Controls.Add($buttonExit)
 
-function MainFunction {
+function Start-DiskChecking {
     param(
         [string]$serverName
     )
+
+    Write-Message -message "Connecting to server '$serverName'..."
     if (-not (Test-ServerAvailability -serverName $serverName)) {
         Write-Message -message "Server '$serverName' is not reachable."
         return # Exit script
     }
 
+    Write-Message -message "Creating session to server '$serverName'..."
     $session = Get-Session -serverName $serverName
     if ($null -eq $session) {
         Write-Message -message "Session creation canceled or retry limit reached."
         return
     }
 
+    Write-Message -message "Session created successfully."
     $form.ShowDialog()
     
 }
 
 # Entry Point
-MainFunction -serverName $ServerName
+Start-DiskChecking -serverName $ServerName

@@ -21,6 +21,11 @@
 # This example runs the script and displays the user interface form. Clicking the buttons will execute the corresponding PowerShell scripts.
 # The "Exit" button closes the form.
 
+# Load module
+. "$PSScriptRoot/modules/module.ps1"
+
+# Write message at the start
+Write-Message -message "Input server name and select a script to execute."
 
 # Load Windows Forms Assembly
 $Parameters = @{
@@ -49,17 +54,10 @@ function Invoke-Script {
             [System.Windows.Forms.MessageBox]::Show("Please enter a server name", "Error")
             return
         }
-        $statusLabel.Text = "Connecting to server '$serverName'..."
+        
         # Run script with server name parameter
         $arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$scriptPath`" -ServerName `"$serverName`""
-        $process = Start-Process -FilePath "powershell.exe" -ArgumentList $arguments -NoNewWindow -Wait -PassThru
-        
-        
-        if ($process.ExitCode -eq 0) {
-            if (Test-Path "C:\temp\script_status.txt") {
-                $statusLabel.Text = Get-Content "C:\temp\script_status.txt" -Raw
-            }
-        }
+        Start-Process -FilePath "powershell.exe" -ArgumentList $arguments -NoNewWindow        
     } catch {
         [System.Windows.Forms.MessageBox]::Show($_.Exception.Message, "Error")
     }
@@ -190,6 +188,35 @@ $buttons = @(
 
 # Create buttons
 New-ResponsiveButtons -form $form -buttonDefinitions $buttons
+
+# Create timer for file monitoring
+$timer = New-Object System.Windows.Forms.Timer
+$timer.Interval = 100 # Check more frequently (100ms)
+$timer.Add_Tick({
+    try {
+        if (Test-Path "C:\temp\script_status.txt") {
+            $newContent = [System.IO.File]::ReadAllText("C:\temp\script_status.txt")
+            if ($newContent -ne $statusLabel.Text) {
+                $statusLabel.Text = $newContent
+                $statusLabel.Update() # Force immediate UI update
+                [System.Windows.Forms.Application]::DoEvents() # Process UI events
+                Write-Debug "Status updated: $newContent"
+            }
+        }
+    }
+    catch {
+        Write-Debug "Error reading status file: $_"
+    }
+})
+
+# Start timer
+$timer.Start()
+
+# Add form closing cleanup
+$form.Add_FormClosing({
+    $timer.Stop()
+    $timer.Dispose()
+})
 
 # Show Form
 $form.ShowDialog()

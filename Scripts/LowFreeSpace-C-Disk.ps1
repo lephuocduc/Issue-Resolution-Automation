@@ -12,7 +12,7 @@ function Invoke-DiskCleanup {
     Invoke-Command -Session $session -ScriptBlock {
         # Run Disk Cleanup tool
         if (Test-Path "C:\Windows\System32\cleanmgr.exe") {
-            Start-Process C:\Windows\System32\cleanmgr.exe -ArgumentList "/sagerun:1" -NoNewWindow -Wait
+            Start-Process cleanmgr.exe -ArgumentList "/d C: /VERYLOWDISK /AUTOCLEAN" -NoNewWindow
         }
     }
 }

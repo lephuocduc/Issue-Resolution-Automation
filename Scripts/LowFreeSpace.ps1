@@ -43,6 +43,7 @@ param(
 
 # Load module
 . "$PSScriptRoot/../modules/module.ps1"
+. "$PSScriptRoot/LowFreeSpace-C-Disk.ps1"
 
 # Load Windows Forms Assembly
 Add-Type -AssemblyName System.Windows.Forms

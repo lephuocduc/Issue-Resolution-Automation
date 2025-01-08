@@ -152,7 +152,8 @@ function Get-SecondLevelFolderSizes {
     return $output
 }
 
-function Export-DiskReport {
+
+function Export-DataDiskReport {
     param(
         [Parameter(Mandatory=$true)]
         $serverName,
@@ -184,6 +185,10 @@ function Export-DiskReport {
     Write-Message -message "Report exported to: $reportPath"
 }
 
+function Invoke-CDisk-Cleanup {
+    
+}
+
 # Create Form
 $form = New-Object System.Windows.Forms.Form
 $form.Text = "LowFreeSpace-DataDisk"
@@ -210,7 +215,7 @@ $buttonOK.Location = New-Object System.Drawing.Point(120, 80)
 $buttonOK.Size = New-Object System.Drawing.Size(75, 23)
 $buttonOK.Text = "OK"
 $buttonOK.Add_Click({
-    $diskName = $textBoxDisk.Text
+    $diskName = $textBoxDisk.Text.ToUpper()
     
     if ([string]::IsNullOrEmpty($diskName)) {
         [System.Windows.Forms.MessageBox]::Show("Please enter disk name.", "Validation Error")
@@ -224,7 +229,11 @@ $buttonOK.Add_Click({
     }
 
     try {
-        Write-Message -message "Checking disk space for '$diskName' disk on server '$serverName'..."
+        if ($diskName -eq "C") {
+            Write-Message -message "Blank"
+        }
+        else {
+            Write-Message -message "Checking disk space for '$diskName' disk on server '$serverName'..."
         $diskInfo = Get-DiskSpaceInfo -session $session -diskName $diskName
 
         Write-Message -message "Getting folder sizes for '$diskName' disk on server '$serverName'..."
@@ -232,9 +241,10 @@ $buttonOK.Add_Click({
                         
         # Export report
         Write-Message -message "Exporting report..."
-        Export-DiskReport -serverName $serverName -diskName $diskName -diskInfo $diskInfo -folderSizes $folderSizes
+        Export-DataDiskReport -serverName $serverName -diskName $diskName -diskInfo $diskInfo -folderSizes $folderSizes
         Remove-PSSession -Session $session
         $form.Close()
+        }        
     } catch {
         [System.Windows.Forms.MessageBox]::Show($_.Exception.Message, "Error")
     }

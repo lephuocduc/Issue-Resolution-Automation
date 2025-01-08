@@ -166,9 +166,9 @@ $form.Controls.Add($statusLabel)
 # Define buttons
 $buttons = @(
     @{
-        Text = "Low Free Space - Data Disk"
+        Text = "Low Free Space"
         OnClick = {
-            Invoke-Script -scriptPath "$PSScriptRoot\Scripts\LowFreeSpace-DataDisk.ps1"
+            Invoke-Script -scriptPath "$PSScriptRoot\Scripts\LowFreeSpace.ps1"
         }
     },
     @{

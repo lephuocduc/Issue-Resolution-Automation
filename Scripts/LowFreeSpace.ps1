@@ -233,7 +233,7 @@ $buttonOK.Add_Click({
 
     try {
         if ($diskName -eq "C") {
-            Write-Message -message "Blank"
+            Invoke-CDisk-Cleanup
         }
         else {
             Write-Message -message "Checking disk space for '$diskName' disk on server '$serverName'..."

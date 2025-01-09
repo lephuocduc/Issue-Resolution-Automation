@@ -99,6 +99,3 @@ function Invoke-CDisk-Cleanup {
     # Generate report
     New-Report -Before $Before -After $After
 }
-
-# Call the cleanup function
-Invoke-CDisk-Cleanup

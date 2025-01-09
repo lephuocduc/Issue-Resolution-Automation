@@ -172,12 +172,6 @@ $buttons = @(
         }
     },
     @{
-        Text = "Low Free Space - C Disk"
-        OnClick = {
-            Invoke-Script -scriptPath "$PSScriptRoot\Scripts\LowFreeSpace-C-Disk.ps1"
-        }
-    },
-    @{
         Text = "Another Script"
         OnClick = {
             Invoke-Script -scriptPath "C:\AutomationProject\AutomationProject\AnotherScript.ps1"

@@ -43,7 +43,6 @@ param(
 
 # Load module
 . "$PSScriptRoot/../modules/module.ps1"
-. "$PSScriptRoot/LowFreeSpace-C-Disk.ps1"
 
 # Load Windows Forms Assembly
 Add-Type -AssemblyName System.Windows.Forms
@@ -105,14 +104,16 @@ function Clear-UserCache {
             )
 
             foreach ($Path in $PathsToClean) {
-                Get-ChildItem -Path $Path -Recurse -Force -ErrorAction SilentlyContinue | Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-5) } | Remove-Item -Force -Recurse -Verbose
+                if (Test-Path -Path $Path) {
+                    Get-ChildItem -Path $Path -Recurse -Force -ErrorAction SilentlyContinue | 
+                    Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-5) } | 
+                    Remove-Item -Force -Recurse -Verbose
             }
-        }
+            }
     } -ArgumentList $ExcludedProfiles
 }
 
 # Function to clear system cache
-# Function to clear system cache on a remote PC
 function Clear-SystemCache {
     param (
         [System.Management.Automation.Runspaces.PSSession]$session
@@ -120,13 +121,25 @@ function Clear-SystemCache {
 
     Invoke-Command -Session $session -ScriptBlock {
         # Windows Update cache (older than 5 days)
-        Get-ChildItem -Path "C:\Windows\SoftwareDistribution\Download\*" -Recurse -Force | Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-5) } | Remove-Item -Force -Recurse -Verbose
+        if (Test-Path -Path "C:\Windows\SoftwareDistribution\Download\*") {
+            Get-ChildItem -Path "C:\Windows\SoftwareDistribution\Download\*" -Recurse -Force | 
+            Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-5) } | 
+            Remove-Item -Force -Recurse -Verbose
+        }
 
         # Windows Installer patch cache (older than 5 days)
-        Get-ChildItem -Path "C:\Windows\Installer\$PatchCache$\*" -Recurse -Force | Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-5) } | Remove-Item -Force -Recurse -Verbose
+        if (Test-Path -Path "C:\Windows\Installer\$PatchCache$\*") {
+            Get-ChildItem -Path "C:\Windows\Installer\$PatchCache$\*" -Recurse -Force |
+            Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-5) } |
+            Remove-Item -Force -Recurse -Verbose
+        }
 
         # SCCM cache (older than 5 days)
-        Get-ChildItem -Path "C:\Windows\ccmcache\*" -Recurse -Force | Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-5) } | Remove-Item -Force -Recurse -Verbose
+        if (Test-Path -Path "C:\Windows\ccmcache\*") {
+            Get-ChildItem -Path "C:\Windows\ccmcache\*" -Recurse -Force |
+            Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-5) } |
+            Remove-Item -Force -Recurse -Verbose
+        }
     }
 }
 
@@ -147,14 +160,17 @@ function Compress-IISLogs {
         }
 
         # Get IIS log files older than 6 months
-        $OldLogs = Get-ChildItem -Path "$IISLogPath\*" -Recurse -Force | Where-Object { $_.LastWriteTime -lt (Get-Date).AddMonths(-6) }
-
-        foreach ($Log in $OldLogs) {
-            $ArchiveFileName = "$ArchivePath\$($Log.Name).zip"
-            Compress-Archive -Path $Log.FullName -DestinationPath $ArchiveFileName -Update
-            Remove-Item -Path $Log.FullName -Force -Verbose
+        if (Test-Path -Path $IISLogPath) {
+            $OldLogs = Get-ChildItem -Path "$IISLogPath\*" -Recurse -Force | 
+            Where-Object { $_.LastWriteTime -lt (Get-Date).AddMonths(-6) }
+            
+            foreach ($Log in $OldLogs) {
+                $ArchiveFileName = "$ArchivePath\$($Log.Name).zip"
+                Compress-Archive -Path $Log.FullName -DestinationPath $ArchiveFileName -Update
+                Remove-Item -Path $Log.FullName -Force -Verbose
+            } -ArgumentList $IISLogPath, $ArchivePath
         }
-    } -ArgumentList $IISLogPath, $ArchivePath
+    }
 }
 
 # Function to get disk space on a remote PC
@@ -193,10 +209,18 @@ function Export-CDisk-Cleanup-Report {
     param (
         [PSCustomObject]$Before,
         [PSCustomObject]$After,
-        [string]$LogFilePath = "C:\Temp\cleanup_report.log"
+        [string[]]$VerboseOutput
     )
+    
+    if (-not (Test-Path "C:\temp")) { 
+        New-Item -ItemType Directory -Path "C:\temp" 
+    }
+
+    $timestamp = Get-Date -Format "ddMMyyyy-HHmm"
+    $LogFilePath = "C:\temp\LowFreeSpace-C-Disk-$serverName-$timestamp.txt"
 
     $SpaceSaved = $After.FreeSpace - $Before.FreeSpace
+    
     $Report = @"
 -------------------------------------------------------------------------
 Cleanup Report
@@ -210,8 +234,12 @@ Drive C: | Used GB: $($After.UsedSpace) | Free GB: $($After.FreeSpace)
 -------------------------------------------------------------------------
 Space saved: $SpaceSaved GB
 -------------------------------------------------------------------------
+Cleanup Operations Detail:
+$($VerboseOutput -join "`n")
+-------------------------------------------------------------------------
 "@
-    Add-Content -Path $LogFilePath -Value $Report
+
+    $Report | Out-File -FilePath $LogFilePath -Force
 }
 
 
@@ -293,7 +321,6 @@ function Get-SecondLevelFolderSizes {
     return $output
 }
 
-
 function Export-DataDiskReport {
     param(
         [Parameter(Mandatory=$true)]
@@ -316,15 +343,21 @@ function Export-DataDiskReport {
     $reportPath = "C:\temp\LowFreeSpace-DataDisk-$serverName-$timestamp.txt"
 
     # Build report content
-    $reportContent = "Server name: $serverName"
-    $reportContent += $diskInfo
-    $reportContent += $folderSizes
-    $reportContent += "`nReport generated on: $(Get-Date)"
+    $reportContent = @"
+Server name: $serverName
+Date: $(Get-Date)
+-------------------------------------------------------------------------
+Disk usage
+Drive '$diskName': | Used GB: $($diskInfo.UsedSpace) | Free GB: $($diskInfo.FreeSpace) | Total GB: $($diskInfo.TotalSize) | Used Percentage: $($diskInfo.UsedPercentage)%
+-------------------------------------------------------------------------
+$folderSizes
+"@
 
     # Write report to file
     $reportContent | Out-File -FilePath $reportPath -Force
     Write-Message -message "Report exported to: $reportPath"
 }
+
 
 # Create Form
 $form = New-Object System.Windows.Forms.Form
@@ -361,7 +394,7 @@ $buttonOK.Add_Click({
  
     if (-not (Test-DiskAvailability -session $session -diskName $diskName)) {
         Write-Message -message "Disk '$diskName' is not available on server '$serverName'."
-        [System.Windows.Forms.MessageBox]::Show("Please enter disk name.", "Validation Error")
+        [System.Windows.Forms.MessageBox]::Show("Disk '$diskName' is not available on server '$serverName'.", "Validation Error")
         return
     }
 
@@ -370,27 +403,36 @@ $buttonOK.Add_Click({
             # Get disk space before cleanup
             $Before = Get-DiskSpaceDetails -session $session -diskName $diskName
 
-            # Clear user cache (Temporary Internet Files, Edge cache, Temp, Chrome cache, Teams cache, etc.)
-            Write-Message -message "Clearing user cache..."
-            Clear-UserCache -session $session
-            
-            # Clear system cache (Windows Update, Windows Installer, SCCM)
-            Write-Message -message "Clearing system cache..."
-            Clear-SystemCache -session $session
+            $verboseMessages = @()
 
-            # Compress IIS log files older than 6 months
-            Write-Message -message "Compresing IIS log files..."
-            Compress-IISLogs -session $session -IISLogPath "C:\inetpub\logs\LogFiles" -ArchivePath "C:\inetpub\logs\Archive"
+        # Clear user cache with verbose capture
+        Write-Message -message "Clearing user cache..."
+        Clear-UserCache -session $session -Verbose 4>&1 | ForEach-Object { 
+            $verboseMessages += $_.Message 
+        }
+        
+        # Clear system cache with verbose capture
+        Write-Message -message "Clearing system cache..."
+        Clear-SystemCache -session $session -Verbose 4>&1 | ForEach-Object { 
+            $verboseMessages += $_.Message 
+        }
 
-            # Get disk space after cleanup
-            $After = Get-DiskSpaceDetails -session $session -diskName $diskName
-            
-            # Export cleanup report
-            Export-CDisk-Cleanup-Report -Before $Before -After $After
-            Write-Message -message "Cleanup report exported successfully."
+        # Compress IIS logs with verbose capture
+        Write-Message -message "Compresing IIS log files..."
+        Compress-IISLogs -session $session -IISLogPath "C:\inetpub\logs\LogFiles" `
+            -ArchivePath "C:\inetpub\logs\Archive" -Verbose 4>&1 | ForEach-Object {
+            $verboseMessages += $_.Message 
+        }
 
-            Remove-PSSession -Session $session
-            $form.Close()
+        # Get disk space after cleanup
+        $After = Get-DiskSpaceDetails -session $session -diskName $diskName
+        
+        # Export cleanup report with verbose messages
+        Export-CDisk-Cleanup-Report -Before $Before -After $After -VerboseOutput $verboseMessages
+        Write-Message -message "Cleanup report exported successfully."
+
+        Remove-PSSession -Session $session
+        $form.Close()
         }
         else {
             Write-Message -message "Checking disk space for '$diskName' disk on server '$serverName'..."

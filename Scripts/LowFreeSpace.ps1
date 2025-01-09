@@ -4,36 +4,6 @@
 # Version:  1.0
 # Major Release History:
 
-#DESCRIPTION
-# This script is designed to check the disk space of a specified disk on a remote server, and export a report with disk information and the sizes of items within each first-level folder on the disk.
-
-#REQUIREMENT
-# The script requires the user to input the server name and disk name to check the disk space.
-# The script also requires the user to enter credentials to connect to the remote server.
-
-
-#INPUTS
-# The script prompts the user to input the server name and disk name to check the disk space.
-# The script also prompts the user to enter credentials to connect to the remote server.
-
-
-#OUTPUTS
-# The script outputs a report with the following information:
-# - Server name
-# - Disk name
-# - Total size of the disk
-# - Free space on the disk
-# - Percentage of disk space used
-# - Sizes of items (both folders and files) within each first-level folder on the disk
-
-#EXAMPLE
-# To run the script, open a PowerShell console and run the following command:
-# .\LowFreeSpace-DataDisk.ps1
-# The script will prompt you to enter the server name, disk name, and credentials to connect to the remote server.
-# The script will then generate a report with the disk information and the sizes of items within each first-level folder on the disk.
-# The report will be exported to a text file in the C:\temp directory with a timestamp in the file name.
-
-
 
 # Pass the server name as a parameter from UI.ps1
 param(
@@ -75,7 +45,6 @@ function Test-DiskAvailability {
 }
 
 # Function to clear system cache
-# Function to clear user cache on a remote PC
 function Clear-UserCache {
     param (
         [System.Management.Automation.Runspaces.PSSession]$session,
@@ -105,13 +74,19 @@ function Clear-UserCache {
 
             foreach ($Path in $PathsToClean) {
                 if (Test-Path -Path $Path) {
+                    Write-Host "Cleaning $Path"
                     Get-ChildItem -Path $Path -Recurse -Force -ErrorAction SilentlyContinue | 
-                    Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-5) } | 
-                    Remove-Item -Force -Recurse -Verbose
+                    Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-0) } | 
+                    Remove-Item -Force -Recurse -Verbose | ForEach-Object {
+                        $verboseMessages += "Deleted: $($_.FullName)"
+                    }
+                }
             }
-            }
+        }
     } -ArgumentList $ExcludedProfiles
 }
+
+
 
 # Function to clear system cache
 function Clear-SystemCache {
@@ -235,44 +210,17 @@ Drive C: | Used GB: $($After.UsedSpace) | Free GB: $($After.FreeSpace)
 Space saved: $SpaceSaved GB
 -------------------------------------------------------------------------
 Cleanup Operations Detail:
-$($VerboseOutput -join "`n")
--------------------------------------------------------------------------
+$VerboseOutput = $verboseMessages -join "`n"
+$Report = @"
+...
+Cleanup Operations Detail:
+$VerboseOutput
+...
 "@
 
     $Report | Out-File -FilePath $LogFilePath -Force
 }
 
-
-# Check Disk Info
-function Get-DiskSpaceInfo {
-    param(
-        [Parameter(Mandatory=$true)]
-        [System.Management.Automation.Runspaces.PSSession]$session,
-        [Parameter(Mandatory=$true)]
-        [string]$diskName
-    )
-
-    $diskInfo = Invoke-Command -Session $session -ScriptBlock {
-        param($diskName)
-        $drive = Get-PSDrive -Name $diskName
-        $freeSpace = [math]::Round($drive.Free / 1GB, 2)
-        $totalSize = [math]::Round(($drive.Free + $drive.Used) / 1GB, 2)
-        $usedPercentage = [math]::Round(($drive.Used / ($drive.Free + $drive.Used)) * 100, 2)
-        
-        return @{
-            FreeSpace = $freeSpace
-            TotalSize = $totalSize
-            UsedPercentage = $usedPercentage
-        }
-    } -ArgumentList $diskName
-
-    $output = "`nDisk ${diskName} Information:`n"
-    $output += "Total Size: $($diskInfo.TotalSize) GB`n"
-    $output += "Free Space: $($diskInfo.FreeSpace) GB`n"
-    $output += "Used: $($diskInfo.UsedPercentage)%`n"
-    $output += "-----------------------------------------`n"
-    return $output
-}
 
 # Function to list and sort sizes of items (both folders and files) within each first-level folder
 function Get-SecondLevelFolderSizes {
@@ -405,34 +353,34 @@ $buttonOK.Add_Click({
 
             $verboseMessages = @()
 
-        # Clear user cache with verbose capture
-        Write-Message -message "Clearing user cache..."
-        Clear-UserCache -session $session -Verbose 4>&1 | ForEach-Object { 
-            $verboseMessages += $_.Message 
-        }
-        
-        # Clear system cache with verbose capture
-        Write-Message -message "Clearing system cache..."
-        Clear-SystemCache -session $session -Verbose 4>&1 | ForEach-Object { 
-            $verboseMessages += $_.Message 
-        }
+            # Clear user cache with verbose capture
+            Write-Message -message "Clearing user cache..."
+            Clear-UserCache -session $session -Verbose 4>&1 | ForEach-Object { 
+                $verboseMessages += $_.Message 
+            }
+            
+            # Clear system cache with verbose capture
+            Write-Message -message "Clearing system cache..."
+            #Clear-SystemCache -session $session -Verbose 4>&1 | ForEach-Object { 
+            #    $verboseMessages += $_.Message 
+            #}
 
-        # Compress IIS logs with verbose capture
-        Write-Message -message "Compresing IIS log files..."
-        Compress-IISLogs -session $session -IISLogPath "C:\inetpub\logs\LogFiles" `
-            -ArchivePath "C:\inetpub\logs\Archive" -Verbose 4>&1 | ForEach-Object {
-            $verboseMessages += $_.Message 
-        }
+            # Compress IIS logs with verbose capture
+            Write-Message -message "Compresing IIS log files..."
+            #Compress-IISLogs -session $session -IISLogPath "C:\inetpub\logs\LogFiles" `
+            #    -ArchivePath "C:\inetpub\logs\Archive" -Verbose 4>&1 | ForEach-Object {
+            #    $verboseMessages += $_.Message 
+            #}
 
-        # Get disk space after cleanup
-        $After = Get-DiskSpaceDetails -session $session -diskName $diskName
-        
-        # Export cleanup report with verbose messages
-        Export-CDisk-Cleanup-Report -Before $Before -After $After -VerboseOutput $verboseMessages
-        Write-Message -message "Cleanup report exported successfully."
+            # Get disk space after cleanup
+            $After = Get-DiskSpaceDetails -session $session -diskName $diskName
+            
+            # Export cleanup report with verbose messages
+            Export-CDisk-Cleanup-Report -Before $Before -After $After -VerboseOutput $verboseMessages
+            Write-Message -message "Cleanup report exported successfully."
 
-        Remove-PSSession -Session $session
-        $form.Close()
+            Remove-PSSession -Session $session
+            $form.Close()
         }
         else {
             Write-Message -message "Checking disk space for '$diskName' disk on server '$serverName'..."

@@ -7,12 +7,19 @@ function Clear-UserCache {
     foreach ($Folder in $ProfileFolders) {
         $PathsToClean = @(
             # User cache folders to clean (older than 5 days)
-            "C:\Users\$Folder\AppData\Local\Microsoft\Windows\Temporary Internet Files\*",
-            "C:\Users\$Folder\AppData\Local\Microsoft\Edge\User Data\Default\Cache\*",
-            "C:\Users\$Folder\AppData\Local\Google\Chrome\User Data\Default\Cache\*",
-            "C:\Users\$Folder\AppData\Local\Google\Chrome\User Data\Default\Service Worker\CacheStorage\*",
-            "C:\Users\$Folder\AppData\Local\Microsoft\Teams\Cache\*",
-            "C:\Users\$Folder\AppData\Local\Temp\*"
+            "C:\Users\$Folder\AppData\Local\Microsoft\Windows\Temporary Internet Files\",
+            "C:\Users\$Folder\AppData\Local\Microsoft\Edge\User Data\Default\Cache\Cache_Data",
+            "C:\Users\$Folder\AppData\Local\Microsoft\Edge\User Data\Default\Service Worker\CacheStorage",
+            "C:\Users\$Folder\AppData\Local\Temp\",
+            "C:\Users\$Folder\AppData\Local\Microsoft\Terminal Server Client\Cache",
+            "C:\Users\$Folder\AppData\Local\Google\Chrome\User Data\Default\Cache",
+            "C:\Users\$Folder\AppData\Local\Microsoft\Teams",
+            "C:\Users\$Folder\AppData\Local\Microsoft\Edge\User Data\Default\Code Cache",
+            "C:\Users\$Folder\AppData\Roaming\Microsoft\Teams\Service Worker\CacheStorage",
+            "C:\Users\$Folder\AppData\Local\Microsoft\Windows\InetCache\IE",
+            "C:\Users\$Folder\AppData\Local\Microsoft\Windows\WebCache",
+            "C:\Users\$Folder\AppData\Local\Google\Chrome\User Data\Default\Code Cache",
+            "C:\Users\$Folder\AppData\Local\Google\Chrome\User Data\Default\Service Worker\CacheStorage"
         )
 
         foreach ($Path in $PathsToClean) {
@@ -31,16 +38,29 @@ function Clear-SystemCache {
     # SCCM cache (older than 5 days)
     Get-ChildItem -Path "C:\Windows\ccmcache\*" -Recurse -Force | Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-5) } | Remove-Item -Force -Recurse -Verbose
 
-    # IIS log files (archive logs older than 6 months)
-    $IISLogPath = "C:\inetpub\logs\LogFiles"
-    $ArchivePath = "C:\inetpub\logs\Archive"
+    # Compress and archive IIS log files (older than 6 months)
+    Compress-IISLogs -IISLogPath "C:\inetpub\logs\LogFiles" -ArchivePath "C:\inetpub\logs\Archive"
+}
+
+function Compress-IISLogs {
+    param (
+        [string]$IISLogPath = "C:\inetpub\logs\LogFiles",
+        [string]$ArchivePath = "C:\inetpub\logs\Archive"
+    )
+
+    # Ensure the archive directory exists
     if (-not (Test-Path $ArchivePath)) {
         New-Item -Path $ArchivePath -ItemType Directory
     }
-    # Archive logs older than 6 months
-    Get-ChildItem -Path "$IISLogPath\*" -Recurse -Force | Where-Object { $_.LastWriteTime -lt (Get-Date).AddMonths(-6) } | Move-Item -Destination $ArchivePath -Force -Verbose
-    # Remove logs older than 5 days
-    Get-ChildItem -Path "$IISLogPath\*" -Recurse -Force | Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-5) } | Remove-Item -Force -Recurse -Verbose
+
+    # Get IIS log files older than 6 months
+    $OldLogs = Get-ChildItem -Path "$IISLogPath\*" -Recurse -Force | Where-Object { $_.LastWriteTime -lt (Get-Date).AddMonths(-6) }
+
+    foreach ($Log in $OldLogs) {
+        $ArchiveFileName = "$ArchivePath\$($Log.Name).zip"
+        Compress-Archive -Path $Log.FullName -DestinationPath $ArchiveFileName -Update
+        Remove-Item -Path $Log.FullName -Force -Verbose
+    }
 }
 
 function Get-DiskSpace {

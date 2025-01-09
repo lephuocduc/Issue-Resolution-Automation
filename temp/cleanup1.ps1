@@ -25,6 +25,7 @@ $ExcludedProfiles = @("Administrator","Public","SVC_DailyChecks")
 $ProfileFolders = Get-ChildItem -Directory C:\Users -Exclude $ExcludedProfiles | Select Name
 Foreach ($Folder in $ProfileFolders.Name)
 {
+# User cache folders to clean (older than 5 days)
 remove-item -path "C:\Users\$Folder\AppData\Local\Microsoft\Windows\Temporary Internet Files\" -force -Recurse -Verbose 4>>$ResultCSV2  -ErrorAction SilentlyContinue
 remove-item -path "C:\users\$Folder\AppData\Local\Microsoft\Edge\User Data\Default\Cache\Cache_Data" -force -Recurse -Verbose 4>>$ResultCSV2  -ErrorAction SilentlyContinue
 remove-item -path "C:\users\$Folder\AppData\Local\Microsoft\Edge\User Data\Default\Service Worker\CacheStorage" -force -Recurse -Verbose 4>>$ResultCSV2  -ErrorAction SilentlyContinue

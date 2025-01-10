@@ -115,7 +115,6 @@ function Clear-UserCache {
 Invoke-Command -Session $session -ScriptBlock $ScriptBlock -ArgumentList (,$ExcludedProfiles)
 }
 
-
 # Function to clear system cache
 function Clear-SystemCache {
     [CmdletBinding()]
@@ -244,7 +243,6 @@ function Compress-IISLogs {
     Invoke-Command -Session $session -ScriptBlock $ScriptBlock -ArgumentList $IISLogPath, $ArchivePath
 }
 
-
 # Function to get disk space on a remote PC
 function Get-DiskSpaceDetails {
     param(
@@ -370,6 +368,7 @@ function Get-SecondLevelFolderSizes {
     return $output
 }
 
+# Function to export data disk report
 function Export-DataDiskReport {
     param(
         [Parameter(Mandatory=$true)]
@@ -406,7 +405,6 @@ $folderSizes
     Write-Message -message "Report exported to: $reportPath"
 }
 
-
 # Create Form
 $form = New-Object System.Windows.Forms.Form
 $form.Text = "LowFreeSpace-DataDisk"
@@ -435,11 +433,13 @@ $buttonOK.Text = "OK"
 $buttonOK.Add_Click({
     $diskName = $textBoxDisk.Text.ToUpper()
     
+    # Validate disk name
     if ([string]::IsNullOrEmpty($diskName)) {
         [System.Windows.Forms.MessageBox]::Show("Please enter disk name.", "Validation Error")
         return
     }
- 
+    
+    # Connect to server
     if (-not (Test-DiskAvailability -session $session -diskName $diskName)) {
         Write-Message -message "Disk '$diskName' is not available on server '$serverName'."
         [System.Windows.Forms.MessageBox]::Show("Disk '$diskName' is not available on server '$serverName'.", "Validation Error")
@@ -451,19 +451,19 @@ $buttonOK.Add_Click({
             # Get disk space before cleanup
             $Before = Get-DiskSpaceDetails -session $session -diskName $diskName
 
-            # Clear user cache with verbose capture
+            # Clear user cache
             Write-Message -message "Clearing user cache..."
             $clearUserCache = Clear-UserCache -session $session -Verbose *>&1 | ForEach-Object {
                 "$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss'): $_"
             } | Out-String
                      
-            # Clear system cache with verbose capture
+            # Clear system cache
             Write-Message -message "Clearing system cache..."
             $clearSystemCache = Clear-SystemCache -session $session -Verbose *>&1 | ForEach-Object {
                 "$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss'): $_"
             } | Out-String
 
-            # Compress IIS logs with verbose capture
+            # Compress IIS logs
             Write-Message -message "Compresing IIS log files..."
             $clearIISLogs = Compress-IISLogs -session $session -Verbose *>&1 | ForEach-Object {
                 "$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss'): $_"
@@ -472,13 +472,15 @@ $buttonOK.Add_Click({
             # Get disk space after cleanup
             $After = Get-DiskSpaceDetails -session $session -diskName $diskName
             
-            # Export cleanup report with verbose messages
+            # Export cleanup report
             Export-CDisk-Cleanup-Report -serverName $serverName -Before $Before -After $After -userCacheLog $clearUserCache -systemCacheLog $clearSystemCache -iisLogCleanupLog $clearIISLogs            
         }
         else {
+            # Get disk space details
             Write-Message -message "Checking disk space for '$diskName' disk on server '$serverName'..."
             $diskInfo = Get-DiskSpaceDetails -session $session -diskName $diskName
 
+            # Get folder sizes
             Write-Message -message "Getting folder sizes for '$diskName' disk on server '$serverName'..."
             $folderSizes = Get-SecondLevelFolderSizes -session $session -diskName $diskName
                             
@@ -487,6 +489,7 @@ $buttonOK.Add_Click({
             Export-DataDiskReport -serverName $serverName -diskName $diskName -diskInfo $diskInfo -folderSizes $folderSizes
 
         }
+        # Close session
         Remove-PSSession -Session $session
         $form.Close()        
     } catch {
@@ -513,12 +516,14 @@ function Start-DiskChecking {
         [string]$serverName
     )
 
+    # Validate server name
     Write-Message -message "Connecting to server '$serverName'..."
     if (-not (Test-ServerAvailability -serverName $serverName)) {
         Write-Message -message "Server '$serverName' is not reachable."
         return # Exit script
     }
 
+    # Create session
     Write-Message -message "Creating session to server '$serverName'..."
     $session = Get-Session -serverName $serverName
     if ($null -eq $session) {
@@ -526,6 +531,7 @@ function Start-DiskChecking {
         return
     }
 
+    # Show form
     Write-Message -message "Session created successfully."
     $form.ShowDialog()
     

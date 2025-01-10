@@ -36,7 +36,7 @@ function Test-DiskAvailability {
             else {
                 return $true
             }
-        } -ArgumentList $diskName -ErrorAction Stop
+        } -ArgumentList $diskName -ErrorAction SilentlyContinue
         return $diskExists
     }
     catch {
@@ -44,17 +44,28 @@ function Test-DiskAvailability {
     }
 }
 
-# Function to clear system cache
+# Function to clear user cache
 function Clear-UserCache {
+    [CmdletBinding()]
     param (
+        [Parameter(Mandatory)]
         [System.Management.Automation.Runspaces.PSSession]$session,
-        [string[]]$ExcludedProfiles = @("Administrator", "Public", "SVC_DailyChecks")
+        [string[]]$ExcludedProfiles = @("Administrator", "Public", "SVC_DailyChecks", "leduc")
     )
+    Write-Host "Starting Clear-UserCache with excluded profiles: $($ExcludedProfiles -join ', ')"
 
-    Invoke-Command -Session $session -ScriptBlock {
+    $ScriptBlock = {
         param($ExcludedProfiles)
+        
+        Write-Host "Remote execution started. Excluded profiles: $($ExcludedProfiles -join ', ')"
 
-        $ProfileFolders = Get-ChildItem -Directory C:\Users -Exclude $ExcludedProfiles | Select-Object -ExpandProperty Name
+        try {
+            $ProfileFolders = Get-ChildItem -Directory -Path 'C:\Users' -ErrorAction SilentlyContinue | 
+                Where-Object { $_.Name -notin $ExcludedProfiles } |
+                Select-Object -ExpandProperty Name
+
+            Write-Host "Found profiles to process: $($ProfileFolders -join ', ')"
+
         foreach ($Folder in $ProfileFolders) {
             $PathsToClean = @(
                 "C:\Users\$Folder\AppData\Local\Microsoft\Windows\Temporary Internet Files\",
@@ -73,80 +84,168 @@ function Clear-UserCache {
             )
 
             foreach ($Path in $PathsToClean) {
-                if (Test-Path -Path $Path) {
-                    Write-Host "Cleaning $Path"
-                    Get-ChildItem -Path $Path -Recurse -Force -ErrorAction SilentlyContinue | 
-                    Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-0) } | 
-                    Remove-Item -Force -Recurse -Verbose | ForEach-Object {
-                        $verboseMessages += "Deleted: $($_.FullName)"
+                if (Test-Path -Path $Path -ErrorAction SilentlyContinue) {
+                    try {
+                        # First find and display files to be deleted
+                        $filesToDelete = Get-ChildItem -Path $Path -Recurse -Force -ErrorAction SilentlyContinue |
+                            Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-5) }
+                        
+                        foreach ($file in $filesToDelete) {
+                            Write-Host "Deleting: $($file.FullName)"
+                        }
+        
+                        # Then delete the files
+                        $filesToDelete | Remove-Item -Force -Recurse -Verbose -ErrorAction SilentlyContinue
+                    }
+                    catch [System.UnauthorizedAccessException] {
+                        Write-Host "Access denied to $Path"
+                    }
+                    catch {
+                        Write-Host "Error cleaning $Path : $_"
                     }
                 }
             }
         }
-    } -ArgumentList $ExcludedProfiles
+    }
+    catch {
+        Write-Host "Failed to process profiles: $_"
+    }
 }
 
+Invoke-Command -Session $session -ScriptBlock $ScriptBlock -ArgumentList (,$ExcludedProfiles)
+}
 
 
 # Function to clear system cache
 function Clear-SystemCache {
+    [CmdletBinding()]
     param (
+        [Parameter(Mandatory)]
         [System.Management.Automation.Runspaces.PSSession]$session
     )
 
-    Invoke-Command -Session $session -ScriptBlock {
+    Write-Host "Starting Clear-SystemCache"
+
+    $ScriptBlock = {
+        Write-Host "Remote execution started for Clear-SystemCache"
+
         # Windows Update cache (older than 5 days)
-        if (Test-Path -Path "C:\Windows\SoftwareDistribution\Download\*") {
-            Get-ChildItem -Path "C:\Windows\SoftwareDistribution\Download\*" -Recurse -Force | 
-            Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-5) } | 
-            Remove-Item -Force -Recurse -Verbose
+        try {
+            if (Test-Path -Path "C:\Windows\SoftwareDistribution\Download\*") {
+                Write-Host "Cleaning Windows Update cache"
+                $filesToDelete = Get-ChildItem -Path "C:\Windows\SoftwareDistribution\Download\*" -Recurse -Force |
+                    Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-5) }
+                
+                foreach ($file in $filesToDelete) {
+                    Write-Host "Deleting: $($file.FullName)"
+                }
+                
+                $filesToDelete | Remove-Item -Force -Recurse -Verbose -ErrorAction SilentlyContinue
+            } else {
+                Write-Host "Windows Update cache path not found"
+            }
+        } catch {
+            Write-Host "Error cleaning Windows Update cache: $_"
         }
 
         # Windows Installer patch cache (older than 5 days)
-        if (Test-Path -Path "C:\Windows\Installer\$PatchCache$\*") {
-            Get-ChildItem -Path "C:\Windows\Installer\$PatchCache$\*" -Recurse -Force |
-            Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-5) } |
-            Remove-Item -Force -Recurse -Verbose
+        try {
+            if (Test-Path -Path "C:\Windows\Installer\$PatchCache$\*") {
+                Write-Host "Cleaning Windows Installer patch cache"
+                $filesToDelete = Get-ChildItem -Path "C:\Windows\Installer\$PatchCache$\*" -Recurse -Force |
+                    Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-5) }
+                
+                foreach ($file in $filesToDelete) {
+                    Write-Host "Will delete: $($file.FullName)"
+                }
+                
+                $filesToDelete | Remove-Item -Force -Recurse -Verbose -ErrorAction SilentlyContinue
+            } else {
+                Write-Host "Windows Installer patch cache path not found"
+            }
+        } catch {
+            Write-Host "Error cleaning Windows Installer patch cache: $_"
         }
 
         # SCCM cache (older than 5 days)
-        if (Test-Path -Path "C:\Windows\ccmcache\*") {
-            Get-ChildItem -Path "C:\Windows\ccmcache\*" -Recurse -Force |
-            Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-5) } |
-            Remove-Item -Force -Recurse -Verbose
+        try {
+            if (Test-Path -Path "C:\Windows\ccmcache\*") {
+                Write-Host "Cleaning SCCM cache"
+                $filesToDelete = Get-ChildItem -Path "C:\Windows\ccmcache\*" -Recurse -Force |
+                    Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-5) }
+                
+                foreach ($file in $filesToDelete) {
+                    Write-Host "Will delete: $($file.FullName)"
+                }
+                
+                $filesToDelete | Remove-Item -Force -Recurse -Verbose -ErrorAction SilentlyContinue
+            } else {
+                Write-Host "SCCM cache path not found"
+            }
+        } catch {
+            Write-Host "Error cleaning SCCM cache: $_"
         }
     }
+
+    Invoke-Command -Session $session -ScriptBlock $ScriptBlock
 }
+
 
 # Function to compress IIS log files on a remote PC
 function Compress-IISLogs {
+    [CmdletBinding()]
     param (
+        [Parameter(Mandatory)]
         [System.Management.Automation.Runspaces.PSSession]$session,
         [string]$IISLogPath = "C:\inetpub\logs\LogFiles",
         [string]$ArchivePath = "C:\inetpub\logs\Archive"
     )
+    Write-Host "Starting Compress-IISLogs with IISLogPath: $IISLogPath and ArchivePath: $ArchivePath"
 
-    Invoke-Command -Session $session -ScriptBlock {
+    $ScriptBlock = {
         param($IISLogPath, $ArchivePath)
 
-        # Ensure the archive directory exists
-        if (-not (Test-Path $ArchivePath)) {
-            New-Item -Path $ArchivePath -ItemType Directory
-        }
+        Write-Host "Remote execution started for Compress-IISLogs"
 
-        # Get IIS log files older than 6 months
-        if (Test-Path -Path $IISLogPath) {
-            $OldLogs = Get-ChildItem -Path "$IISLogPath\*" -Recurse -Force | 
-            Where-Object { $_.LastWriteTime -lt (Get-Date).AddMonths(-6) }
-            
-            foreach ($Log in $OldLogs) {
-                $ArchiveFileName = "$ArchivePath\$($Log.Name).zip"
-                Compress-Archive -Path $Log.FullName -DestinationPath $ArchiveFileName -Update
-                Remove-Item -Path $Log.FullName -Force -Verbose
-            } -ArgumentList $IISLogPath, $ArchivePath
+        # Ensure the archive directory exists
+        try {
+            if (Test-Path -Path $IISLogPath) {
+                Write-Host "IIS log path exists: $IISLogPath"
+                $OldLogs = Get-ChildItem -Path "$IISLogPath\*" -Recurse -Force |
+                    Where-Object { $_.LastWriteTime -lt (Get-Date).AddMonths(-6) }
+
+                Write-Host "Found $($OldLogs.Count) old log(s) to process"
+
+                # First display all files to be processed
+                foreach ($Log in $OldLogs) {
+                    Write-Host "Processing: $($Log.FullName)"
+                    Write-Host "  - Will compress to: $ArchivePath\$($Log.Name).zip"
+                    Write-Host "  - Will delete original after compression"
+                }
+
+                # Then process the files
+                foreach ($Log in $OldLogs) {
+                    $ArchiveFileName = "$ArchivePath\$($Log.Name).zip"
+                    Write-Host "Processing $($Log.FullName)"
+                    try {
+                        Compress-Archive -Path $Log.FullName -DestinationPath $ArchiveFileName -Update -ErrorAction SilentlyContinue
+                        Write-Host "Compression successful: $ArchiveFileName"
+                        Remove-Item -Path $Log.FullName -Force -Verbose -ErrorAction SilentlyContinue
+                    } catch {
+                        Write-Host "Error compressing or removing log file: $($Log.FullName). Error: $_"
+                    }
+                }
+            } else {
+                Write-Host "IIS log path not found: $IISLogPath"
+            }
+        } catch {
+            Write-Host "Error processing IIS logs: $_"
         }
     }
+    
+    Invoke-Command -Session $session -ScriptBlock $ScriptBlock -ArgumentList $IISLogPath, $ArchivePath
 }
+
 
 # Function to get disk space on a remote PC
 function Get-DiskSpaceDetails {
@@ -182,9 +281,15 @@ function Get-DiskSpaceDetails {
 # Function to export cleanup report
 function Export-CDisk-Cleanup-Report {
     param (
-        [PSCustomObject]$Before,
-        [PSCustomObject]$After,
-        [string[]]$VerboseOutput
+        [Parameter(Mandatory)]
+        [string]$serverName,
+        [Parameter(Mandatory)]
+        [PSObject]$Before,
+        [Parameter(Mandatory)]
+        [PSObject]$After,
+        [string]$userCacheLog,
+        [string]$systemCacheLog,
+        [string]$iisLogCleanupLog
     )
     
     if (-not (Test-Path "C:\temp")) { 
@@ -198,8 +303,7 @@ function Export-CDisk-Cleanup-Report {
     
     $Report = @"
 -------------------------------------------------------------------------
-Cleanup Report
-Date: $(Get-Date)
+Server name: $serverName Date: $(Get-Date -Format "dd/MM/yyyy HH:mm:ss")
 -------------------------------------------------------------------------
 Disk usage before cleanup:
 Drive C: | Used GB: $($Before.UsedSpace) | Free GB: $($Before.FreeSpace)
@@ -208,17 +312,16 @@ Disk usage after cleanup:
 Drive C: | Used GB: $($After.UsedSpace) | Free GB: $($After.FreeSpace)
 -------------------------------------------------------------------------
 Space saved: $SpaceSaved GB
--------------------------------------------------------------------------
-Cleanup Operations Detail:
-$VerboseOutput = $verboseMessages -join "`n"
-$Report = @"
-...
-Cleanup Operations Detail:
-$VerboseOutput
-...
+#######################################################################
+$userCacheLog
+#######################################################################
+$systemCacheLog
+#######################################################################
+$iisLogCleanupLog
 "@
 
     $Report | Out-File -FilePath $LogFilePath -Force
+    Write-Message -message "Cleanup report exported to: $LogFilePath"
 }
 
 
@@ -351,36 +454,29 @@ $buttonOK.Add_Click({
             # Get disk space before cleanup
             $Before = Get-DiskSpaceDetails -session $session -diskName $diskName
 
-            $verboseMessages = @()
-
             # Clear user cache with verbose capture
             Write-Message -message "Clearing user cache..."
-            Clear-UserCache -session $session -Verbose 4>&1 | ForEach-Object { 
-                $verboseMessages += $_.Message 
-            }
-            
+            $clearUserCache = Clear-UserCache -session $session -Verbose *>&1 | ForEach-Object {
+                "$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss'): $_"
+            } | Out-String
+                     
             # Clear system cache with verbose capture
             Write-Message -message "Clearing system cache..."
-            #Clear-SystemCache -session $session -Verbose 4>&1 | ForEach-Object { 
-            #    $verboseMessages += $_.Message 
-            #}
+            $clearSystemCache = Clear-SystemCache -session $session -Verbose *>&1 | ForEach-Object {
+                "$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss'): $_"
+            } | Out-String
 
             # Compress IIS logs with verbose capture
             Write-Message -message "Compresing IIS log files..."
-            #Compress-IISLogs -session $session -IISLogPath "C:\inetpub\logs\LogFiles" `
-            #    -ArchivePath "C:\inetpub\logs\Archive" -Verbose 4>&1 | ForEach-Object {
-            #    $verboseMessages += $_.Message 
-            #}
+            $clearIISLogs = Compress-IISLogs -session $session -Verbose *>&1 | ForEach-Object {
+                "$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss'): $_"
+            } | Out-String
 
             # Get disk space after cleanup
             $After = Get-DiskSpaceDetails -session $session -diskName $diskName
             
             # Export cleanup report with verbose messages
-            Export-CDisk-Cleanup-Report -Before $Before -After $After -VerboseOutput $verboseMessages
-            Write-Message -message "Cleanup report exported successfully."
-
-            Remove-PSSession -Session $session
-            $form.Close()
+            Export-CDisk-Cleanup-Report -serverName $serverName -Before $Before -After $After -userCacheLog $clearUserCache -systemCacheLog $clearSystemCache -iisLogCleanupLog $clearIISLogs            
         }
         else {
             Write-Message -message "Checking disk space for '$diskName' disk on server '$serverName'..."
@@ -392,9 +488,10 @@ $buttonOK.Add_Click({
             # Export report
             Write-Message -message "Exporting report..."
             Export-DataDiskReport -serverName $serverName -diskName $diskName -diskInfo $diskInfo -folderSizes $folderSizes
-            Remove-PSSession -Session $session
-            $form.Close()
-        }        
+
+        }
+        Remove-PSSession -Session $session
+        $form.Close()        
     } catch {
         [System.Windows.Forms.MessageBox]::Show($_.Exception.Message, "Error")
     }

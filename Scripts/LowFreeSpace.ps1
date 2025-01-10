@@ -52,12 +52,12 @@ function Clear-UserCache {
         [System.Management.Automation.Runspaces.PSSession]$session,
         [string[]]$ExcludedProfiles = @("Administrator", "Public", "SVC_DailyChecks", "leduc")
     )
-    Write-Host "Starting Clear-UserCache with excluded profiles: $($ExcludedProfiles -join ', ')"
+    Write-Host "Starting to clear User Cache"
 
     $ScriptBlock = {
         param($ExcludedProfiles)
         
-        Write-Host "Remote execution started. Excluded profiles: $($ExcludedProfiles -join ', ')"
+        Write-Host "Excluded profiles: $($ExcludedProfiles -join ', ')"
 
         try {
             $ProfileFolders = Get-ChildItem -Directory -Path 'C:\Users' -ErrorAction SilentlyContinue | 
@@ -124,11 +124,9 @@ function Clear-SystemCache {
         [System.Management.Automation.Runspaces.PSSession]$session
     )
 
-    Write-Host "Starting Clear-SystemCache"
+    Write-Host "Starting to clear System Cache"
 
     $ScriptBlock = {
-        Write-Host "Remote execution started for Clear-SystemCache"
-
         # Windows Update cache (older than 5 days)
         try {
             if (Test-Path -Path "C:\Windows\SoftwareDistribution\Download\*") {
@@ -303,13 +301,13 @@ function Export-CDisk-Cleanup-Report {
     
     $Report = @"
 -------------------------------------------------------------------------
-Server name: $serverName Date: $(Get-Date -Format "dd/MM/yyyy HH:mm:ss")
+Server name: $serverName | Date: $(Get-Date -Format "dd/MM/yyyy HH:mm:ss")
 -------------------------------------------------------------------------
 Disk usage before cleanup:
-Drive C: | Used GB: $($Before.UsedSpace) | Free GB: $($Before.FreeSpace)
+Drive C: | Used GB: $($Before.UsedSpace) | Free GB: $($Before.FreeSpace) | Total GB: $($Before.TotalSize) | Used Percentage: $($Before.UsedPercentage)%
 -------------------------------------------------------------------------
 Disk usage after cleanup:
-Drive C: | Used GB: $($After.UsedSpace) | Free GB: $($After.FreeSpace)
+Drive C: | Used GB: $($After.UsedSpace) | Free GB: $($After.FreeSpace) | Total GB: $($After.TotalSize) | Used Percentage: $($After.UsedPercentage)%
 -------------------------------------------------------------------------
 Space saved: $SpaceSaved GB
 #######################################################################
@@ -395,8 +393,7 @@ function Export-DataDiskReport {
 
     # Build report content
     $reportContent = @"
-Server name: $serverName
-Date: $(Get-Date)
+Server name: $serverName | Date: $(Get-Date -Format "dd/MM/yyyy HH:mm:ss")
 -------------------------------------------------------------------------
 Disk usage
 Drive '$diskName': | Used GB: $($diskInfo.UsedSpace) | Free GB: $($diskInfo.FreeSpace) | Total GB: $($diskInfo.TotalSize) | Used Percentage: $($diskInfo.UsedPercentage)%

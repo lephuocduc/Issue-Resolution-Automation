@@ -50,7 +50,7 @@ function Clear-UserCache {
     param (
         [Parameter(Mandatory)]
         [System.Management.Automation.Runspaces.PSSession]$session,
-        [string[]]$ExcludedProfiles = @("Administrator", "Public", "SVC_DailyChecks", "leduc")
+        [string[]]$ExcludedProfiles = @("Administrator", "Public", "SVC_DailyChecks", "Duc")
     )
     Write-Host "Starting to clear User Cache"
 

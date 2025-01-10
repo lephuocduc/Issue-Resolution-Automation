@@ -25,7 +25,7 @@
 . "$PSScriptRoot/modules/module.ps1"
 
 # Write message at the start
-Write-Message -message "Input server name and select a script to execute."
+Write-Message -message "Please input server name and select a script to execute."
 
 # Load Windows Forms Assembly
 $Parameters = @{
@@ -142,6 +142,7 @@ $statusLabel.TextAlign = [System.Windows.Forms.HorizontalAlignment]::Left
 $contextMenu = New-Object System.Windows.Forms.ContextMenuStrip
 $copyMenuItem = New-Object System.Windows.Forms.ToolStripMenuItem
 $copyMenuItem.ShortcutKeys = [System.Windows.Forms.Keys]::Control -bor [System.Windows.Forms.Keys]::C
+# Add click event to copy selected text or all text to clipboard
 $copyMenuItem.Add_Click({
     if ($statusLabel.SelectedText) {
         [System.Windows.Forms.Clipboard]::SetText($statusLabel.SelectedText)
@@ -150,6 +151,7 @@ $copyMenuItem.Add_Click({
     }
 })
 
+# Add Ctrl+A shortcut to select all text
 $statusLabel.Add_KeyDown({
     param($sender, $e)
     if ($e.Control -and $e.KeyCode -eq 'A') {
@@ -192,6 +194,7 @@ New-ResponsiveButtons -form $form -buttonDefinitions $buttons
 # Create timer for file monitoring
 $timer = New-Object System.Windows.Forms.Timer
 $timer.Interval = 100 # Check more frequently (100ms)
+# Add tick event to update status label from file content if changed
 $timer.Add_Tick({
     try {
         if (Test-Path "C:\temp\script_status.txt") {

@@ -407,7 +407,7 @@ $folderSizes
 
 # Create Form
 $form = New-Object System.Windows.Forms.Form
-$form.Text = "LowFreeSpace-DataDisk"
+$form.Text = "Low Free Space"
 $form.Size = New-Object System.Drawing.Size(400, 250)
 $form.StartPosition = "CenterScreen"
 $form.TopMost = $true  # Keep form on top

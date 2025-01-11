@@ -128,9 +128,9 @@ function Clear-SystemCache {
     $ScriptBlock = {
         # Windows Update cache (older than 5 days)
         try {
-            if (Test-Path -Path "C:\Windows\SoftwareDistribution\Download\*") {
+            if (Test-Path -Path "C:\Windows\SoftwareDistribution\Download\") {
                 Write-Host "Cleaning Windows Update cache"
-                $filesToDelete = Get-ChildItem -Path "C:\Windows\SoftwareDistribution\Download\*" -Recurse -Force |
+                $filesToDelete = Get-ChildItem -Path "C:\Windows\SoftwareDistribution\Download" -Recurse -Force |
                     Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-5) }
                 
                 foreach ($file in $filesToDelete) {
@@ -153,7 +153,7 @@ function Clear-SystemCache {
                     Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-5) }
                 
                 foreach ($file in $filesToDelete) {
-                    Write-Host "Will delete: $($file.FullName)"
+                    Write-Host "Deleting: $($file.FullName)"
                 }
                 
                 $filesToDelete | Remove-Item -Force -Recurse -Verbose -ErrorAction SilentlyContinue
@@ -172,7 +172,7 @@ function Clear-SystemCache {
                     Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-5) }
                 
                 foreach ($file in $filesToDelete) {
-                    Write-Host "Will delete: $($file.FullName)"
+                    Write-Host "Deleting: $($file.FullName)"
                 }
                 
                 $filesToDelete | Remove-Item -Force -Recurse -Verbose -ErrorAction SilentlyContinue
@@ -181,6 +181,34 @@ function Clear-SystemCache {
             }
         } catch {
             Write-Host "Error cleaning SCCM cache: $_"
+        }
+
+        # Windows Temp files (older than 5 days)
+        try {
+            if (Test-Path -Path "C:\Windows\Temp\*") {
+            Write-Host "Cleaning Windows Temp files"
+            $filesToDelete = Get-ChildItem -Path "C:\Windows\Temp\*" -Recurse -Force |
+                Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-5) }
+            
+            foreach ($file in $filesToDelete) {
+                Write-Host "Deleting: $($file.FullName)"
+            }
+            
+            $filesToDelete | Remove-Item -Force -Recurse -Verbose -ErrorAction SilentlyContinue
+            } else {
+            Write-Host "Windows Temp path not found"
+            }
+        } catch {
+            Write-Host "Error cleaning Windows Temp files: $_"
+        }
+
+        # Recycle Bin
+        try {
+            Write-Host "Cleaning Recycle Bin"
+            Clear-RecycleBin -Force -ErrorAction SilentlyContinue
+        }
+        catch {
+            Write-Host "Error cleaning Recycle Bin: $_"
         }
     }
 

@@ -123,13 +123,11 @@ function Clear-SystemCache {
         [System.Management.Automation.Runspaces.PSSession]$session
     )
 
-    Write-Host "Starting to clear System Cache"
-
     $ScriptBlock = {
         # Windows Update cache (older than 5 days)
         try {
             if (Test-Path -Path "C:\Windows\SoftwareDistribution\Download\") {
-                Write-Host "Cleaning Windows Update cache"
+                Write-Host "Starting to clean Windows Update cache"
                 $filesToDelete = Get-ChildItem -Path "C:\Windows\SoftwareDistribution\Download" -Recurse -Force |
                     Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-5) }
                 
@@ -148,7 +146,7 @@ function Clear-SystemCache {
         # Windows Installer patch cache (older than 5 days)
         try {
             if (Test-Path -Path "C:\Windows\Installer\$PatchCache$\*") {
-                Write-Host "Cleaning Windows Installer patch cache"
+                Write-Host "Starting to clean Windows Installer patch cache"
                 $filesToDelete = Get-ChildItem -Path "C:\Windows\Installer\$PatchCache$\*" -Recurse -Force |
                     Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-5) }
                 
@@ -167,7 +165,7 @@ function Clear-SystemCache {
         # SCCM cache (older than 5 days)
         try {
             if (Test-Path -Path "C:\Windows\ccmcache\*") {
-                Write-Host "Cleaning SCCM cache"
+                Write-Host "Starting to clean SCCM cache"
                 $filesToDelete = Get-ChildItem -Path "C:\Windows\ccmcache\*" -Recurse -Force |
                     Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-5) }
                 
@@ -186,7 +184,7 @@ function Clear-SystemCache {
         # Windows Temp files (older than 5 days)
         try {
             if (Test-Path -Path "C:\Windows\Temp\*") {
-            Write-Host "Cleaning Windows Temp files"
+            Write-Host "Starting to clean Windows Temp files"
             $filesToDelete = Get-ChildItem -Path "C:\Windows\Temp\*" -Recurse -Force |
                 Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-5) }
             

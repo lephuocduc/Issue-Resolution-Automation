@@ -22,7 +22,7 @@ This project aims to automate the resolution of tickets in ServiceNow. The prima
 1. **Setup**: Ensure you have PowerShell installed and configured to run scripts.
 2. **Execution**: Run `AutomationTool.exe` to launch the user interface and execute scripts as needed.
 
-## Usage
+## Usage 
 
 - **LowFreeSpace.ps1**: Use this script to handle low disk space issues on servers. It can be executed from the UI or directly from the command line.
 - **module.ps1**: Contains core functions such as `Write-Message`, `Test-ServerAvailability`, and `Get-Session`.

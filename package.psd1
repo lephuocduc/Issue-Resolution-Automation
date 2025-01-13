@@ -12,7 +12,7 @@
         ProductVersion = ''
         Copyright = ''
         RequireElevation = $true
-        ApplicationIconPath = 'c:\AutomationProject\icon.ico'
+        ApplicationIconPath = 'icon.ico'
         PackageType = 'Console'
     }
     Bundle = @{

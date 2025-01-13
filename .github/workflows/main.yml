@@ -25,18 +25,21 @@ jobs:
           cd out
           
           if (Test-Path 'AutomationTool.exe') {
+              # Configure Git user details
+              git config --global user.name "GitHub Action"
+              git config --global user.email "action@github.com"
+              
               # Stage the file
               git add AutomationTool.exe
               
               # Commit the changes
               git commit -m "Add AutomationTool.exe"
               
-              # Push the changes using the GITHUB_TOKEN
+              # Push the changes
               git push
           } else {
               Get-Location
               ls
           }
         env:
-          # Use the GITHUB_TOKEN for authentication
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

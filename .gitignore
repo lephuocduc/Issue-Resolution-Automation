@@ -1,0 +1,24 @@
+# ignore icon file
+icon.ico
+
+# ignore output of the build
+AutomationTool.exe
+
+# ignore readme
+README.md
+
+# ignore workflow diagram
+Workflow.drawio
+
+# ignore bin folder
+bin/
+
+# ignore temp folder
+temp/
+
+# ignore challenges file
+challenges.txt
+
+# ignore git.ps1
+git.ps1
+

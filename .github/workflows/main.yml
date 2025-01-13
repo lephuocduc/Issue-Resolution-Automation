@@ -9,8 +9,11 @@ jobs:
   build:
     runs-on: windows-latest
     steps:
-      - name: Checkout code
+      - name: Checkout code to C:\AutomationProject
         uses: actions/checkout@v2
+        with:
+          # Set the path where to checkout the code
+          path: C:\AutomationProject
 
       - name: PowerShell script
         uses: Amadevus/pwsh-script@v2.0.3
@@ -19,4 +22,4 @@ jobs:
           script: |
             Install-Module -Name PowerShellProTools -Force
             Import-Module PowerShellProTools
-            Merge-Script -ConfigFile 'c:\AutomationProject\package.psd1' -Verbose
+            Merge-Script -ConfigFile 'C:\AutomationProject\package.psd1' -Verbose

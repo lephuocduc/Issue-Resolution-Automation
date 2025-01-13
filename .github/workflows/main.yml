@@ -22,9 +22,7 @@ jobs:
             Merge-Script -ConfigFile 'package.psd1' -Verbose
 
       - name: Commit and Push Executable
-        run: |
-          cd out
-          
+        run: |        
           if (Test-Path 'AutomationTool.exe') {
               # Configure Git user details
               git config --global user.name "GitHub Action"
@@ -39,8 +37,7 @@ jobs:
               # Push the changes
               git push
           } else {
-              Get-Location
-              ls
+              Write-Host "Executable not found"
           }
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

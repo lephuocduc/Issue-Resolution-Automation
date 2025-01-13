@@ -40,5 +40,5 @@ jobs:
               # Push the changes back to the remote repository
               git push origin master
           } else {
-              Write-Host "Executable not found in output directory."
+              Get-Location
           }

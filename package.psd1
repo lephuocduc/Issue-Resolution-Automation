@@ -1,6 +1,6 @@
 @{
-    Root = 'c:\AutomationProject\AutomationTool.ps1'
-    OutputPath = 'c:\AutomationProject\out'
+    Root = 'AutomationTool.ps1'
+    OutputPath = 'out'
     Package = @{
         Enabled = $true
         Obfuscate = $false

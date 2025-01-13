@@ -4,6 +4,10 @@ on:
   push:
     branches:
       - master
+    paths:
+      - 'Scripts/**'
+      - 'AutomationTool.ps1'
+      - 'modules/**'
 
 jobs:
   build:

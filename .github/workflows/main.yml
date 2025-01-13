@@ -19,14 +19,8 @@ jobs:
             Install-Module -Name PowerShellProTools -Force
             Import-Module PowerShellProTools
             Merge-Script -ConfigFile 'package.psd1' -Verbose
-
-      - name: Commit and Push Executable
-        run: |
-          # Navigate to the output directory where the .exe is located
-          cd out/bin
-          
-          # Check if the .exe file exists
-          if (Test-Path 'AutomationProject.exe') {
+            cd out
+            if (Test-Path 'AutomationProject.exe') {
               # Configure Git user details
               git config --global user.name "GitHub Action"
               git config --global user.email "action@github.com"
@@ -39,7 +33,7 @@ jobs:
               
               # Push the changes back to the remote repository
               git push origin master
-          } else {
+            } else {
               Get-Location
               ls
-          }
+            }

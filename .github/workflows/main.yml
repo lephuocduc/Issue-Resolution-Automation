@@ -22,24 +22,21 @@ jobs:
 
       - name: Commit and Push Executable
         run: |
-          # Navigate to the output directory where the .exe is located
           cd out
           
-          # Check if the .exe file exists
           if (Test-Path 'AutomationTool.exe') {
-              # Configure Git user details
-              git config --global user.name "GitHub Action"
-              git config --global user.email "action@github.com"
-              
-              # Stage the .exe file for commit
+              # Stage the file
               git add AutomationTool.exe
               
               # Commit the changes
               git commit -m "Add AutomationTool.exe"
               
-              # Push the changes back to the remote repository
-              git push origin master
+              # Push the changes using the GITHUB_TOKEN
+              git push
           } else {
               Get-Location
               ls
           }
+        env:
+          # Use the GITHUB_TOKEN for authentication
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

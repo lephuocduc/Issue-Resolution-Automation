@@ -1,10 +1,10 @@
-# Automation Project
+# Automation For Issue Resolutions Project
 
-This project aims to automate the resolution of tickets in ServiceNow. The primary objective is to develop scripts that can resolve issues automatically when executed from a jump host. If the scripts cannot fully resolve the issues, they will at least reduce the effort required by engineers to log in or check server information.
+This project aims to automate the resolution of tickets in ServiceNow. The primary objective is to develop scripts that can resolve issues automatically when executed from a jump host. If the scripts cannot fully resolve the issues, at least they can reduce the effort required by engineers to log in or check server information.
 
 ## Project Structure
 
-- **AutomationProject.exe**: The main executable for the project.
+- **AutomationTool.exe**: The main executable for the project.
 - **modules/**: Contains PowerShell modules.
   - **module.ps1**: Core module with essential functions.
 - **README.md**: This file.
@@ -20,7 +20,7 @@ This project aims to automate the resolution of tickets in ServiceNow. The prima
 ## Getting Started
 
 1. **Setup**: Ensure you have PowerShell installed and configured to run scripts.
-2. **Execution**: Run `UI.ps1` to launch the user interface and execute scripts as needed.
+2. **Execution**: Run `AutomationTool.exe` to launch the user interface and execute scripts as needed.
 
 ## Usage
 

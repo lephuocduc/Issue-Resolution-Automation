@@ -25,7 +25,7 @@
 . (Join-Path $PSScriptRoot 'modules\module.ps1')
 
 # Write message at the start
-Write-Message -message "Please input server name and select a script to execute. :D"
+Write-Message -message "Please input server name and select a script to execute."
 
 # Load Windows Forms Assembly
 $Parameters = @{

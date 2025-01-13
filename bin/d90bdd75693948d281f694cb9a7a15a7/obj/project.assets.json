@@ -1,0 +1,64 @@
+{
+  "version": 3,
+  "targets": {
+    ".NETFramework,Version=v4.7.2": {},
+    ".NETFramework,Version=v4.7.2/win-x86": {}
+  },
+  "libraries": {},
+  "projectFileDependencyGroups": {
+    ".NETFramework,Version=v4.7.2": []
+  },
+  "packageFolders": {
+    "C:\\Users\\Duc\\.nuget\\packages\\": {}
+  },
+  "project": {
+    "version": "1.0.0",
+    "restore": {
+      "projectUniqueName": "C:\\AutomationProject\\bin\\d90bdd75693948d281f694cb9a7a15a7\\AutomationTool.csproj",
+      "projectName": "AutomationTool",
+      "projectPath": "C:\\AutomationProject\\bin\\d90bdd75693948d281f694cb9a7a15a7\\AutomationTool.csproj",
+      "packagesPath": "C:\\Users\\Duc\\.nuget\\packages\\",
+      "outputPath": "C:\\AutomationProject\\bin\\d90bdd75693948d281f694cb9a7a15a7\\obj\\",
+      "projectStyle": "PackageReference",
+      "configFilePaths": [
+        "C:\\AutomationProject\\bin\\d90bdd75693948d281f694cb9a7a15a7\\NuGet.Config",
+        "C:\\Users\\Duc\\AppData\\Roaming\\NuGet\\NuGet.Config"
+      ],
+      "originalTargetFrameworks": [
+        "net472"
+      ],
+      "sources": {
+        "https://api.nuget.org/v3/index.json": {},
+        "https://api.nuget.org/v3/index.json": {}
+      },
+      "frameworks": {
+        "net472": {
+          "targetAlias": "net472",
+          "projectReferences": {}
+        }
+      },
+      "warningProperties": {
+        "warnAsError": [
+          "NU1605"
+        ]
+      },
+      "restoreAuditProperties": {
+        "enableAudit": "true",
+        "auditLevel": "low",
+        "auditMode": "direct"
+      },
+      "SdkAnalysisLevel": "9.0.100"
+    },
+    "frameworks": {
+      "net472": {
+        "targetAlias": "net472",
+        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.101\\RuntimeIdentifierGraph.json"
+      }
+    },
+    "runtimes": {
+      "win-x86": {
+        "#import": []
+      }
+    }
+  }
+}

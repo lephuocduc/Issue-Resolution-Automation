@@ -1,6 +1,6 @@
 @{
     Root = 'AutomationTool.ps1'
-    OutputPath = 'out'
+    OutputPath = ''
     Package = @{
         Enabled = $true
         Obfuscate = $false
@@ -10,9 +10,9 @@
         FileDescription = ''
         ProductName = 'AutomationProject'
         ProductVersion = ''
-        Copyright = ''
+        Copyright = 'Duc Le'
         RequireElevation = $true
-        ApplicationIconPath = ''
+        ApplicationIconPath = 'C:\icon.ico'
         PackageType = 'Console'
     }
     Bundle = @{

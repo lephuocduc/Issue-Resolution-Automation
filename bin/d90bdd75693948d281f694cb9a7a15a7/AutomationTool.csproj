@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <FileVersion>1.0.0</FileVersion>
+    <Company />
+    <Copyright>Duc Le</Copyright>
+    <AssemblyTitle></AssemblyTitle>
+    <Product>AutomationProject</Product>
+    <InformationalVersion></InformationalVersion>
+    <ApplicationIcon>.\icon.ico</ApplicationIcon>
+    <TargetFramework>net472</TargetFramework>
+    <Prefer32Bit>true</Prefer32Bit>
+    <UseWPF>true</UseWPF>
+  </PropertyGroup>
+  <PropertyGroup />
+  <ItemGroup>
+    <Reference Include="System.Windows.Forms" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="Microsoft.PowerShell.ConsoleHost">
+      <HintPath>C:\Windows\Microsoft.NET\assembly\GAC_MSIL\Microsoft.PowerShell.ConsoleHost\v4.0_3.0.0.0__31bf3856ad364e35\Microsoft.PowerShell.ConsoleHost.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="System.Management.Automation">
+      <HintPath>C:\Windows\Microsoft.NET\assembly\GAC_MSIL\System.Management.Automation\v4.0_3.0.0.0__31bf3856ad364e35\System.Management.Automation.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+  <PropertyGroup>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+  </PropertyGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="script.ps1" />
+  </ItemGroup>
+  <ItemGroup />
+</Project>

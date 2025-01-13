@@ -1,0 +1,6 @@
+C:\AutomationProject\bin\57a43e80eb5e441885512a9c0cbf8876\obj\Debug\net462\AutomationTool.csproj.AssemblyReference.cache
+C:\AutomationProject\bin\57a43e80eb5e441885512a9c0cbf8876\obj\Debug\net462\AutomationTool.GeneratedMSBuildEditorConfig.editorconfig
+C:\AutomationProject\bin\57a43e80eb5e441885512a9c0cbf8876\obj\Debug\net462\AutomationTool.AssemblyInfoInputs.cache
+C:\AutomationProject\bin\57a43e80eb5e441885512a9c0cbf8876\obj\Debug\net462\AutomationTool.AssemblyInfo.cs
+C:\AutomationProject\bin\57a43e80eb5e441885512a9c0cbf8876\obj\Debug\net462\AutomationTool.csproj.CoreCompileInputs.cache
+C:\AutomationProject\bin\57a43e80eb5e441885512a9c0cbf8876\obj\Debug\net462\AutomationTool.sourcelink.json

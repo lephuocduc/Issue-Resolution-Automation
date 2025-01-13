@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "dgSpecHash": "uHf5zzKJqCM=",
+  "success": true,
+  "projectFilePath": "C:\\AutomationProject\\bin\\440611e8024f48858a4021cea0435d72\\AutomationTool.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\Duc\\.nuget\\packages\\microsoft.netframework.referenceassemblies\\1.0.3\\microsoft.netframework.referenceassemblies.1.0.3.nupkg.sha512",
+    "C:\\Users\\Duc\\.nuget\\packages\\microsoft.netframework.referenceassemblies.net462\\1.0.3\\microsoft.netframework.referenceassemblies.net462.1.0.3.nupkg.sha512"
+  ],
+  "logs": []
+}

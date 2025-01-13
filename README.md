@@ -27,3 +27,5 @@ This project aims to automate the resolution of tickets in ServiceNow. The prima
 - **LowFreeSpace.ps1**: Use this script to handle low disk space issues on servers. It can be executed from the UI or directly from the command line.
 - **module.ps1**: Contains core functions such as `Write-Message`, `Test-ServerAvailability`, and `Get-Session`.
 - **UnitTests**: Run the tests in `UnitTests/module.Tests.ps1` to ensure the scripts are functioning correctly.
+
+![Workflow Diagram](Workflow.drawio.svg)

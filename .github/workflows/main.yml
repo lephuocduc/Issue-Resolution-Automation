@@ -23,7 +23,7 @@ jobs:
       - name: Commit and Push Executable
         run: |
           # Navigate to the output directory where the .exe is located
-          cd out
+          cd out/bin
           
           # Check if the .exe file exists
           if (Test-Path 'AutomationProject.exe') {

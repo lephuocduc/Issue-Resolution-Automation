@@ -1,0 +1,25 @@
+name: Package PowerShell App
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up PowerShell
+        uses: pwsh/pwsh@latest
+
+      - name: Install PowerShell Pro Tools Module
+        run: |
+          Install-Module -Name PowerShellProTools -Force
+
+      - name: Package Script
+        run: |
+          Import-Module PowerShellProTools
+          Merge-Script -ConfigFile 'c:\AutomationProject\package.psd1' -Verbose

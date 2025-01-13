@@ -1,6 +1,0 @@
-Path=%temp%
-SavePath
-Setup=C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -sta -WindowStyle Hidden -noprofile -executionpolicy bypass -file %temp%\UI.ps1
-Silent=1
-Overwrite=1
-Title=Script Manager

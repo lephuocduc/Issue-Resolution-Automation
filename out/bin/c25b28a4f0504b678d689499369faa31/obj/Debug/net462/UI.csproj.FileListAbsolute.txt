@@ -1,0 +1,14 @@
+C:\AutomationProject\out\bin\c25b28a4f0504b678d689499369faa31\out\UI.exe.config
+C:\AutomationProject\out\bin\c25b28a4f0504b678d689499369faa31\out\UI.exe
+C:\AutomationProject\out\bin\c25b28a4f0504b678d689499369faa31\out\UI.pdb
+C:\AutomationProject\out\bin\c25b28a4f0504b678d689499369faa31\out\Microsoft.PowerShell.ConsoleHost.dll
+C:\AutomationProject\out\bin\c25b28a4f0504b678d689499369faa31\out\System.Management.Automation.dll
+C:\AutomationProject\out\bin\c25b28a4f0504b678d689499369faa31\obj\Debug\net462\UI.csproj.AssemblyReference.cache
+C:\AutomationProject\out\bin\c25b28a4f0504b678d689499369faa31\obj\Debug\net462\UI.GeneratedMSBuildEditorConfig.editorconfig
+C:\AutomationProject\out\bin\c25b28a4f0504b678d689499369faa31\obj\Debug\net462\UI.AssemblyInfoInputs.cache
+C:\AutomationProject\out\bin\c25b28a4f0504b678d689499369faa31\obj\Debug\net462\UI.AssemblyInfo.cs
+C:\AutomationProject\out\bin\c25b28a4f0504b678d689499369faa31\obj\Debug\net462\UI.csproj.CoreCompileInputs.cache
+C:\AutomationProject\out\bin\c25b28a4f0504b678d689499369faa31\obj\Debug\net462\UI.sourcelink.json
+C:\AutomationProject\out\bin\c25b28a4f0504b678d689499369faa31\obj\Debug\net462\UI.csproj.Up2Date
+C:\AutomationProject\out\bin\c25b28a4f0504b678d689499369faa31\obj\Debug\net462\UI.exe
+C:\AutomationProject\out\bin\c25b28a4f0504b678d689499369faa31\obj\Debug\net462\UI.pdb

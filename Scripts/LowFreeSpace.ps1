@@ -15,12 +15,6 @@
 #EXAMPLE
 
 
-# Pass the server name as a parameter from UI.ps1
-param(
-    [Parameter(Mandatory=$true)]
-    [string]$ServerName
-)
-
 # Load module
 . "$PSScriptRoot/../modules/module.ps1"
 
@@ -98,7 +92,7 @@ function Clear-UserCache {
                     try {
                         # First find and display files to be deleted
                         $filesToDelete = Get-ChildItem -Path $Path -Recurse -Force -ErrorAction SilentlyContinue |
-                            Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-5) }
+                            Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-0) }
                         
                         foreach ($file in $filesToDelete) {
                             Write-Host "Deleting: $($file.FullName)"

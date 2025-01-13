@@ -12,14 +12,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
 
-      - name: Set up PowerShell
-        uses: powershell/powershell@latest
-
-      - name: Install PowerShell Pro Tools Module
-        run: |
-          Install-Module -Name PowerShellProTools -Force
-
-      - name: Package Script
-        run: |
-          Import-Module PowerShellProTools
-          Merge-Script -ConfigFile 'c:\AutomationProject\package.psd1' -Verbose
+      - name: PowerShell script
+        uses: Amadevus/pwsh-script@v2.0.3
+        with:
+          # PowerShell script to execute in Actions-hydrated context
+          script: |
+            Install-Module -Name PowerShellProTools -Force
+            Import-Module PowerShellProTools
+            Merge-Script -ConfigFile 'c:\AutomationProject\package.psd1' -Verbose

@@ -30,9 +30,10 @@ jobs:
           if ($LASTEXITCODE -ne 0) {
               throw "Unit tests failed"
           }
-        
+
   build:
     runs-on: windows-latest
+    needs: unittest  # This ensures the build job only runs after unittest job succeeds
     if: success()
     steps:
       - name: Checkout code

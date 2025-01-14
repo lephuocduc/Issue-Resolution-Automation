@@ -18,7 +18,7 @@ function Test-ServerAvailability {
     param(
         [string]$serverName
     )
-    return Test-Connection -ComputerName $serverName -Count 1 -Quiet
+    return (Test-Connection -ComputerName $serverName -Count 1 -Quiet)
 }
 
 # Function to attempt to create a session and handle credential failures

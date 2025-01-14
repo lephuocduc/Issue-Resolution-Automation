@@ -38,7 +38,7 @@ jobs:
           git push
           if ($result.FailedCount -gt 0) {
               Write-Host "Tests failed, stopping execution."
-              throw "Pester tests failed."
+              exit 1  # Explicitly fail the step
           }
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

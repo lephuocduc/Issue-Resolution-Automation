@@ -1,5 +1,5 @@
 # Load the script to be tested
-. "./modules/module.ps1"
+"$PSScriptRoot/../modules/module.ps1"
 #. (Join-Path $PSScriptRoot '..\modules\module.ps1')
 
 # Test the function Write-Message

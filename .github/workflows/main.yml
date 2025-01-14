@@ -31,15 +31,19 @@ jobs:
           $config.TestResult.OutputPath = "UnitTests\test-results.xml"
           
           $result = Invoke-Pester -Configuration $config
+          
+          # Stop the job immediately if there are test failures
+          if ($result.FailedCount -gt 0) {
+              Write-Host "Tests failed, stopping execution."
+              exit 1  # Explicitly fail the step
+          }
+    
+          # Commit and push test results if all tests pass
           git config --global user.name "GitHub Action"
           git config --global user.email "action@github.com"
           git add UnitTests\test-results.xml
           git commit -m "Add test results"
           git push
-          if ($result.FailedCount -gt 0) {
-              Write-Host "Tests failed, stopping execution."
-              exit 1  # Explicitly fail the step
-          }
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           

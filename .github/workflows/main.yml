@@ -26,7 +26,9 @@ jobs:
       - name: Run Unit Tests
         shell: pwsh
         run: |
+          Get-Location
           cd .\UnitTests\
+          Get-Location
           Invoke-Pester
 
   build:

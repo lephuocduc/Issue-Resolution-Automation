@@ -1,0 +1,25 @@
+﻿<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<test-results xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="nunit_schema_2.5.xsd" name="Pester" total="4" errors="0" failures="0" not-run="0" inconclusive="0" ignored="0" skipped="0" invalid="0" date="2025-01-14" time="09:21:49">
+  <environment clr-version="4.0.30319.42000" user-domain="DESKTOP-V41IHL4" cwd="C:\AutomationProject" platform="Microsoft Windows 10 Pro|C:\Windows|\Device\Harddisk0\Partition3" machine-name="DESKTOP-V41IHL4" nunit-version="2.5.8.0" os-version="10.0.19045" user="Duc" />
+  <culture-info current-culture="en-US" current-uiculture="en-US" />
+  <test-suite type="TestFixture" name="Pester" executed="True" result="Success" success="True" time="0.2162" asserts="0" description="Pester">
+    <results>
+      <test-suite type="TestFixture" name="C:\AutomationProject\UnitTests\module.Tests.ps1" executed="True" result="Success" success="True" time="0.2162" asserts="0" description="C:\AutomationProject\UnitTests\module.Tests.ps1">
+        <results>
+          <test-suite type="TestFixture" name="Write-Message" executed="True" result="Success" success="True" time="0.1186" asserts="0" description="Write-Message">
+            <results>
+              <test-case description="Creates the temp directory if it does not exist" name="Write-Message.Creates the temp directory if it does not exist" time="0.0424" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="Writes the message to script_status.txt" name="Write-Message.Writes the message to script_status.txt" time="0.0413" asserts="0" success="True" result="Success" executed="True" />
+            </results>
+          </test-suite>
+          <test-suite type="TestFixture" name="Test-ServerAvailability" executed="True" result="Success" success="True" time="0.1654" asserts="0" description="Test-ServerAvailability">
+            <results>
+              <test-case description="Should return true for reachable servers" name="Test-ServerAvailability.Should return true for reachable servers" time="0.0134" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="Should return false for unreachable servers" name="Test-ServerAvailability.Should return false for unreachable servers" time="0.0113" asserts="0" success="True" result="Success" executed="True" />
+            </results>
+          </test-suite>
+        </results>
+      </test-suite>
+    </results>
+  </test-suite>
+</test-results>

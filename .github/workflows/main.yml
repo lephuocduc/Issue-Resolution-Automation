@@ -5,18 +5,41 @@ on:
     branches:
       - master
     paths:
-      - 'Scripts/**'
+      - 'Scripts/'
       - 'AutomationTool.ps1'
-      - 'modules/**'
+      - 'modules/'
+      - 'UnitTests/'
 
 jobs:
-  build:
+  unittest:
     runs-on: windows-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
 
-      - name: PowerShell script
+      - name: Install Pester
+        shell: pwsh
+        run: |
+          Install-Module -Name Pester -Force -SkipPublisherCheck
+
+      - name: Run Unit Tests
+        shell: pwsh
+        run: |
+          Invoke-Pester -Path UnitTests\* -OutputFormat NUnitXml -OutputFile UnitTests\test-results.xml
+          git add UnitTests\test-results.xml
+          git commit -m "Add test results"
+          git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          
+  build:
+    runs-on: windows-latest
+    needs: unittest  # Ensure this job runs after the unittest job
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Install PowerShellProTools
         uses: Amadevus/pwsh-script@v2.0.3
         with:
           script: |
@@ -28,17 +51,10 @@ jobs:
       - name: Commit and Push Executable
         run: |        
           if (Test-Path 'AutomationTool.exe') {
-              # Configure Git user details
               git config --global user.name "GitHub Action"
               git config --global user.email "action@github.com"
-              
-              # Stage the file
               git add AutomationTool.exe
-              
-              # Commit the changes
               git commit -m "Add AutomationTool.exe"
-              
-              # Push the changes
               git push
           } else {
               Write-Host "Executable not found"

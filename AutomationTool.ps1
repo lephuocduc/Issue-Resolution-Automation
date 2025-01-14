@@ -1,25 +1,62 @@
 #NOTES
-# Name:   UI.ps1
+# Name:   AutomationTool.ps1
 # Author:  Duc Le
 # Version:  1.0
 # Major Release History:
 
 #DESCRIPTION
-# This script provides a simple user interface to execute PowerShell scripts. The form contains buttons that, when clicked, execute the corresponding script. The script paths are hard-coded in the button definitions, but you can modify the script to load the paths from a configuration file or other source.
+# This PowerShell script creates a graphical user interface (GUI) for managing and executing PowerShell scripts.
+# It provides a centralized interface with a server name input field, status display, and dynamic buttons for
+# launching different scripts. The GUI includes features such as copy/paste functionality, status monitoring,
+# and responsive button layout. Status updates are monitored and displayed in real-time through a file-based
+# communication system.
 
 #REQUIREMENT
-# Run this script as an administrator to ensure the execution of PowerShell scripts is allowed.
+# - Write access to C:\temp directory for status updates
+# - Script files in the following structure:
+#   * ./Scripts/LowFreeSpace.ps1
+#   * ./Scripts/AnotherScript.ps1
+# - Administrative privileges (may be required depending on child scripts)
 
 #INPUTS
-# None
+# Via GUI:
+# - Server Name [string]: Target server for script execution
+# - Script Selection: Choose from available script buttons
+#   * Low Free Space: Executes LowFreeSpace.ps1
+#   * Another Script: Executes AnotherScript.ps1
+#   * Exit: Closes the application
+#
+# File System:
+# - C:\temp\script_status.txt: Used for real-time status updates
 
 #OUTPUTS
-# None
+# - GUI Window with:
+#   * Status display showing real-time script execution progress
+#   * Error messages via MessageBox for validation failures
+#   * Copy-enabled status text with context menu
+# - Script-specific outputs in their respective locations
+# - Debug logging for status updates and file reading errors
 
 #EXAMPLE
+# Running the script:
 # .\UI.ps1
-# This example runs the script and displays the user interface form. Clicking the buttons will execute the corresponding PowerShell scripts.
-# The "Exit" button closes the form.
+#
+# Usage example:
+# 1. Launch script:
+#    PS> .\UI.ps1
+#
+# 2. GUI Interaction:
+#    - Enter server name: "SERVER01"
+#    - Click "Low Free Space" button
+#    - Monitor progress in status window
+#    - Use Ctrl+A to select all status text
+#    - Right-click to copy status text
+#    - Click "Exit" to close
+#
+# 3. Status monitoring:
+# Write-Message "Script starting..." | Out-File C:\temp\script_status.txt
+# # Status will automatically appear in GUI
+
 
 # Load module
 . (Join-Path $PSScriptRoot 'modules\module.ps1')

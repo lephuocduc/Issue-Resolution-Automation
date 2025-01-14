@@ -1,18 +1,58 @@
 #NOTES
-# Name:   LowFreeSpace-DataDisk.ps1
+# Name:   LowFreeSpace.ps1
 # Author:  Duc Le
 # Version:  1.0
 # Major Release History:
 
-#DESCRIPTION
+##DESCRIPTION
+# This PowerShell script provides disk space management and cleanup functionality for Windows.
+# It includes features for analyzing disk space usage, cleaning various types of caches, compressing IIS logs,
+# and generating detailed reports. The script provides a GUI interface for selecting the target disk
 
 #REQUIREMENT
+# - Administrative privileges on the target server
+# - Network connectivity to the target server
+# - PSRemoting enabled on the target server
+# - Access to the following paths for cleanup operations:
+#   * C:\Users\ (for user cache cleanup)
+#   * C:\Windows\SoftwareDistribution\Download\ (for Windows Update cache)
+#   * C:\Windows\Installer\ (for Windows Installer cache)
+#   * C:\Windows\ccmcache\ (for SCCM cache)
+#   * C:\Windows\Temp\ (for temporary files)
+#   * C:\inetpub\logs\ (for IIS logs)
 
 #INPUTS
+# - ServerName [string]: Name of the target server (required, passed as script parameter)
+# - DiskName [string]: Drive letter to analyze/cleanup (required, input via GUI)
+#   * For C: drive - performs cache cleanup and log compression
+#   * For other drives - performs space analysis and folder size reporting
 
 #OUTPUTS
+# - Generates detailed report files in C:\temp\ directory:
+#   * For C: drive - "LowFreeSpace-C-Disk-[ServerName]-[Timestamp].txt"
+#     Contains before/after disk space metrics and cleanup operation logs
+#   * For data disks - "LowFreeSpace-[ServerName]-[Timestamp].txt"
+#     Contains disk space metrics and folder size analysis
+# - Real-time progress messages in the console
+# - GUI feedback for operation status and errors
 
 #EXAMPLE
+# Running the script:
+# .\LowFreeSpace.ps1 -ServerName "SERVER01"
+#
+# Example cleanup output for C: drive:
+# PS> .\LowFreeSpace.ps1 -ServerName "SERVER01"
+# [Connecting to server 'SERVER01'...]
+# [Session created successfully.]
+# Select disk 'C' in GUI
+# Report will be generated at: C:\temp\LowFreeSpace-C-Disk-SERVER01-14012025-1430.txt
+#
+# Example analysis for data disk:
+# PS> .\LowFreeSpace.ps1 -ServerName "SERVER01"
+# [Connecting to server 'SERVER01'...]
+# [Session created successfully.]
+# Select disk 'D' in GUI
+# Report will be generated at: C:\temp\LowFreeSpace-SERVER01-14012025-1430.txt
 
 
 # Load module
@@ -418,7 +458,7 @@ function Export-DataDiskReport {
 
     # Setup report path with timestamp
     $timestamp = Get-Date -Format "ddMMyyyy-HHmm"
-    $reportPath = "C:\temp\LowFreeSpace-DataDisk-$serverName-$timestamp.txt"
+    $reportPath = "C:\temp\LowFreeSpace-$diskName-$serverName-$timestamp.txt"
 
     # Build report content
     $reportContent = @"

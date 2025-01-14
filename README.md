@@ -28,4 +28,4 @@ This project aims to automate the resolution of tickets in ServiceNow. The prima
 - **module.ps1**: Contains core functions such as `Write-Message`, `Test-ServerAvailability`, and `Get-Session`.
 - **UnitTests**: Run the tests in `UnitTests/module.Tests.ps1` to ensure the scripts are functioning correctly.
 
-![Workflow Diagram](Workflow.png)
+![Workflow Diagram](Workflow\Workflow.png)

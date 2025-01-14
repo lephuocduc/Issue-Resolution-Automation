@@ -1,21 +1,45 @@
 ﻿<?xml version="1.0" encoding="utf-8" standalone="no"?>
-<test-results xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="nunit_schema_2.5.xsd" name="Pester" total="4" errors="0" failures="0" not-run="0" inconclusive="0" ignored="0" skipped="0" invalid="0" date="2025-01-14" time="09:21:49">
-  <environment clr-version="4.0.30319.42000" user-domain="DESKTOP-V41IHL4" cwd="C:\AutomationProject" platform="Microsoft Windows 10 Pro|C:\Windows|\Device\Harddisk0\Partition3" machine-name="DESKTOP-V41IHL4" nunit-version="2.5.8.0" os-version="10.0.19045" user="Duc" />
+<test-results xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="nunit_schema_2.5.xsd" name="Pester" total="4" errors="0" failures="4" not-run="0" inconclusive="0" ignored="0" skipped="0" invalid="0" date="2025-01-14" time="02:39:43">
+  <environment cwd="D:\a\Automation-For-Issue-Resolutions-Project\Automation-For-Issue-Resolutions-Project" user="runneradmin" platform="Microsoft Windows Server 2022 Datacenter|C:\Windows|\Device\Harddisk0\Partition2" machine-name="fv-az1212-463" user-domain="fv-az1212-463" clr-version="8.0.10" os-version="10.0.20348" nunit-version="2.5.8.0" />
   <culture-info current-culture="en-US" current-uiculture="en-US" />
-  <test-suite type="TestFixture" name="Pester" executed="True" result="Success" success="True" time="0.2162" asserts="0" description="Pester">
+  <test-suite type="TestFixture" name="Pester" executed="True" result="Failure" success="False" time="1.0285" asserts="0" description="Pester">
     <results>
-      <test-suite type="TestFixture" name="C:\AutomationProject\UnitTests\module.Tests.ps1" executed="True" result="Success" success="True" time="0.2162" asserts="0" description="C:\AutomationProject\UnitTests\module.Tests.ps1">
+      <test-suite type="TestFixture" name="D:\a\Automation-For-Issue-Resolutions-Project\Automation-For-Issue-Resolutions-Project\UnitTests\module.Tests.ps1" executed="True" result="Failure" success="False" time="1.0285" asserts="0" description="D:\a\Automation-For-Issue-Resolutions-Project\Automation-For-Issue-Resolutions-Project\UnitTests\module.Tests.ps1">
         <results>
-          <test-suite type="TestFixture" name="Write-Message" executed="True" result="Success" success="True" time="0.1186" asserts="0" description="Write-Message">
+          <test-suite type="TestFixture" name="Write-Message" executed="True" result="Failure" success="False" time="0.395" asserts="0" description="Write-Message">
             <results>
-              <test-case description="Creates the temp directory if it does not exist" name="Write-Message.Creates the temp directory if it does not exist" time="0.0424" asserts="0" success="True" result="Success" executed="True" />
-              <test-case description="Writes the message to script_status.txt" name="Write-Message.Writes the message to script_status.txt" time="0.0413" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="Creates the temp directory if it does not exist" name="Write-Message.Creates the temp directory if it does not exist" time="0.145" asserts="0" success="False" result="Failure" executed="True">
+                <failure>
+                  <message>CommandNotFoundException: The term 'Write-Message' is not recognized as a name of a cmdlet, function, script file, or executable program.
+Check the spelling of the name, or if a path was included, verify that the path is correct and try again.</message>
+                  <stack-trace>at &lt;ScriptBlock&gt;, D:\a\Automation-For-Issue-Resolutions-Project\Automation-For-Issue-Resolutions-Project\UnitTests\module.Tests.ps1:18</stack-trace>
+                </failure>
+              </test-case>
+              <test-case description="Writes the message to script_status.txt" name="Write-Message.Writes the message to script_status.txt" time="0.0682" asserts="0" success="False" result="Failure" executed="True">
+                <failure>
+                  <message>CommandNotFoundException: The term 'Write-Message' is not recognized as a name of a cmdlet, function, script file, or executable program.
+Check the spelling of the name, or if a path was included, verify that the path is correct and try again.</message>
+                  <stack-trace>at &lt;ScriptBlock&gt;, D:\a\Automation-For-Issue-Resolutions-Project\Automation-For-Issue-Resolutions-Project\UnitTests\module.Tests.ps1:28</stack-trace>
+                </failure>
+              </test-case>
             </results>
           </test-suite>
-          <test-suite type="TestFixture" name="Test-ServerAvailability" executed="True" result="Success" success="True" time="0.1654" asserts="0" description="Test-ServerAvailability">
+          <test-suite type="TestFixture" name="Test-ServerAvailability" executed="True" result="Failure" success="False" time="0.476" asserts="0" description="Test-ServerAvailability">
             <results>
-              <test-case description="Should return true for reachable servers" name="Test-ServerAvailability.Should return true for reachable servers" time="0.0134" asserts="0" success="True" result="Success" executed="True" />
-              <test-case description="Should return false for unreachable servers" name="Test-ServerAvailability.Should return false for unreachable servers" time="0.0113" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="Should return true for reachable servers" name="Test-ServerAvailability.Should return true for reachable servers" time="0.0329" asserts="0" success="False" result="Failure" executed="True">
+                <failure>
+                  <message>CommandNotFoundException: The term 'Test-ServerAvailability' is not recognized as a name of a cmdlet, function, script file, or executable program.
+Check the spelling of the name, or if a path was included, verify that the path is correct and try again.</message>
+                  <stack-trace>at &lt;ScriptBlock&gt;, D:\a\Automation-For-Issue-Resolutions-Project\Automation-For-Issue-Resolutions-Project\UnitTests\module.Tests.ps1:50</stack-trace>
+                </failure>
+              </test-case>
+              <test-case description="Should return false for unreachable servers" name="Test-ServerAvailability.Should return false for unreachable servers" time="0.0347" asserts="0" success="False" result="Failure" executed="True">
+                <failure>
+                  <message>CommandNotFoundException: The term 'Test-ServerAvailability' is not recognized as a name of a cmdlet, function, script file, or executable program.
+Check the spelling of the name, or if a path was included, verify that the path is correct and try again.</message>
+                  <stack-trace>at &lt;ScriptBlock&gt;, D:\a\Automation-For-Issue-Resolutions-Project\Automation-For-Issue-Resolutions-Project\UnitTests\module.Tests.ps1:56</stack-trace>
+                </failure>
+              </test-case>
             </results>
           </test-suite>
         </results>

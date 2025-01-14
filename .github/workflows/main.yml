@@ -9,6 +9,7 @@ on:
       - 'AutomationTool.ps1'
       - 'modules/'
       - 'UnitTests/'
+      - .github/workflows/main.yml
 
 jobs:
   unittest:

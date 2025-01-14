@@ -21,10 +21,8 @@ function Test-ServerAvailability {
         [Parameter(Mandatory=$true)]
         [string]$serverName
     )
-    Write-Host "Calling Test-Connection with serverName: $serverName"
     return (Test-Connection -ComputerName $serverName -Count 1 -Quiet)
 }
-
 
 
 # Function to attempt to create a session and handle credential failures

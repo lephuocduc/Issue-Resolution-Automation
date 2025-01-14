@@ -27,11 +27,6 @@ jobs:
         shell: pwsh
         run: |
           Get-ChildItem -Path ".\UnitTests\" -Filter *.ps1 | ForEach-Object { . $_.FullName }
-          Get-Location
-          dir
-          cd .\modules\
-          Get-Location
-          dir
 
   build:
     runs-on: windows-latest

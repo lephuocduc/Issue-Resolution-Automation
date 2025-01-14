@@ -22,7 +22,7 @@ jobs:
         uses: Amadevus/pwsh-script@v2.0.3
         with:
           script: |
-            Install-Module -Name Pester -Force -SkipPublisherCheck\
+            Install-Module -Name Pester -Force -SkipPublisherCheck
             Get-Module -Name Pester -ListAvailable | Select-Object Name, Version
 
       - name: Run Unit Tests

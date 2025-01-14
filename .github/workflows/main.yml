@@ -28,7 +28,7 @@ jobs:
         run: |
           Get-Location
           dir
-          cd .\UnitTests\
+          cd .\modules\
           Get-Location
           dir
           Invoke-Pester

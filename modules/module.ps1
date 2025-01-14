@@ -1,3 +1,5 @@
+# module.ps1
+
 # Function to write message to user about script execution
 function Write-Message {
     param(

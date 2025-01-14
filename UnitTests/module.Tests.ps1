@@ -1,3 +1,5 @@
+# module.Tests.ps1
+
 # Load the script to be tested
 . "$PSScriptRoot/../modules/module.ps1"
 
@@ -39,6 +41,7 @@ Describe "Test-ServerAvailability" {
     BeforeAll {
         Mock -CommandName Test-Connection -MockWith {
             param($ComputerName)
+            Write-Host "Mock Test-Connection called for $ComputerName"
             if ($ComputerName -eq "reachableServer") {
                 return $true
             } else {
@@ -47,18 +50,19 @@ Describe "Test-ServerAvailability" {
         }
     }
 
-    # Test case 1: It should return true for reachable servers
     It "Should return true for reachable servers" {
         $result = Test-ServerAvailability -serverName "reachableServer"
+        Assert-MockCalled -CommandName Test-Connection -Exactly 1 -Scope It
         $result | Should -Be $true
     }
 
-    # Test case 2: It should return false for unreachable servers
     It "Should return false for unreachable servers" {
         $result = Test-ServerAvailability -serverName "unreachableServer"
+        Assert-MockCalled -CommandName Test-Connection -Exactly 1 -Scope It
         $result | Should -Be $false
     }
 }
+
 
 <#Describe 'Get-Session Function' {
     # Define a mock credential object

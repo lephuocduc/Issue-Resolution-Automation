@@ -1,5 +1,6 @@
 # Load the script to be tested
-Import-Module "../modules/module.ps1"
+. "$PSScriptRoot/../modules/module.ps1"
+
 #. (Join-Path '..\modules\module.ps1')
 
 

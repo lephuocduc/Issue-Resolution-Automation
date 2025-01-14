@@ -27,8 +27,10 @@ jobs:
         shell: pwsh
         run: |
           Get-Location
+          dir
           cd .\UnitTests\
           Get-Location
+          dir
           Invoke-Pester
 
   build:

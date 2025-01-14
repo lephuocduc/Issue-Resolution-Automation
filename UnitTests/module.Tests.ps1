@@ -1,6 +1,7 @@
 # Load the script to be tested
-Import-Module "$PSScriptRoot/../modules/module.ps1"
-#. (Join-Path $PSScriptRoot '..\modules\module.ps1')
+Import-Module "../modules/module.ps1"
+#. (Join-Path '..\modules\module.ps1')
+
 
 # Test the function Write-Message
 Describe 'Write-Message' {

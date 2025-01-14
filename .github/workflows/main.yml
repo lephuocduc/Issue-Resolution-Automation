@@ -26,8 +26,9 @@ jobs:
       - name: Run Unit Tests
         shell: pwsh
         run: |
-          Invoke-Pester -Path .\UnitTests\ -EnableExit
-          
+          cd .\UnitTests\
+          Invoke-Pester
+
   build:
     runs-on: windows-latest
     needs: unittest  # This ensures the build job only runs after unittest job succeeds

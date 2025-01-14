@@ -25,10 +25,18 @@ jobs:
       - name: Run Unit Tests
         shell: pwsh
         run: |
+          Get-Location
+          ls
           Invoke-Pester -Path UnitTests\* -OutputFormat NUnitXml -OutputFile UnitTests\test-results.xml
-          git add UnitTests\test-results.xml
-          git commit -m "Add test results"
-          git push
+          if (Test-Path 'UnitTests\test-results.xml') {
+              git config --global user.name "GitHub Action"
+              git config --global user.email "action@github.com"
+              git add UnitTests\test-results.xml
+              git commit -m "Add test results"
+              git push
+          } else {
+              Write-Host "Test results not found"
+          }
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           

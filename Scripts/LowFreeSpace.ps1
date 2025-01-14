@@ -56,7 +56,7 @@
 
 
 # Load module
-. "$PSScriptRoot/../modules/module.ps1"
+#. "$PSScriptRoot/../modules/module.ps1"
 
 # Load Windows Forms Assembly
 Add-Type -AssemblyName System.Windows.Forms

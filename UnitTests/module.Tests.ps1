@@ -41,7 +41,7 @@ Describe "Test-ServerAvailability" {
     BeforeAll {
         Mock -CommandName Test-Connection -MockWith {
             param($ComputerName)
-            Write-Host "Mock Test-Connection called for $ComputerName"
+            Write-Host "Mock Test-Connection called for: $ComputerName"
             if ($ComputerName -eq "reachableServer") {
                 return $true
             } else {
@@ -51,17 +51,22 @@ Describe "Test-ServerAvailability" {
     }
 
     It "Should return true for reachable servers" {
-        $result = Test-ServerAvailability -serverName "reachableServer"
+        $serverName = "reachableServer"
+        Write-Host "Testing with server name: $serverName"
+        $result = Test-ServerAvailability -serverName $serverName
         Assert-MockCalled -CommandName Test-Connection -Exactly 1 -Scope It
         $result | Should -Be $true
     }
 
     It "Should return false for unreachable servers" {
-        $result = Test-ServerAvailability -serverName "unreachableServer"
+        $serverName = "unreachableServer"
+        Write-Host "Testing with server name: $serverName"
+        $result = Test-ServerAvailability -serverName $serverName
         Assert-MockCalled -CommandName Test-Connection -Exactly 1 -Scope It
         $result | Should -Be $false
     }
 }
+
 
 
 <#Describe 'Get-Session Function' {

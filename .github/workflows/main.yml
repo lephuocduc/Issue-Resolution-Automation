@@ -5,10 +5,10 @@ on:
     branches:
       - master
     paths:
-      - 'Scripts/'
+      - 'Scripts/*'
       - 'AutomationTool.ps1'
-      - 'modules/'
-      - 'UnitTests/'
+      - 'modules/*'
+      - 'UnitTests/*'
       - .github/workflows/main.yml
 
 jobs:

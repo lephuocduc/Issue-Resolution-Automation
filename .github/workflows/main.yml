@@ -19,14 +19,15 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Install Pester
-        shell: pwsh
-        run: |
-          Install-Module -Name Pester -Force -SkipPublisherCheck
+        uses: Amadevus/pwsh-script@v2.0.3
+        with:
+          script: Install-Module -Name Pester -Force -SkipPublisherCheck
 
       - name: Run Unit Tests
-        shell: pwsh
-        run: |
-          Get-ChildItem -Path ".\UnitTests\" -Filter *.ps1 | ForEach-Object { . $_.FullName }
+        uses: Amadevus/pwsh-script@v2.0.3
+        with:
+          script: |
+            Get-ChildItem -Path ".\UnitTests\" -Filter *.ps1 | ForEach-Object { . $_.FullName }
 
   build:
     runs-on: windows-latest

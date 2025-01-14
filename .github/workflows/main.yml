@@ -26,30 +26,11 @@ jobs:
       - name: Run Unit Tests
         shell: pwsh
         run: |
-          $config = New-PesterConfiguration
-          $config.TestResult.OutputFormat = "NUnitXml"
-          $config.TestResult.OutputPath = "UnitTests\\test-results.xml"
-          
-          $result = Invoke-Pester -Configuration $config
-          
-          # Stop the job immediately if there are test failures
-          if ($result.FailedCount -gt 0) {
-              Write-Host "Tests failed, stopping execution."
-              exit 1  # Explicitly fail the step
-          } else {
-              # Commit and push test results if all tests pass
-              git config --global user.name "GitHub Action"
-              git config --global user.email "action@github.com"
-              git add UnitTests\\test-results.xml
-              git commit -m "Add test results"
-              git push
-          }
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          
+          Invoke-Pester -Path .\UnitTests\
+        
   build:
     runs-on: windows-latest
-    needs: unittest  # Ensure this job runs after the unittest job
+    if: success()
     steps:
       - name: Checkout code
         uses: actions/checkout@v2

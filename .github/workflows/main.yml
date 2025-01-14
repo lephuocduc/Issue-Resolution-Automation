@@ -28,7 +28,7 @@ jobs:
         run: |
           $config = New-PesterConfiguration
           $config.TestResult.OutputFormat = "NUnitXml"
-          $config.TestResult.OutputPath = "UnitTests\test-results.xml"
+          $config.TestResult.OutputPath = "UnitTests\\test-results.xml"
           
           $result = Invoke-Pester -Configuration $config
           
@@ -36,14 +36,14 @@ jobs:
           if ($result.FailedCount -gt 0) {
               Write-Host "Tests failed, stopping execution."
               exit 1  # Explicitly fail the step
+          } else {
+              # Commit and push test results if all tests pass
+              git config --global user.name "GitHub Action"
+              git config --global user.email "action@github.com"
+              git add UnitTests\\test-results.xml
+              git commit -m "Add test results"
+              git push
           }
-    
-          # Commit and push test results if all tests pass
-          git config --global user.name "GitHub Action"
-          git config --global user.email "action@github.com"
-          git add UnitTests\test-results.xml
-          git commit -m "Add test results"
-          git push
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           
@@ -60,7 +60,7 @@ jobs:
           script: |
             Install-Module -Name PowerShellProTools -Force
             Import-Module PowerShellProTools
-            Move-Item -Path "icon.ico" -Destination "C:\icon.ico"
+            Move-Item -Path "icon.ico" -Destination "C:\\icon.ico"
             Merge-Script -ConfigFile 'package.psd1' -Verbose
 
       - name: Commit and Push Executable

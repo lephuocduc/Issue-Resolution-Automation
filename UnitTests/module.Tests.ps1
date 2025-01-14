@@ -40,7 +40,7 @@ Describe 'Write-Message' {
 Describe "Test-ServerAvailability" {
     BeforeAll {
         Mock -CommandName Test-Connection -MockWith {
-            param($ComputerName)
+            param([string]$ComputerName)
             Write-Host "Mock Test-Connection called for: $ComputerName"
             if ($ComputerName -eq "reachableServer") {
                 return $true

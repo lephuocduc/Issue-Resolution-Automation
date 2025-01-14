@@ -18,10 +18,14 @@ function Write-Message {
 # Function to prompt for server name and check availability
 function Test-ServerAvailability {
     param(
+        [Parameter(Mandatory=$true)]
         [string]$serverName
     )
+    Write-Host "Calling Test-Connection with serverName: $serverName"
     return (Test-Connection -ComputerName $serverName -Count 1 -Quiet)
 }
+
+
 
 # Function to attempt to create a session and handle credential failures
 function Get-Session {

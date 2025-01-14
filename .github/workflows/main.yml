@@ -32,6 +32,7 @@ jobs:
           if (Test-Path 'UnitTests\test-results.xml') {
               git config --global user.name "GitHub Action"
               git config --global user.email "action@github.com"
+              git pull origin master
               git add UnitTests\test-results.xml
               git commit -m "Add test results"
               git push

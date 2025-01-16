@@ -1,5 +1,8 @@
 # Automation For Issue Resolutions Project
 
+![Workflow Diagram](Workflow/Workflow.png)
+
+
 This project aims to automate the resolution of tickets in ServiceNow. The primary objective is to develop scripts that can resolve issues automatically when executed from a jump host. If the scripts cannot fully resolve the issues, at least they can reduce the effort required by engineers to log in or check server information.
 
 ## Project Structure
@@ -28,4 +31,3 @@ This project aims to automate the resolution of tickets in ServiceNow. The prima
 - **module.ps1**: Contains core functions such as `Write-Message`, `Test-ServerAvailability`, and `Get-Session`.
 - **UnitTests**: Run the tests in `UnitTests/module.Tests.ps1` to ensure the scripts are functioning correctly.
 
-![Workflow Diagram](Workflow/Workflow.png)

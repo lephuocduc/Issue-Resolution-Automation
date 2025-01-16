@@ -11,7 +11,7 @@ Describe 'Write-Message' {
     
     BeforeAll {
         # Mock the Out-File and Test-Path commands
-        Mock -CommandName Test-Path -MockWith { return $true }
+        Mock -CommandName Test-Path -MockWith { return $false }
         Mock -CommandName New-Item -MockWith { return $null }
         Mock -CommandName Out-File -MockWith { return $null }
     }

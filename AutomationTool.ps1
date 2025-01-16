@@ -72,7 +72,7 @@ Add-Type @Parameters
 
 # Create Form
 $form = New-Object System.Windows.Forms.Form
-$form.Text = "Script Manager 2"
+$form.Text = "Script Manager"
 $form.Size = New-Object System.Drawing.Size(650, 300)
 $form.StartPosition = "CenterScreen"
 

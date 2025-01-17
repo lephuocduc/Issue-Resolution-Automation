@@ -6,7 +6,7 @@ on:
       - master
     paths:
       - 'Scripts/*'
-      - 'AutomationTool.ps1'
+      - 'ScriptManager.ps1'
       - 'modules/*'
       - 'UnitTests/*'
       - .github/workflows/main.yml

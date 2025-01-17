@@ -56,7 +56,7 @@
 
 
 # Load module
-#. "$PSScriptRoot/../modules/module.ps1"
+. "$PSScriptRoot/../modules/module.ps1"
 
 # Load Windows Forms Assembly
 Add-Type -AssemblyName System.Windows.Forms
@@ -387,7 +387,6 @@ $iisLogCleanupLog
 "@
 
     $Report | Out-File -FilePath $LogFilePath -Force
-    Write-Message -message "Cleanup report exported to: $LogFilePath"
 }
 
 
@@ -472,36 +471,49 @@ $folderSizes
 
     # Write report to file
     $reportContent | Out-File -FilePath $reportPath -Force
-    Write-Message -message "Report exported to: $reportPath"
 }
 
 # Create Form
 $form = New-Object System.Windows.Forms.Form
 $form.Text = "Low Free Space"
-$form.Size = New-Object System.Drawing.Size(400, 250)
+$form.Size = New-Object System.Drawing.Size(400, 200)
 $form.StartPosition = "CenterScreen"
 $form.TopMost = $true  # Keep form on top
 
+# Server Name Label
+$labelServerName = New-Object System.Windows.Forms.Label
+$labelServerName.Location = New-Object System.Drawing.Point(20, 30)
+$labelServerName.Size = New-Object System.Drawing.Size(100, 30)
+$labelServerName.Text = "Server Name:"
+$form.Controls.Add($labelServerName)
+
+# Disk Name TextBox
+$textBoxServerName = New-Object System.Windows.Forms.TextBox
+$textBoxServerName.Location = New-Object System.Drawing.Point(120, 30)
+$textBoxServerName.Size = New-Object System.Drawing.Size(200, 30)
+$form.Controls.Add($textBoxServerName)
+
 # Disk Name Label
 $labelDisk = New-Object System.Windows.Forms.Label
-$labelDisk.Location = New-Object System.Drawing.Point(20, 50)
+$labelDisk.Location = New-Object System.Drawing.Point(20, 60)
 $labelDisk.Size = New-Object System.Drawing.Size(100, 30)
 $labelDisk.Text = "Disk Name:"
 $form.Controls.Add($labelDisk)
 
 # Disk Name TextBox
 $textBoxDisk = New-Object System.Windows.Forms.TextBox
-$textBoxDisk.Location = New-Object System.Drawing.Point(120, 50)
+$textBoxDisk.Location = New-Object System.Drawing.Point(120, 60)
 $textBoxDisk.Size = New-Object System.Drawing.Size(200, 30)
 $form.Controls.Add($textBoxDisk)
 
 # OK Button
 $buttonOK = New-Object System.Windows.Forms.Button
-$buttonOK.Location = New-Object System.Drawing.Point(120, 80)
+$buttonOK.Location = New-Object System.Drawing.Point(110, 100)
 $buttonOK.Size = New-Object System.Drawing.Size(75, 23)
 $buttonOK.Text = "OK"
 $buttonOK.Add_Click({
     $diskName = $textBoxDisk.Text.ToUpper()
+    $serverName = $textBoxServerName.Text
     
     # Validate disk name
     if ([string]::IsNullOrEmpty($diskName)) {
@@ -511,7 +523,6 @@ $buttonOK.Add_Click({
     
     # Connect to server
     if (-not (Test-DiskAvailability -session $session -diskName $diskName)) {
-        Write-Message -message "Disk '$diskName' is not available on server '$serverName'."
         [System.Windows.Forms.MessageBox]::Show("Disk '$diskName' is not available on server '$serverName'.", "Validation Error")
         return
     }
@@ -522,19 +533,16 @@ $buttonOK.Add_Click({
             $Before = Get-DiskSpaceDetails -session $session -diskName $diskName
 
             # Clear user cache
-            Write-Message -message "Clearing user cache..."
             $clearUserCache = Clear-UserCache -session $session -Verbose *>&1 | ForEach-Object {
                 "$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss'): $_"
             } | Out-String
                      
             # Clear system cache
-            Write-Message -message "Clearing system cache..."
             $clearSystemCache = Clear-SystemCache -session $session -Verbose *>&1 | ForEach-Object {
                 "$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss'): $_"
             } | Out-String
 
             # Compress IIS logs
-            Write-Message -message "Compresing IIS log files..."
             $clearIISLogs = Compress-IISLogs -session $session -Verbose *>&1 | ForEach-Object {
                 "$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss'): $_"
             } | Out-String
@@ -547,15 +555,12 @@ $buttonOK.Add_Click({
         }
         else {
             # Get disk space details
-            Write-Message -message "Checking disk space for '$diskName' disk on server '$serverName'..."
             $diskInfo = Get-DiskSpaceDetails -session $session -diskName $diskName
 
             # Get folder sizes
-            Write-Message -message "Getting folder sizes for '$diskName' disk on server '$serverName'..."
             $folderSizes = Get-SecondLevelFolderSizes -session $session -diskName $diskName
                             
             # Export report
-            Write-Message -message "Exporting report..."
             Export-DataDiskReport -serverName $serverName -diskName $diskName -diskInfo $diskInfo -folderSizes $folderSizes
 
         }
@@ -570,12 +575,11 @@ $form.Controls.Add($buttonOK)
 
 # Exit Button
 $buttonExit = New-Object System.Windows.Forms.Button
-$buttonExit.Location = New-Object System.Drawing.Point(200, 80)
+$buttonExit.Location = New-Object System.Drawing.Point(210, 100)
 $buttonExit.Size = New-Object System.Drawing.Size(75, 23)
-$buttonExit.Text = "Exit"
+$buttonExit.Text = "Cancel"
 $buttonExit.BackColor = [System.Drawing.Color]::LightCoral
 $buttonExit.Add_Click({
-    Write-Message -message "Script execution canceled."
     $form.Close()
 }
 )
@@ -587,25 +591,17 @@ function Start-DiskChecking {
     )
 
     # Validate server name
-    Write-Message -message "Connecting to server '$serverName'..."
     if (-not (Test-ServerAvailability -serverName $serverName)) {
-        Write-Message -message "Server '$serverName' is not reachable."
         return # Exit script
     }
 
     # Create session
-    Write-Message -message "Creating session to server '$serverName'..."
     $session = Get-Session -serverName $serverName
     if ($null -eq $session) {
-        Write-Message -message "Session creation canceled or retry limit reached."
         return
     }
-
-    # Show form
-    Write-Message -message "Session created successfully."
-    $form.ShowDialog()
     
 }
 
-# Entry Point
-Start-DiskChecking -serverName $ServerName
+    # Show form
+    $form.ShowDialog()

@@ -1,5 +1,5 @@
 @{
-    Root = 'AutomationTool.ps1'
+    Root = 'ScriptManager.ps1'
     OutputPath = ''
     Package = @{
         Enabled = $true
@@ -8,7 +8,7 @@
         DotNetVersion = 'v4.6.2'
         FileVersion = '1.0.0'
         FileDescription = ''
-        ProductName = 'AutomationProject'
+        ProductName = 'ScriptManager'
         ProductVersion = ''
         Copyright = 'Duc Le'
         RequireElevation = $true

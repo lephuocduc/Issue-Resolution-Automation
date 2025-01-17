@@ -37,7 +37,7 @@ Describe 'Write-Message' {
 }
 
 
-<#Describe "Test-ServerAvailability" {
+Describe "Test-ServerAvailability" {
     BeforeAll {
         Mock -CommandName Test-Connection -MockWith {
             param($ComputerName)
@@ -60,7 +60,7 @@ Describe 'Write-Message' {
         $result = Test-ServerAvailability -serverName "unreachableServer"
         $result | Should -Be $false
     }
-}#>
+}
 
 <#Describe 'Get-Session Function' {
     # Define a mock credential object

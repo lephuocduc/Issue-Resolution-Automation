@@ -7,7 +7,7 @@ This project aims to automate the resolution of tickets in ServiceNow. The prima
 
 ## Project Structure
 
-- **AutomationTool.exe**: The main executable for the project.
+- **ScriptManager.exe**: The main executable for the project.
 - **modules/**: Contains PowerShell modules.
   - **module.ps1**: Core module with essential functions.
 - **README.md**: This file.
@@ -23,7 +23,7 @@ This project aims to automate the resolution of tickets in ServiceNow. The prima
 ## Getting Started
 
 1. **Setup**: Ensure you have PowerShell installed and configured to run scripts.
-2. **Execution**: Run `AutomationTool.exe` to launch the user interface and execute scripts as needed.
+2. **Execution**: Run `ScriptManager.exe` to launch the user interface and execute scripts as needed.
 
 ## Usage 
 

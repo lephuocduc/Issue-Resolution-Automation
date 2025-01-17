@@ -557,12 +557,8 @@ $buttonOK.Add_Click({
 
     try {
         if ($diskName -eq "C") {
-            # Status Label
-            $statusLabel = New-Object System.Windows.Forms.Label
-            $statusLabel.Location = New-Object System.Drawing.Point(120, 135)
-            $statusLabel.Size = New-Object System.Drawing.Size(300, 100)
+            # Show status
             $statusLabel.Text = "Cleaning C disk. Please wait..."
-            $form.Controls.Add($statusLabel)
 
             # Get disk space before cleanup
             $Before = Get-DiskSpaceDetails -session $session -diskName $diskName
@@ -589,6 +585,9 @@ $buttonOK.Add_Click({
             Export-CDisk-Cleanup-Report -serverName $serverName -Before $Before -After $After -userCacheLog $clearUserCache -systemCacheLog $clearSystemCache -iisLogCleanupLog $clearIISLogs       
         }
         else {
+            # Show status
+            $statusLabel.Text = "Getting disk information. Please wait..."
+
             # Get disk space details
             $diskInfo = Get-DiskSpaceDetails -session $session -diskName $diskName
 
@@ -620,23 +619,11 @@ $buttonExit.Add_Click({
 )
 $form.Controls.Add($buttonExit)
 
-function Start-DiskChecking {
-    param(
-        [string]$serverName
-    )
-
-    # Validate server name
-    if (-not (Test-ServerAvailability -serverName $serverName)) {
-        return # Exit script
-    }
-
-    # Create session
-    $session = Get-Session -serverName $serverName
-    if ($null -eq $session) {
-        return
-    }
-    
-}
+# Status Label
+$statusLabel = New-Object System.Windows.Forms.Label
+$statusLabel.Location = New-Object System.Drawing.Point(120, 135)
+$statusLabel.Size = New-Object System.Drawing.Size(300, 100)
+$form.Controls.Add($statusLabel)
 
     # Show form
     $form.ShowDialog()

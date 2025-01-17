@@ -9,7 +9,7 @@ on:
       - 'ScriptManager.ps1'
       - 'modules/*'
       - 'UnitTests/*'
-      - .github/workflows/main.yml
+      - .github/workflows/workflow.yml
 
 jobs:
   unittest:

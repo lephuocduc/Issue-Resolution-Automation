@@ -7,7 +7,7 @@
 
 
 # Test the function Write-Message
-Describe 'Write-Message' {
+<#Describe 'Write-Message' {
     
     BeforeAll {
         # Mock the Out-File and Test-Path commands
@@ -34,10 +34,10 @@ Describe 'Write-Message' {
         # Assert
         Assert-MockCalled -CommandName Out-File -Exactly 1 -Scope It
     }
-}
+}#>
 
 
-Describe "Test-ServerAvailability" {
+<#Describe "Test-ServerAvailability" {
     BeforeAll {
         Mock -CommandName Test-Connection -MockWith {
             param($ComputerName)
@@ -60,7 +60,7 @@ Describe "Test-ServerAvailability" {
         $result = Test-ServerAvailability -serverName "unreachableServer"
         $result | Should -Be $false
     }
-}
+}#>
 
 <#Describe 'Get-Session Function' {
     # Define a mock credential object

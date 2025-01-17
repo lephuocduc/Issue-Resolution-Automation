@@ -387,6 +387,13 @@ $iisLogCleanupLog
 "@
 
     $Report | Out-File -FilePath $LogFilePath -Force
+
+    if (Test-Path -Path $LogFilePath) {
+        [System.Windows.Forms.MessageBox]::Show("The report has been exported to $LogFilePath", "Notification")
+    }
+    else {
+        [System.Windows.Forms.MessageBox]::Show("Error when exporting", "Error")
+    }
 }
 
 
@@ -471,6 +478,13 @@ $folderSizes
 
     # Write report to file
     $reportContent | Out-File -FilePath $reportPath -Force
+
+    if (Test-Path -Path $LogFilePath) {
+        [System.Windows.Forms.MessageBox]::Show("The report has been exported to $reportPath", "Notification")
+    }
+    else {
+        [System.Windows.Forms.MessageBox]::Show("Error when exporting", "Error")
+    }
 }
 
 # Create Form
@@ -514,13 +528,27 @@ $buttonOK.Text = "OK"
 $buttonOK.Add_Click({
     $diskName = $textBoxDisk.Text.ToUpper()
     $serverName = $textBoxServerName.Text
+
+
     
     # Validate disk name
-    if ([string]::IsNullOrEmpty($diskName)) {
-        [System.Windows.Forms.MessageBox]::Show("Please enter disk name.", "Validation Error")
+    if ([string]::IsNullOrEmpty($diskName) -or [string]::IsNullOrEmpty($serverName))  {
+        [System.Windows.Forms.MessageBox]::Show("Please enter server name and disk name.", "Validation Error")
         return
     }
     
+    if (-not (Test-ServerAvailability -serverName $serverName)) {
+        [System.Windows.Forms.MessageBox]::Show("Server '$serverName' is not reachable.", "Validation Error")
+        return
+    }
+
+    # Create session
+    $session = Get-Session -serverName $serverName
+    if ($null -eq $session) {
+        [System.Windows.Forms.MessageBox]::Show("Session creation canceled or retry limit reached", "Validation Error")
+        return
+    }
+
     # Connect to server
     if (-not (Test-DiskAvailability -session $session -diskName $diskName)) {
         [System.Windows.Forms.MessageBox]::Show("Disk '$diskName' is not available on server '$serverName'.", "Validation Error")
@@ -529,6 +557,13 @@ $buttonOK.Add_Click({
 
     try {
         if ($diskName -eq "C") {
+            # Status Label
+            $statusLabel = New-Object System.Windows.Forms.Label
+            $statusLabel.Location = New-Object System.Drawing.Point(120, 135)
+            $statusLabel.Size = New-Object System.Drawing.Size(300, 100)
+            $statusLabel.Text = "Cleaning C disk. Please wait..."
+            $form.Controls.Add($statusLabel)
+
             # Get disk space before cleanup
             $Before = Get-DiskSpaceDetails -session $session -diskName $diskName
 
@@ -551,7 +586,7 @@ $buttonOK.Add_Click({
             $After = Get-DiskSpaceDetails -session $session -diskName $diskName
             
             # Export cleanup report
-            Export-CDisk-Cleanup-Report -serverName $serverName -Before $Before -After $After -userCacheLog $clearUserCache -systemCacheLog $clearSystemCache -iisLogCleanupLog $clearIISLogs            
+            Export-CDisk-Cleanup-Report -serverName $serverName -Before $Before -After $After -userCacheLog $clearUserCache -systemCacheLog $clearSystemCache -iisLogCleanupLog $clearIISLogs       
         }
         else {
             # Get disk space details

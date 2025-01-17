@@ -1,212 +1,101 @@
-# Load module
-. (Join-Path $PSScriptRoot 'modules\module.ps1')
+# Load the necessary assembly for Windows Forms
+Add-Type -AssemblyName System.Windows.Forms
 
-# Write message at the start
-Write-Message -message "Please input server name and select a script to execute."
+# Create the main form
+$main_form = New-Object System.Windows.Forms.Form
+$main_form.Text = 'Script Manager'
+$main_form.Size = New-Object System.Drawing.Size(430, 200)
+$main_form.StartPosition = "CenterScreen"
 
-# Load Windows Forms Assembly
-$Parameters = @{
-	AssemblyName = 'System.Windows.Forms'
-}
-Add-Type @Parameters
+# Create a ComboBox (dropdown) and set its properties
+$comboBox = New-Object System.Windows.Forms.ComboBox
+$comboBox.Location = New-Object System.Drawing.Point(110, 50)  # Centered horizontally
+$comboBox.Size = New-Object System.Drawing.Size (200, 50)
+$comboBox.Items.AddRange(@("Low Free Space", "Option2", "Option3"))  # Add items to the dropdown
+$comboBox.DropDownStyle = 'DropDown' # Allow text editing in the ComboBox
 
-# Create Form
-$form = New-Object System.Windows.Forms.Form
-$form.Text = "Script Manager"
-$form.Size = New-Object System.Drawing.Size(650, 300)
-$form.StartPosition = "CenterScreen"
+# Set the font size (keep the default font family)
+$defaultFont = $comboBox.Font  # Get the default font
+$comboBox.Font = New-Object System.Drawing.Font($defaultFont.FontFamily, 12)  # Change only the size to 12
+$comboBox.Text = "------------------------------"
 
-# Set the icon
-$iconPath = "$PSScriptRoot\icon.ico"  # Path to your icon file
-if (Test-Path $iconPath) {
-    $form.Icon = [System.Drawing.Icon]::ExtractAssociatedIcon($iconPath)
-}
-<#
-# Function to Execute PowerShell Script
-function Invoke-Script {
-    param ($scriptPath)
-    try {
-        if (-not (Test-Path -Path $scriptPath)) {
-            [System.Windows.Forms.MessageBox]::Show("Script not found: $scriptPath", "Error")
-            return
-        }
-        
-        # Get server name and validate
-        $serverName = $textBoxServer.Text
-        if ([string]::IsNullOrEmpty($serverName)) {
-            [System.Windows.Forms.MessageBox]::Show("Please enter a server name", "Error")
-            return
-        }
-        
-        # Run script with server name parameter
-        $arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$scriptPath`" -ServerName `"$serverName`""
-        Start-Process -FilePath "powershell.exe" -ArgumentList $arguments -NoNewWindow        
-    } catch {
-        [System.Windows.Forms.MessageBox]::Show($_.Exception.Message, "Error")
-    }
-}#>
+# Enable AutoComplete functionality
+$comboBox.AutoCompleteMode = 'SuggestAppend'  # Suggest matching items and append the rest
+$comboBox.AutoCompleteSource = 'ListItems'    # Use items from the ComboBox's list for suggestions
 
-# Function to create responsive buttons with automatic placement
-function New-ResponsiveButtons {
-    param (
-        [System.Windows.Forms.Form]$form,
-        [Array]$buttonDefinitions
-    )
-
-    $yOffset = 20  # Initial offset from the top
-    $spacing = 10  # Spacing between buttons
-
-    foreach ($definition in $buttonDefinitions) {
-        # Create the button
-        $button = New-Object System.Windows.Forms.Button
-        $button.Text = $definition.Text
-
-        # Measure the text size
-        $graphics = [System.Drawing.Graphics]::FromImage((New-Object System.Drawing.Bitmap 1,1))
-        $textSize = $graphics.MeasureString($button.Text, $button.Font)
-        $button.Size = New-Object System.Drawing.Size(($textSize.Width + 50), ($textSize.Height + 20)) # Add padding
-
-        # Set button location
-        $button.Location = New-Object System.Drawing.Point(20, $yOffset)
-        $yOffset += $button.Height + $spacing  # Update offset for next button
-
-        # Add BackColor if specified
-        if ($definition.BackColor) {
-            $button.BackColor = $definition.BackColor
-        }
-
-        # Add click event
-        $button.Add_Click($definition.OnClick)
-
-        # Add the button to the form
-        $form.Controls.Add($button)
-        
-    }
-}
-
-# Server Name Label
-$labelServer = New-Object System.Windows.Forms.Label
-$labelServer.Location = New-Object System.Drawing.Point(300, 30)
-$labelServer.Size = New-Object System.Drawing.Size(100, 30)
-$labelServer.Text = "Server Name:"
-$form.Controls.Add($labelServer)
-
-# Server Name TextBox
-$textBoxServer = New-Object System.Windows.Forms.TextBox
-$textBoxServer.Location = New-Object System.Drawing.Point(400, 30)
-$textBoxServer.Size = New-Object System.Drawing.Size(200, 60)
-$textBoxServer.Add_KeyDown({
+# Add key event handler for Ctrl+A and Ctrl+C
+$comboBox.Add_KeyDown({
     param($sender, $e)
     if ($e.Control -and $e.KeyCode -eq [System.Windows.Forms.Keys]::A) {
-        $textBoxServer.SelectAll()
+        # Select all text in the ComboBox
+        $comboBox.SelectAll()
+        $e.SuppressKeyPress = $true
+    }
+    elseif ($e.Control -and $e.KeyCode -eq [System.Windows.Forms.Keys]::C) {
+        # Copy selected text to clipboard
+        if ($comboBox.SelectedText) {
+            [System.Windows.Forms.Clipboard]::SetText($comboBox.SelectedText)
+        } else {
+            [System.Windows.Forms.Clipboard]::SetText($comboBox.Text)
+        }
         $e.SuppressKeyPress = $true
     }
 })
-$form.Controls.Add($textBoxServer)
 
-# Status Label
-$statusLabel = New-Object System.Windows.Forms.TextBox
-$statusLabel.Location = New-Object System.Drawing.Point(300, 60)
-$statusLabel.Size = New-Object System.Drawing.Size(300, 60)
-$statusLabel.BorderStyle = [System.Windows.Forms.BorderStyle]::Fixed3D
-$statusLabel.Padding = New-Object System.Windows.Forms.Padding(5)
-$statusLabel.ReadOnly = $true  # Make it read-only but selectable
-$statusLabel.Multiline = $true # Support multiple lines
-$statusLabel.BackColor = $form.BackColor  # Match form background
-$statusLabel.TextAlign = [System.Windows.Forms.HorizontalAlignment]::Left
+# Create OK Button
+$okButton = New-Object System.Windows.Forms.Button
+$okButton.Text = 'OK'
+$okButton.Location = New-Object System.Drawing.Point(120, 100) # Positioning below the dropdown
 
-# Add context menu
-$contextMenu = New-Object System.Windows.Forms.ContextMenuStrip
-$copyMenuItem = New-Object System.Windows.Forms.ToolStripMenuItem
-$copyMenuItem.ShortcutKeys = [System.Windows.Forms.Keys]::Control -bor [System.Windows.Forms.Keys]::C
-# Add click event to copy selected text or all text to clipboard
-$copyMenuItem.Add_Click({
-    if ($statusLabel.SelectedText) {
-        [System.Windows.Forms.Clipboard]::SetText($statusLabel.SelectedText)
+# Add Click event to execute the selected script using a switch statement
+$okButton.Add_Click({
+    $selectedValue = $comboBox.Text
+    switch ($selectedValue) {
+        "Low Free Space" {
+            $scriptPath = "$PWD\Scripts\LowFreeSpace.ps1"
+        }
+        "Option2" {
+            $scriptPath = "$PWD\Option2.ps1"
+        }
+        "Option3" {
+            $scriptPath = "$PWD\Option3.ps1"
+        }
+        default {
+            [System.Windows.Forms.MessageBox]::Show(
+                "No script is associated with the selection '$selectedValue'.", 
+                "Error", 
+                [System.Windows.Forms.MessageBoxButtons]::OK, 
+                [System.Windows.Forms.MessageBoxIcon]::Error
+            )
+            return
+        }
+    }
+    # Check if the script file exists
+    if (Test-Path $scriptPath) {
+        # Execute the script
+        Start-Process -FilePath "powershell.exe" -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `" $scriptPath`"" -NoNewWindow
     } else {
-        [System.Windows.Forms.Clipboard]::SetText($statusLabel.Text)
+        # Show error message if the script doesn't exist
+        [System.Windows.Forms.MessageBox]::Show(
+            "The script file '$scriptPath' is not available.", 
+            "Error", 
+            [System.Windows.Forms.MessageBoxButtons]::OK, 
+            [System.Windows.Forms.MessageBoxIcon]::Error
+        )
     }
 })
 
-# Add Ctrl+A shortcut to select all text
-$statusLabel.Add_KeyDown({
-    param($sender, $e)
-    if ($e.Control -and $e.KeyCode -eq 'A') {
-        $statusLabel.SelectAll()
-        $e.SuppressKeyPress = $true
-    }
-})
+# Create Cancel Button
+$cancelButton = New-Object System.Windows.Forms.Button
+$cancelButton.Text = 'Cancel'
+$cancelButton.Location = New-Object System.Drawing.Point(220, 100) # Positioning next to the OK button
+$cancelButton.BackColor = [System.Drawing.Color]::LightCoral
+$cancelButton.Add_Click({ $main_form.Close() })
 
-$contextMenu.Items.Add($copyMenuItem)
-$statusLabel.ContextMenuStrip = $contextMenu
+# Add controls to the form
+$main_form.Controls.Add($comboBox)
+$main_form.Controls.Add($okButton)
+$main_form.Controls.Add($cancelButton)
 
-$form.Controls.Add($statusLabel)
-
-# Define buttons
-$buttons = @(
-    @{
-        Text = "Low Free Space"
-        OnClick = {
-            $serverName = $textBoxServer.Text
-        if ([string]::IsNullOrEmpty($serverName)) {
-            [System.Windows.Forms.MessageBox]::Show("Please enter a server name", "Error")
-            return
-        }
-        . (Join-Path $PSScriptRoot 'Scripts\LowFreeSpace.ps1') -ServerName $serverName
-        }
-    },
-    @{
-        Text = "Another Script"
-        OnClick = {
-            $serverName = $textBoxServer.Text
-        if ([string]::IsNullOrEmpty($serverName)) {
-            [System.Windows.Forms.MessageBox]::Show("Please enter a server name", "Error")
-            return
-        }
-        . (Join-Path $PSScriptRoot 'Scripts\AnotherScript.ps1') -ServerName $serverName -NoProfile -ExecutionPolicy Bypass -NoNewWindow
-        }
-    },
-    @{
-        Text = "Exit"
-        BackColor = [System.Drawing.Color]::LightCoral
-        OnClick = {
-            $form.Close()
-        }
-    }
-)
-
-# Create buttons
-New-ResponsiveButtons -form $form -buttonDefinitions $buttons
-
-# Create timer for file monitoring
-$timer = New-Object System.Windows.Forms.Timer
-$timer.Interval = 100 # Check more frequently (100ms)
-# Add tick event to update status label from file content if changed
-$timer.Add_Tick({
-    try {
-        if (Test-Path "C:\temp\script_status.txt") {
-            $newContent = [System.IO.File]::ReadAllText("C:\temp\script_status.txt")
-            if ($newContent -ne $statusLabel.Text) {
-                $statusLabel.Text = $newContent
-                $statusLabel.Update() # Force immediate UI update
-                [System.Windows.Forms.Application]::DoEvents() # Process UI events
-                Write-Debug "Status updated: $newContent"
-            }
-        }
-    }
-    catch {
-        Write-Debug "Error reading status file: $_"
-    }
-})
-
-# Start timer
-$timer.Start()
-
-# Add form closing cleanup
-$form.Add_FormClosing({
-    $timer.Stop()
-    $timer.Dispose()
-})
-
-# Show Form
-$form.ShowDialog()
+# Show the form as a dialog
+$main_form.ShowDialog()

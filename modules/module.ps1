@@ -1,7 +1,7 @@
 # module.ps1
 
 # Function to write message to user about script execution
-function Write-Message {
+<#function Write-Message {
     param(
         [Parameter(Mandatory=$true)]
         [string]$message
@@ -13,7 +13,7 @@ function Write-Message {
     }
 
     $message | Out-File "C:\temp\script_status.txt" -Force
-}
+}#>
 
 # Function to prompt for server name and check availability
 function Test-ServerAvailability {

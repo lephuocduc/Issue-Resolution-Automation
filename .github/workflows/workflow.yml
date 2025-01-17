@@ -47,7 +47,7 @@ jobs:
 
       - name: Commit and Push Executable
         run: |        
-          if (Test-Path 'AutomationTool.exe') {
+          if (Test-Path 'ScriptManager.exe') {
               git config --global user.name "GitHub Action"
               git config --global user.email "action@github.com"
               git add ScriptManager.exe

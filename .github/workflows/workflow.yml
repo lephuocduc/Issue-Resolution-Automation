@@ -50,8 +50,8 @@ jobs:
           if (Test-Path 'AutomationTool.exe') {
               git config --global user.name "GitHub Action"
               git config --global user.email "action@github.com"
-              git add AutomationTool.exe
-              git commit -m "Add AutomationTool.exe"
+              git add ScriptManager.exe
+              git commit -m "Add ScriptManager.exe"
               git push
           } else {
               Write-Host "Executable not found"

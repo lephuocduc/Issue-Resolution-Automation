@@ -1,3 +1,25 @@
+#NOTES
+# Name:   LowFreeSpace.ps1
+# Author:  Duc Le
+# Version:  1.0
+# Major Release History:
+
+#DESCRIPTION
+# This script creates a Windows Forms application with a ComboBox to select and execute different PowerShell scripts.
+
+#REQUIREMENT
+# None
+
+#INPUTS
+# Select a script from the ComboBox to execute.
+
+#OUTPUTS
+# Executes the selected PowerShell script.
+
+#EXAMPLE
+# Run the script and select "Low Free Space" from the ComboBox to execute the LowFreeSpace.ps1 script.
+
+
 # Load the necessary assembly for Windows Forms
 Add-Type -AssemblyName System.Windows.Forms
 

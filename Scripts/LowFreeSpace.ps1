@@ -4,55 +4,26 @@
 # Version:  1.0
 # Major Release History:
 
-##DESCRIPTION
-# This PowerShell script provides disk space management and cleanup functionality for Windows.
-# It includes features for analyzing disk space usage, cleaning various types of caches, compressing IIS logs,
-# and generating detailed reports. The script provides a GUI interface for selecting the target disk
+#DESCRIPTION
+# This script is designed to manage low disk space on remote servers. It includes functions to clear user and system caches, compress IIS logs, and generate detailed reports on disk usage.
 
 #REQUIREMENT
-# - Administrative privileges on the target server
-# - Network connectivity to the target server
-# - PSRemoting enabled on the target server
-# - Access to the following paths for cleanup operations:
-#   * C:\Users\ (for user cache cleanup)
-#   * C:\Windows\SoftwareDistribution\Download\ (for Windows Update cache)
-#   * C:\Windows\Installer\ (for Windows Installer cache)
-#   * C:\Windows\ccmcache\ (for SCCM cache)
-#   * C:\Windows\Temp\ (for temporary files)
-#   * C:\inetpub\logs\ (for IIS logs)
+# Requires the necessary permissions to access and modify files on the target servers.
 
 #INPUTS
-# - ServerName [string]: Name of the target server (required, passed as script parameter)
-# - DiskName [string]: Drive letter to analyze/cleanup (required, input via GUI)
-#   * For C: drive - performs cache cleanup and log compression
-#   * For other drives - performs space analysis and folder size reporting
+# Server name and disk name to perform cleanup actions on.
+# Disk C: - Clear user and system caches, compress IIS logs, and generate a detailed report.
+# Data disk - Provide information on disk usage and the sizes of items within each first-level folder.
 
 #OUTPUTS
-# - Generates detailed report files in C:\temp\ directory:
-#   * For C: drive - "LowFreeSpace-C-Disk-[ServerName]-[Timestamp].txt"
-#     Contains before/after disk space metrics and cleanup operation logs
-#   * For data disks - "LowFreeSpace-[ServerName]-[Timestamp].txt"
-#     Contains disk space metrics and folder size analysis
-# - Real-time progress messages in the console
-# - GUI feedback for operation status and errors
+# Generates a report detailing the disk usage before and after cleanup, including space saved and logs of actions taken.
 
 #EXAMPLE
-# Running the script:
-# .\LowFreeSpace.ps1 -ServerName "SERVER01"
-#
-# Example cleanup output for C: drive:
-# PS> .\LowFreeSpace.ps1 -ServerName "SERVER01"
-# [Connecting to server 'SERVER01'...]
-# [Session created successfully.]
-# Select disk 'C' in GUI
-# Report will be generated at: C:\temp\LowFreeSpace-C-Disk-SERVER01-14012025-1430.txt
-#
-# Example analysis for data disk:
-# PS> .\LowFreeSpace.ps1 -ServerName "SERVER01"
-# [Connecting to server 'SERVER01'...]
-# [Session created successfully.]
-# Select disk 'D' in GUI
-# Report will be generated at: C:\temp\LowFreeSpace-SERVER01-14012025-1430.txt
+# Run the script and enter the server name and disk name to start the cleanup process.
+# The script will prompt for confirmation before executing the cleanup actions.
+# If disk C is selected, it will clear user and system caches, compress IIS logs, and generate a detailed report.
+# If a data disk is selected, it will provide information on disk usage and the sizes of items within each first-level folder.
+# A report will be exported to the local machine for further analysis. 
 
 
 # Load module

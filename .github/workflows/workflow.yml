@@ -21,7 +21,9 @@ jobs:
       - name: Install Pester
         shell: pwsh
         run: |
-          Install-Module -Name Pester -Force -SkipPublisherCheck
+          if (-not (Get-Module -ListAvailable -Name Pester)) {
+              Install-Module -Name Pester -Force -SkipPublisherCheck
+          }
 
       - name: Run Unit Tests
         shell: pwsh
@@ -30,34 +32,35 @@ jobs:
 
   build:
     runs-on: windows-latest
-    needs: unittest  # This ensures the build job only runs after unittest job succeeds
+    needs: unittest  # Ensure the build job runs only after unittest job succeeds
     if: success()
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
 
       - name: Install PowerShellProTools
-        uses: Amadevus/pwsh-script@v2.0.3
-        with:
-          script: |
-            Install-Module -Name PowerShellProTools -Force
-            Import-Module PowerShellProTools
-                  
+        shell: pwsh
+        run: |
+          if (-not (Get-Module -ListAvailable -Name PowerShellProTools)) {
+              Install-Module -Name PowerShellProTools -Force
+          }
+          Import-Module PowerShellProTools
+
       - name: Build Executable
-        uses: Amadevus/pwsh-script@v2.0.3
-        with:
-          script: |
-            Move-Item -Path "icon.ico" -Destination "C:\\icon.ico"
-            Merge-Script -ConfigFile 'package.psd1' -Verbose
+        shell: pwsh
+        run: |
+          Move-Item -Path "icon.ico" -Destination "C:\\icon.ico"
+          Merge-Script -ConfigFile 'package.psd1' -Verbose
 
       - name: Commit and Push Executable
+        shell: pwsh
         run: |        
           if (Test-Path 'ScriptManager.exe') {
               git config --global user.name "GitHub Action"
               git config --global user.email "action@github.com"
               git add ScriptManager.exe
               git commit -m "Add ScriptManager.exe"
-              git push
+              git push || Write-Host "Failed to push changes"
           } else {
               Write-Host "Executable not found"
           }

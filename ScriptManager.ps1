@@ -95,7 +95,7 @@ $okButton.Add_Click({
     # Check if the script file exists
     if (Test-Path $scriptPath) {
         # Execute the script
-        . "$PSScriptRoot/Scripts/LowFreeSpace.ps1"
+        . (Join-Path $PSScriptRoot 'Scripts\LowFreeSpace.ps1')
         #Start-Process -FilePath "powershell.exe" -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `" $scriptPath`"" -NoNewWindow
     } else {
         # Show error message if the script doesn't exist

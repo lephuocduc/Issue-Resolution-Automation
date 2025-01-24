@@ -74,13 +74,13 @@ $okButton.Add_Click({
     $selectedValue = $comboBox.Text
     switch ($selectedValue) {
         "Low Free Space" {
-            $scriptPath = "$PSScriptRoot/Scripts/LowFreeSpace.ps1"
+            . (Join-Path $PSScriptRoot 'Scripts\LowFreeSpace.ps1')
         }
         "Option2" {
-            $scriptPath = "$PWD\Option2.ps1"
+            . (Join-Path $PSScriptRoot 'Scripts\Option2.ps1')
         }
         "Option3" {
-            $scriptPath = "$PWD\Option3.ps1"
+            . (Join-Path $PSScriptRoot 'Scripts\Option3.ps1')
         }
         default {
             [System.Windows.Forms.MessageBox]::Show(
@@ -91,20 +91,6 @@ $okButton.Add_Click({
             )
             return
         }
-    }
-    # Check if the script file exists
-    if (Test-Path $scriptPath) {
-        # Execute the script
-        . (Join-Path $PSScriptRoot 'Scripts\LowFreeSpace.ps1')
-        #Start-Process -FilePath "powershell.exe" -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `" $scriptPath`"" -NoNewWindow
-    } else {
-        # Show error message if the script doesn't exist
-        [System.Windows.Forms.MessageBox]::Show(
-            "The script file '$scriptPath' is not available.", 
-            "Error", 
-            [System.Windows.Forms.MessageBoxButtons]::OK, 
-            [System.Windows.Forms.MessageBoxIcon]::Error
-        )
     }
 })
 

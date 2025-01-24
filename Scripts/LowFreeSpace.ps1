@@ -484,6 +484,16 @@ $form.Text = "Low Free Space"
 $form.Size = New-Object System.Drawing.Size(400, 200)
 $form.StartPosition = "CenterScreen"
 $form.TopMost = $false  # Keep form on top
+$form.KeyPreview = $true  # Important: This allows the form to receive key events before controls
+$form.Add_KeyDown({
+    param($sender, $e)
+    if ($e.KeyCode -eq [System.Windows.Forms.Keys]::Escape) {
+        $buttonExit.PerformClick()
+    }
+    if ($e.KeyCode -eq [System.Windows.Forms.Keys]::Enter) {
+        $buttonOK.PerformClick()
+    }
+})
 
 # Server Name Label
 $labelServerName = New-Object System.Windows.Forms.Label
@@ -496,6 +506,24 @@ $form.Controls.Add($labelServerName)
 $textBoxServerName = New-Object System.Windows.Forms.TextBox
 $textBoxServerName.Location = New-Object System.Drawing.Point(120, 30)
 $textBoxServerName.Size = New-Object System.Drawing.Size(200, 30)
+$textBoxServerName.Add_KeyDown({
+    param($sender, $e)
+    if ($e.Control -and $e.KeyCode -eq [System.Windows.Forms.Keys]::A) {
+        # Select all text in the ComboBox
+        $textBoxServerName.SelectAll()
+        $e.SuppressKeyPress = $true
+    }
+    elseif ($e.Control -and $e.KeyCode -eq [System.Windows.Forms.Keys]::C) {
+        # Copy selected text to clipboard
+        if ($textBoxServerName.SelectedText) {
+            [System.Windows.Forms.Clipboard]::SetText($textBoxServerName.SelectedText)
+        } else {
+            [System.Windows.Forms.Clipboard]::SetText($textBoxServerName.Text)
+        }
+        $e.SuppressKeyPress = $true
+    }
+})
+
 $form.Controls.Add($textBoxServerName)
 
 # Disk Name Label
@@ -509,6 +537,23 @@ $form.Controls.Add($labelDisk)
 $textBoxDisk = New-Object System.Windows.Forms.TextBox
 $textBoxDisk.Location = New-Object System.Drawing.Point(120, 60)
 $textBoxDisk.Size = New-Object System.Drawing.Size(200, 30)
+$textBoxDisk.Add_KeyDown({
+    param($sender, $e)
+    if ($e.Control -and $e.KeyCode -eq [System.Windows.Forms.Keys]::A) {
+        # Select all text in the ComboBox
+        $textBoxDisk.SelectAll()
+        $e.SuppressKeyPress = $true
+    }
+    elseif ($e.Control -and $e.KeyCode -eq [System.Windows.Forms.Keys]::C) {
+        # Copy selected text to clipboard
+        if ($textBoxDisk.SelectedText) {
+            [System.Windows.Forms.Clipboard]::SetText($textBoxDisk.SelectedText)
+        } else {
+            [System.Windows.Forms.Clipboard]::SetText($textBoxDisk.Text)
+        }
+        $e.SuppressKeyPress = $true
+    }
+})
 $form.Controls.Add($textBoxDisk)
 
 # OK Button

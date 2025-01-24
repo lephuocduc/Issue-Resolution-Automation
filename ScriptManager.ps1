@@ -74,7 +74,7 @@ $okButton.Add_Click({
     $selectedValue = $comboBox.Text
     switch ($selectedValue) {
         "Low Free Space" {
-            $scriptPath = "$PWD\Scripts\LowFreeSpace.ps1"
+            $scriptPath = "$PSScriptRoot/Scripts/LowFreeSpace.ps1"
         }
         "Option2" {
             $scriptPath = "$PWD\Option2.ps1"
@@ -95,7 +95,7 @@ $okButton.Add_Click({
     # Check if the script file exists
     if (Test-Path $scriptPath) {
         # Execute the script
-        . "$PSScriptRoot/../Scripts/LowFreeSpace.ps1"
+        . "$PSScriptRoot/Scripts/LowFreeSpace.ps1"
         #Start-Process -FilePath "powershell.exe" -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `" $scriptPath`"" -NoNewWindow
     } else {
         # Show error message if the script doesn't exist

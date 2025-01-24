@@ -360,10 +360,20 @@ $iisLogCleanupLog
     $Report | Out-File -FilePath $LogFilePath -Force
 
     if (Test-Path -Path $LogFilePath) {
-        [System.Windows.Forms.MessageBox]::Show("The report has been exported to $LogFilePath", "Notification")
+        [System.Windows.Forms.MessageBox]::Show(
+            "The report has been exported to $LogFilePath.", 
+            "Information", 
+            [System.Windows.Forms.MessageBoxButtons]::OK, 
+            [System.Windows.Forms.MessageBoxIcon]::Information
+        )
     }
     else {
-        [System.Windows.Forms.MessageBox]::Show("Error when exporting", "Error")
+        [System.Windows.Forms.MessageBox]::Show(
+                "Error when exporting.", 
+                "Error", 
+                [System.Windows.Forms.MessageBoxButtons]::OK, 
+                [System.Windows.Forms.MessageBoxIcon]::Error
+            )
     }
 }
 
@@ -451,10 +461,20 @@ $folderSizes
     $reportContent | Out-File -FilePath $reportPath -Force
 
     if (Test-Path -Path $LogFilePath) {
-        [System.Windows.Forms.MessageBox]::Show("The report has been exported to $reportPath", "Notification")
+        [System.Windows.Forms.MessageBox]::Show(
+            "The report has been exported to $reportPath.", 
+            "Information", 
+            [System.Windows.Forms.MessageBoxButtons]::OK, 
+            [System.Windows.Forms.MessageBoxIcon]::Information
+        )
     }
     else {
-        [System.Windows.Forms.MessageBox]::Show("Error when exporting", "Error")
+        [System.Windows.Forms.MessageBox]::Show(
+                "Error when exporting.", 
+                "Error", 
+                [System.Windows.Forms.MessageBoxButtons]::OK, 
+                [System.Windows.Forms.MessageBoxIcon]::Error
+            )
     }
 }
 
@@ -463,7 +483,7 @@ $form = New-Object System.Windows.Forms.Form
 $form.Text = "Low Free Space"
 $form.Size = New-Object System.Drawing.Size(400, 200)
 $form.StartPosition = "CenterScreen"
-$form.TopMost = $true  # Keep form on top
+$form.TopMost = $false  # Keep form on top
 
 # Server Name Label
 $labelServerName = New-Object System.Windows.Forms.Label
@@ -504,25 +524,45 @@ $buttonOK.Add_Click({
     
     # Validate disk name
     if ([string]::IsNullOrEmpty($diskName) -or [string]::IsNullOrEmpty($serverName))  {
-        [System.Windows.Forms.MessageBox]::Show("Please enter server name and disk name.", "Validation Error")
+        [System.Windows.Forms.MessageBox]::Show(
+        "Please enter server name and disk name.", 
+        "Warning", 
+        [System.Windows.Forms.MessageBoxButtons]::OK, 
+        [System.Windows.Forms.MessageBoxIcon]::Warning
+)
         return
     }
     
     if (-not (Test-ServerAvailability -serverName $serverName)) {
-        [System.Windows.Forms.MessageBox]::Show("Server '$serverName' is not reachable.", "Validation Error")
+        [System.Windows.Forms.MessageBox]::Show(
+                "Server '$serverName' is not reachable.", 
+                "Error", 
+                [System.Windows.Forms.MessageBoxButtons]::OK, 
+                [System.Windows.Forms.MessageBoxIcon]::Error
+            )
         return
     }
 
     # Create session
     $session = Get-Session -serverName $serverName
     if ($null -eq $session) {
-        [System.Windows.Forms.MessageBox]::Show("Session creation canceled or retry limit reached", "Validation Error")
+        [System.Windows.Forms.MessageBox]::Show(
+                "Session creation canceled or retry limit reached.", 
+                "Error", 
+                [System.Windows.Forms.MessageBoxButtons]::OK, 
+                [System.Windows.Forms.MessageBoxIcon]::Error
+            )
         return
     }
 
     # Connect to server
     if (-not (Test-DiskAvailability -session $session -diskName $diskName)) {
-        [System.Windows.Forms.MessageBox]::Show("Disk '$diskName' is not available on server '$serverName'.", "Validation Error")
+        [System.Windows.Forms.MessageBox]::Show(
+                "Disk '$diskName' is not available on server '$serverName'.", 
+                "Error", 
+                [System.Windows.Forms.MessageBoxButtons]::OK, 
+                [System.Windows.Forms.MessageBoxIcon]::Error
+            )
         return
     }
 

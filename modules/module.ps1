@@ -45,7 +45,9 @@ function Get-Session {
             $session = New-PSSession -ComputerName $serverName -Credential $credential -ErrorAction Stop
             return $session
         } catch {
-            continue
+            if ($retryCount -ge $maxRetries) {
+                return $null
+            }
         }
     } while ($true)
 }

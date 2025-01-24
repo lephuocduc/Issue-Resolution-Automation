@@ -73,6 +73,15 @@ $okButton.Location = New-Object System.Drawing.Point(120, 100) # Positioning bel
 $okButton.Add_Click({
     $selectedValue = $comboBox.Text
     switch ($selectedValue) {
+        "------------------------------"{
+            [System.Windows.Forms.MessageBox]::Show(
+                "Please select a script from the dropdown.", 
+                "Information", 
+                [System.Windows.Forms.MessageBoxButtons]::OK, 
+                [System.Windows.Forms.MessageBoxIcon]::Information
+            )
+            return
+        }
         "Low Free Space" {
             . (Join-Path $PSScriptRoot 'Scripts\LowFreeSpace.ps1')
         }

@@ -12,7 +12,7 @@
         ProductVersion = ''
         Copyright = 'Duc Le'
         RequireElevation = $true
-        ApplicationIconPath = 'C:\icon.ico'
+        ApplicationIconPath = ''
         PackageType = 'Console'
     }
     Bundle = @{

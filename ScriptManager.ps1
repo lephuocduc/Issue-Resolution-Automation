@@ -53,6 +53,10 @@ $comboBox.Add_KeyDown({
         $comboBox.SelectAll()
         $e.SuppressKeyPress = $true
     }
+    if ($e.KeyCode -eq [System.Windows.Forms.Keys]::Enter) {
+        $okButton.PerformClick()
+        $e.SuppressKeyPress = $true  # Prevents the "ding" sound
+    }
     elseif ($e.Control -and $e.KeyCode -eq [System.Windows.Forms.Keys]::C) {
         # Copy selected text to clipboard
         if ($comboBox.SelectedText) {

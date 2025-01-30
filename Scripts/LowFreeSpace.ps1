@@ -284,6 +284,80 @@ function Compress-IISLogs {
     Invoke-Command -Session $session -ScriptBlock $ScriptBlock -ArgumentList $IISLogPath, $ArchivePath
 }
 
+function Invoke-CleanupTool {
+    param (
+        [Parameter(Mandatory=$true)]
+        [System.Management.Automation.Runspaces.PSSession]$session
+    )
+    
+    $ScriptBlock = {
+        # Pre-configure all Disk Cleanup categories via Registry
+        $cleanupCategories = @(
+            "Active Setup Temp Folders",
+            "BranchCache",
+            "Downloaded Program Files",
+            "Internet Cache Files",
+            "Memory Dump Files",
+            "Offline Pages Files",
+            "Old ChkDsk Files",
+            "Previous Installations",
+            "Recycle Bin",
+            "Service Pack Cleanup",
+            "Setup Log Files",
+            "System error memory dump files",
+            "System error minidump files",
+            "Temporary Files",
+            "Temporary Setup Files",
+            "Thumbnail Cache",
+            "Update Cleanup",
+            "Upgrade Discarded Files",
+            "User file versions",
+            "Windows Defender",
+            "Windows Error Reporting Archive Files",
+            "Windows Error Reporting Queue Files",
+            "Windows Error Reporting System Archive Files",
+            "Windows Error Reporting System Queue Files",
+            "Windows ESD installation files",
+            "Windows Upgrade Log Files"
+        )
+
+        $registryPath = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\VolumeCaches\"
+
+        # Enable all cleanup categories
+        foreach ($category in $cleanupCategories) {
+            $fullPath = $registryPath + $category
+            if (Test-Path $fullPath) {
+                Set-ItemProperty -Path $fullPath -Name "StateFlags0001" -Value 2 -ErrorAction SilentlyContinue
+            }
+        }
+
+        # Run Disk Cleanup with timeout
+        Write-Output "Starting disk cleanup on $env:COMPUTERNAME..."
+        
+        # Start the cleanup process
+        $process = Start-Process cleanmgr -ArgumentList "/sagerun:1" -PassThru -NoNewWindow
+        
+        # Wait for process to complete (30 minutes = 1800 seconds)
+        try {
+            $process | Wait-Process -Timeout 1800 -ErrorAction Stop
+            Write-Output "Cleanup completed successfully"
+        }
+        catch {
+            Write-Output "Cleanup timed out after 30 minutes - force stopping..."
+            Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+        }
+        finally {
+            # Clean up any remaining process references
+            if ($process -and -not $process.HasExited) {
+                Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+            }
+        }
+    }
+
+    # Execute with extended session timeout
+    Invoke-Command -Session $session -ScriptBlock $ScriptBlock -ThrottleLimit 1
+}
+
 # Function to get disk space on a remote PC
 function Get-DiskSpaceDetails {
     param(
@@ -619,20 +693,26 @@ $buttonOK.Add_Click({
             # Get disk space before cleanup
             $Before = Get-DiskSpaceDetails -session $session -diskName $diskName
 
+            $statusLabel.Text = "Cleaning user cache..."
             # Clear user cache
             $clearUserCache = Clear-UserCache -session $session -Verbose *>&1 | ForEach-Object {
                 "$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss'): $_"
             } | Out-String
                      
+            $statusLabel.Text = "Cleaning system cache..."
             # Clear system cache
             $clearSystemCache = Clear-SystemCache -session $session -Verbose *>&1 | ForEach-Object {
                 "$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss'): $_"
             } | Out-String
 
+            $statusLabel.Text = "Compressing IIS logs..."
             # Compress IIS logs
             $clearIISLogs = Compress-IISLogs -session $session -Verbose *>&1 | ForEach-Object {
                 "$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss'): $_"
             } | Out-String
+
+            $statusLabel.Text = "Running Disk Cleanup Tool..."
+            Invoke-CleanupTool -session $session
 
             # Get disk space after cleanup
             $After = Get-DiskSpaceDetails -session $session -diskName $diskName

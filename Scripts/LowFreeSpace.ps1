@@ -59,6 +59,7 @@ function Test-DiskAvailability {
     }
 }
 
+<#
 # Function to clear user cache
 function Clear-UserCache {
     [CmdletBinding()]
@@ -129,6 +130,7 @@ function Clear-UserCache {
 
 Invoke-Command -Session $session -ScriptBlock $ScriptBlock -ArgumentList (,$ExcludedProfiles)
 }
+#>
 
 # Function to clear system cache
 function Clear-SystemCache {
@@ -693,12 +695,14 @@ $buttonOK.Add_Click({
             # Get disk space before cleanup
             $Before = Get-DiskSpaceDetails -session $session -diskName $diskName
 
+            <#
             $statusLabel.Text = "Cleaning user cache..."
             # Clear user cache
             $clearUserCache = Clear-UserCache -session $session -Verbose *>&1 | ForEach-Object {
                 "$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss'): $_"
             } | Out-String
-                     
+            #>
+            
             $statusLabel.Text = "Cleaning system cache..."
             # Clear system cache
             $clearSystemCache = Clear-SystemCache -session $session -Verbose *>&1 | ForEach-Object {

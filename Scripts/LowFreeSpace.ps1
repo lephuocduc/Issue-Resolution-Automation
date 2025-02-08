@@ -612,20 +612,35 @@ $folderSizes
     }
 }
 
+# Function to update status label text and recenter it
+function Update-StatusLabel {
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$text
+    )
+    
+    $statusLabel.Text = $text
+    $statusLabel_width = $statusLabel.PreferredWidth
+    $label_x = ($main_form.ClientSize.Width - $statusLabel_width) / 2
+    $statusLabel.Location = New-Object System.Drawing.Point($label_x, $statusLabel.Location.Y)
+}
+
 # Create Form
-$form = New-Object System.Windows.Forms.Form
-$form.Text = "Low Free Space"
-$form.Size = New-Object System.Drawing.Size(400, 200)
-$form.StartPosition = "CenterScreen"
-$form.TopMost = $false  # Keep form on top
-$form.KeyPreview = $true  # Important: This allows the form to receive key events before controls
-$form.Add_KeyDown({
+$main_form = New-Object System.Windows.Forms.Form
+$main_form.Text = "Low Free Space"
+$main_form.Size = New-Object System.Drawing.Size(400, 200)
+$main_form.StartPosition = "CenterScreen"
+$main_form.FormBorderStyle = 'FixedSingle'  # Or 'FixedDialog'
+$main_form.MaximizeBox = $false
+$main_form.TopMost = $false  # Keep form on top
+$main_form.KeyPreview = $true  # Important: This allows the form to receive key events before controls
+$main_form.Add_KeyDown({
     param($sender, $e)
     if ($e.KeyCode -eq [System.Windows.Forms.Keys]::Escape) {
-        $buttonExit.PerformClick()
+        $cancelButton.PerformClick()
     }
     if ($e.KeyCode -eq [System.Windows.Forms.Keys]::Enter) {
-        $buttonOK.PerformClick()
+        $okButton.PerformClick()
     }
 })
 
@@ -634,12 +649,14 @@ $labelServerName = New-Object System.Windows.Forms.Label
 $labelServerName.Location = New-Object System.Drawing.Point(20, 30)
 $labelServerName.Size = New-Object System.Drawing.Size(100, 30)
 $labelServerName.Text = "Server Name:"
-$form.Controls.Add($labelServerName)
+$labelServerName.Font = New-Object System.Drawing.Font("Arial", 11)
+$main_form.Controls.Add($labelServerName)
 
 # Disk Name TextBox
 $textBoxServerName = New-Object System.Windows.Forms.TextBox
 $textBoxServerName.Location = New-Object System.Drawing.Point(120, 30)
 $textBoxServerName.Size = New-Object System.Drawing.Size(200, 30)
+$textBoxServerName.Font = New-Object System.Drawing.Font("Arial", 11)
 $textBoxServerName.Add_KeyDown({
     param($sender, $e)
     if ($e.Control -and $e.KeyCode -eq [System.Windows.Forms.Keys]::A) {
@@ -658,45 +675,47 @@ $textBoxServerName.Add_KeyDown({
     }
 })
 
-$form.Controls.Add($textBoxServerName)
+$main_form.Controls.Add($textBoxServerName)
 
 # Disk Name Label
-$labelDisk = New-Object System.Windows.Forms.Label
-$labelDisk.Location = New-Object System.Drawing.Point(20, 60)
-$labelDisk.Size = New-Object System.Drawing.Size(100, 30)
-$labelDisk.Text = "Disk Name:"
-$form.Controls.Add($labelDisk)
+$diskLabel = New-Object System.Windows.Forms.Label
+$diskLabel.Location = New-Object System.Drawing.Point(20, 60)
+$diskLabel.Size = New-Object System.Drawing.Size(100, 30)
+$diskLabel.Text = "Disk Name:"
+$diskLabel.Font = New-Object System.Drawing.Font("Arial", 11)
+$main_form.Controls.Add($diskLabel)
 
 # Disk Name TextBox
-$textBoxDisk = New-Object System.Windows.Forms.TextBox
-$textBoxDisk.Location = New-Object System.Drawing.Point(120, 60)
-$textBoxDisk.Size = New-Object System.Drawing.Size(200, 30)
-$textBoxDisk.Add_KeyDown({
+$diskTextBox = New-Object System.Windows.Forms.TextBox
+$diskTextBox.Location = New-Object System.Drawing.Point(120, 60)
+$diskTextBox.Size = New-Object System.Drawing.Size(200, 30)
+$diskTextBox.Font = New-Object System.Drawing.Font("Arial", 11)
+$diskTextBox.Add_KeyDown({
     param($sender, $e)
     if ($e.Control -and $e.KeyCode -eq [System.Windows.Forms.Keys]::A) {
         # Select all text in the ComboBox
-        $textBoxDisk.SelectAll()
+        $diskTextBox.SelectAll()
         $e.SuppressKeyPress = $true
     }
     elseif ($e.Control -and $e.KeyCode -eq [System.Windows.Forms.Keys]::C) {
         # Copy selected text to clipboard
-        if ($textBoxDisk.SelectedText) {
-            [System.Windows.Forms.Clipboard]::SetText($textBoxDisk.SelectedText)
+        if ($diskTextBox.SelectedText) {
+            [System.Windows.Forms.Clipboard]::SetText($diskTextBox.SelectedText)
         } else {
-            [System.Windows.Forms.Clipboard]::SetText($textBoxDisk.Text)
+            [System.Windows.Forms.Clipboard]::SetText($diskTextBox.Text)
         }
         $e.SuppressKeyPress = $true
     }
 })
-$form.Controls.Add($textBoxDisk)
+$main_form.Controls.Add($diskTextBox)
 
 # OK Button
-$buttonOK = New-Object System.Windows.Forms.Button
-$buttonOK.Location = New-Object System.Drawing.Point(110, 100)
-$buttonOK.Size = New-Object System.Drawing.Size(75, 23)
-$buttonOK.Text = "OK"
-$buttonOK.Add_Click({
-    $diskName = $textBoxDisk.Text.ToUpper()
+$okButton = New-Object System.Windows.Forms.Button
+#$okButton.Location = New-Object System.Drawing.Point(110, 100)
+$okButton.Size = New-Object System.Drawing.Size(80, 30)
+$okButton.Text = "OK"
+$okButton.Add_Click({
+    $diskName = $diskTextBox.Text.ToUpper()
     $serverName = $textBoxServerName.Text
 
 
@@ -748,7 +767,7 @@ $buttonOK.Add_Click({
     try {
         if ($diskName -eq "C") {
             # Show status
-            $statusLabel.Text = "Cleaning C disk. Please wait..."
+            Update-StatusLabel -text "Cleaning C disk. Please wait..."
 
             # Get disk space before cleanup
             $Before = Get-DiskSpaceDetails -session $session -diskName $diskName
@@ -761,13 +780,13 @@ $buttonOK.Add_Click({
             } | Out-String
             #>
 
-            $statusLabel.Text = "Cleaning system cache..."
+            Update-StatusLabel -text "Cleaning system cache..."
             # Clear system cache
             $clearSystemCache = Clear-SystemCache -session $session -Verbose *>&1 | ForEach-Object {
                 "$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss'): $_"
             } | Out-String
 
-            $statusLabel.Text = "Compressing IIS logs..."
+            Update-StatusLabel -text "Compressing IIS logs..."
             # Compress IIS logs
             $clearIISLogs = Compress-IISLogs -session $session -Verbose *>&1 | ForEach-Object {
                 "$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss'): $_"
@@ -787,14 +806,14 @@ $buttonOK.Add_Click({
             $topUsers = $null
             $topRoot = $null
             if ($After.FreePercentage -lt 10) {
-                $statusLabel.Text = "Free space still low. Identifying large folders..."
+                Update-StatusLabel -text "Free space still low. Identifying large folders..."             
                 $topUsers = Get-LargestFolders -session $session -path "C:\Users" -topN 5
                 $excludeRoot = @("Users", "Windows", "Program Files", "Program Files (x86)", "Program Data")
                 $topRoot = Get-LargestFolders -session $session -path "C:\" -exclude $excludeRoot -topN 5
             }
 
             [System.Windows.Forms.MessageBox]::Show(
-                "Cleanup complete. Free space is $($freePercentageAfterCleanup)%. Please check the report for details.", 
+                "Cleanup complete. Free space is $($freePercentageAfterCleanup)%.`nPlease check report for details.", 
                 "Information", 
                 [System.Windows.Forms.MessageBoxButtons]::OK, 
                 [System.Windows.Forms.MessageBoxIcon]::Information
@@ -808,7 +827,7 @@ $buttonOK.Add_Click({
         }
         else {
             # Show status
-            $statusLabel.Text = "Getting disk information. Please wait..."
+            Update-StatusLabel -text "Getting disk information. Please wait..."
 
             # Get disk space details
             $diskInfo = Get-DiskSpaceDetails -session $session -diskName $diskName
@@ -822,30 +841,48 @@ $buttonOK.Add_Click({
         }
         # Close session
         Remove-PSSession -Session $session
-        $form.Close()        
+        $main_form.Close()        
     } catch {
         [System.Windows.Forms.MessageBox]::Show($_.Exception.Message, "Error")
     }
 })
-$form.Controls.Add($buttonOK)
 
 # Exit Button
-$buttonExit = New-Object System.Windows.Forms.Button
-$buttonExit.Location = New-Object System.Drawing.Point(210, 100)
-$buttonExit.Size = New-Object System.Drawing.Size(75, 23)
-$buttonExit.Text = "Cancel"
-$buttonExit.BackColor = [System.Drawing.Color]::LightCoral
-$buttonExit.Add_Click({
-    $form.Close()
+$cancelButton = New-Object System.Windows.Forms.Button
+#$cancelButton.Location = New-Object System.Drawing.Point(210, 100)
+$cancelButton.Size = New-Object System.Drawing.Size(80, 30)
+$cancelButton.Text = "Cancel"
+$cancelButton.BackColor = [System.Drawing.Color]::LightCoral
+$cancelButton.Add_Click({
+    $main_form.Close()
 }
 )
-$form.Controls.Add($buttonExit)
+
+# Calculate horizontal positions for centered alignment
+$buttonWidth = $okButton.Size.Width
+$spaceBetween = 25
+$totalWidth = ($buttonWidth * 2) + $spaceBetween
+$startX = ($main_form.ClientSize.Width - $totalWidth) / 2
+
+# Position buttons
+$okButton.Location = New-Object System.Drawing.Point($startX, 100)
+$cancelButton.Location = New-Object System.Drawing.Point(($startX + $buttonWidth + $spaceBetween), 100)
+
+
+$main_form.Controls.Add($okButton)
+$main_form.Controls.Add($cancelButton)
 
 # Status Label
 $statusLabel = New-Object System.Windows.Forms.Label
-$statusLabel.Location = New-Object System.Drawing.Point(120, 135)
-$statusLabel.Size = New-Object System.Drawing.Size(300, 100)
-$form.Controls.Add($statusLabel)
+#$statusLabel.Location = New-Object System.Drawing.Point(120, 135)
+#$statusLabel.Size = New-Object System.Drawing.Size(300, 100)
+$statusLabel.AutoSize = $true  # Important:  Let the label size itself to the text
+$statusLabel_width = $statusLabel.PreferredWidth # get the actual width of the label based on the text
+$label_x = ($main_form.ClientSize.Width - $statusLabel_width) / 2  # Center horizontally
+$label_y = 135  # Top padding
+$statusLabel.Location = New-Object System.Drawing.Point($label_x, $label_y)
+$main_form.Controls.Add($statusLabel)
 
-    # Show form
-    $form.ShowDialog()
+
+# Show form
+$main_form.ShowDialog()

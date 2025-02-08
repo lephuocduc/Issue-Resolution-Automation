@@ -393,6 +393,46 @@ function Get-DiskSpaceDetails {
     return $diskDetails
 }
 
+# Function to get the largest folders in a after cleanup
+function Get-LargestFolders {
+    param(
+        [Parameter(Mandatory=$true)]
+        [System.Management.Automation.Runspaces.PSSession]$session,
+        [Parameter(Mandatory=$true)]
+        [string]$path,
+        [string[]]$exclude = @(),
+        [int]$topN = 5
+    )
+
+    $scriptBlock = {
+        param($path, $exclude, $topN)
+        try {
+            $folders = Get-ChildItem -Path $path -Directory -ErrorAction SilentlyContinue | 
+                       Where-Object { $_.Name -notin $exclude }
+            $sizes = foreach ($folder in $folders) {
+                try {
+                    $size = (Get-ChildItem -Path $folder.FullName -Recurse -File -ErrorAction SilentlyContinue | 
+                            Measure-Object -Property Length -Sum -ErrorAction SilentlyContinue).Sum
+                    [PSCustomObject]@{
+                        Folder = $folder.FullName
+                        SizeGB = [math]::Round($size / 1GB, 2)
+                    }
+                } catch {
+                    Write-Warning "Error processing folder $($folder.FullName): $_"
+                    continue
+                }
+            }
+            $sizes | Sort-Object SizeGB -Descending | Select-Object -First $topN
+        } catch {
+            Write-Warning "Error in Get-LargestFolders script block: $_"
+            return @()
+        }
+    }
+
+    $result = Invoke-Command -Session $session -ScriptBlock $scriptBlock -ArgumentList $path, $exclude, $topN
+    return $result
+}
+
 # Function to export cleanup report
 function Export-CDisk-Cleanup-Report {
     param (
@@ -404,7 +444,9 @@ function Export-CDisk-Cleanup-Report {
         [PSObject]$After,
         [string]$userCacheLog,
         [string]$systemCacheLog,
-        [string]$iisLogCleanupLog
+        [string]$iisLogCleanupLog,
+        [array]$topUsers,
+        [array]$topRoot
     )
     
     if (-not (Test-Path "C:\temp")) { 
@@ -419,21 +461,35 @@ function Export-CDisk-Cleanup-Report {
     $Report = @"
 -------------------------------------------------------------------------
 Server name: $serverName | Date: $(Get-Date -Format "dd/MM/yyyy HH:mm:ss")
--------------------------------------------------------------------------
+
 Disk usage before cleanup:
 Drive C: | Used GB: $($Before.UsedSpace) | Free GB: $($Before.FreeSpace) | Total GB: $($Before.TotalSize) | Free Percentage: $($Before.FreePercentage)%
--------------------------------------------------------------------------
+
 Disk usage after cleanup:
 Drive C: | Used GB: $($After.UsedSpace) | Free GB: $($After.FreeSpace) | Total GB: $($After.TotalSize) | Free Percentage: $($After.FreePercentage)%
--------------------------------------------------------------------------
+
 Space saved: $SpaceSaved GB
+
 #######################################################################
 $userCacheLog
 #######################################################################
 $systemCacheLog
 #######################################################################
 $iisLogCleanupLog
+
 "@
+
+    # Append top folders if available
+    if ($topUsers -and $topUsers.Count -gt 0) {
+        $Report +="#######################################################################"
+        $Report += "`nTop 5 largest folders in C:\Users:`n"
+        $Report += ($topUsers | ForEach-Object { " - $($_.Folder): $($_.SizeGB)GB" }) -join "`n"
+    }
+
+    if ($topRoot -and $topRoot.Count -gt 0) {
+        $Report += "`n`nTop 5 largest folders in C:\ (excluding system folders):`n"
+        $Report += ($topRoot | ForEach-Object { " - $($_.Folder): $($_.SizeGB)GB" }) -join "`n"
+    }
 
     $Report | Out-File -FilePath $LogFilePath -Force
 
@@ -447,11 +503,11 @@ $iisLogCleanupLog
     }
     else {
         [System.Windows.Forms.MessageBox]::Show(
-                "Error when exporting.", 
-                "Error", 
-                [System.Windows.Forms.MessageBoxButtons]::OK, 
-                [System.Windows.Forms.MessageBoxIcon]::Error
-            )
+            "Error when exporting.", 
+            "Error", 
+            [System.Windows.Forms.MessageBoxButtons]::OK, 
+            [System.Windows.Forms.MessageBoxIcon]::Error
+        )
     }
 }
 
@@ -704,7 +760,7 @@ $buttonOK.Add_Click({
                 "$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss'): $_"
             } | Out-String
             #>
-            
+
             $statusLabel.Text = "Cleaning system cache..."
             # Clear system cache
             $clearSystemCache = Clear-SystemCache -session $session -Verbose *>&1 | ForEach-Object {
@@ -727,6 +783,16 @@ $buttonOK.Add_Click({
             
             $freePercentageAfterCleanup = $After.FreePercentage
 
+            # Check if free space is still below 10%
+            $topUsers = $null
+            $topRoot = $null
+            if ($After.FreePercentage -lt 10) {
+                $statusLabel.Text = "Free space still low. Identifying large folders..."
+                $topUsers = Get-LargestFolders -session $session -path "C:\Users" -topN 5
+                $excludeRoot = @("Users", "Windows", "Program Files", "Program Files (x86)", "Program Data")
+                $topRoot = Get-LargestFolders -session $session -path "C:\" -exclude $excludeRoot -topN 5
+            }
+
             [System.Windows.Forms.MessageBox]::Show(
                 "Cleanup complete. Free space is $($freePercentageAfterCleanup)%. Please check the report for details.", 
                 "Information", 
@@ -735,7 +801,10 @@ $buttonOK.Add_Click({
             )
 
             # Export cleanup report
-            Export-CDisk-Cleanup-Report -serverName $serverName -Before $Before -After $After -userCacheLog $clearUserCache -systemCacheLog $clearSystemCache -iisLogCleanupLog $clearIISLogs       
+            #Export-CDisk-Cleanup-Report -serverName $serverName -Before $Before -After $After -userCacheLog $clearUserCache -systemCacheLog $clearSystemCache -iisLogCleanupLog $clearIISLogs       
+            Export-CDisk-Cleanup-Report -serverName $serverName -Before $Before -After $After `
+                -userCacheLog $clearUserCache -systemCacheLog $clearSystemCache -iisLogCleanupLog $clearIISLogs `
+                -topUsers $topUsers -topRoot $topRoot
         }
         else {
             # Show status

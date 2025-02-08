@@ -286,6 +286,7 @@ function Compress-IISLogs {
     Invoke-Command -Session $session -ScriptBlock $ScriptBlock -ArgumentList $IISLogPath, $ArchivePath
 }
 
+<#
 function Invoke-CleanupTool {
     param (
         [Parameter(Mandatory=$true)]
@@ -337,7 +338,7 @@ function Invoke-CleanupTool {
         Write-Output "Starting disk cleanup on $env:COMPUTERNAME..."
         
         # Start the cleanup process
-        $process = Start-Process cleanmgr -ArgumentList "/sagerun:1" -PassThru -NoNewWindow
+        $process = cleanmgr /sagerun:1
         
         # Wait for process to complete (30 minutes = 1800 seconds)
         try {
@@ -353,12 +354,13 @@ function Invoke-CleanupTool {
             if ($process -and -not $process.HasExited) {
                 Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
             }
-        }
+        
     }
 
     # Execute with extended session timeout
     Invoke-Command -Session $session -ScriptBlock $ScriptBlock -ThrottleLimit 1
 }
+#>
 
 # Function to get disk space on a remote PC
 function Get-DiskSpaceDetails {
@@ -378,13 +380,13 @@ function Get-DiskSpaceDetails {
 
         $freeSpace = [math]::Round($drive.Free / 1GB, 2)
         $totalSize = [math]::Round(($drive.Free + $drive.Used) / 1GB, 2)
-        $usedPercentage = [math]::Round(($drive.Used / ($drive.Free + $drive.Used)) * 100, 2)
+        $freePercentage = [math]::Round(($drive.Free / ($drive.Free + $drive.Used)) * 100, 2)
 
         return [PSCustomObject]@{
             UsedSpace = [math]::Round(($drive.Used / 1GB), 2)
             FreeSpace = $freeSpace
             TotalSize = $totalSize
-            UsedPercentage = $usedPercentage
+            FreePercentage = $freePercentage
         }
     } -ArgumentList $diskName
 
@@ -419,10 +421,10 @@ function Export-CDisk-Cleanup-Report {
 Server name: $serverName | Date: $(Get-Date -Format "dd/MM/yyyy HH:mm:ss")
 -------------------------------------------------------------------------
 Disk usage before cleanup:
-Drive C: | Used GB: $($Before.UsedSpace) | Free GB: $($Before.FreeSpace) | Total GB: $($Before.TotalSize) | Used Percentage: $($Before.UsedPercentage)%
+Drive C: | Used GB: $($Before.UsedSpace) | Free GB: $($Before.FreeSpace) | Total GB: $($Before.TotalSize) | Free Percentage: $($Before.FreePercentage)%
 -------------------------------------------------------------------------
 Disk usage after cleanup:
-Drive C: | Used GB: $($After.UsedSpace) | Free GB: $($After.FreeSpace) | Total GB: $($After.TotalSize) | Used Percentage: $($After.UsedPercentage)%
+Drive C: | Used GB: $($After.UsedSpace) | Free GB: $($After.FreeSpace) | Total GB: $($After.TotalSize) | Free Percentage: $($After.FreePercentage)%
 -------------------------------------------------------------------------
 Space saved: $SpaceSaved GB
 #######################################################################
@@ -528,7 +530,7 @@ function Export-DataDiskReport {
 Server name: $serverName | Date: $(Get-Date -Format "dd/MM/yyyy HH:mm:ss")
 -------------------------------------------------------------------------
 Disk usage
-Drive '$diskName': | Used GB: $($diskInfo.UsedSpace) | Free GB: $($diskInfo.FreeSpace) | Total GB: $($diskInfo.TotalSize) | Used Percentage: $($diskInfo.UsedPercentage)%
+Drive '$diskName': | Used GB: $($diskInfo.UsedSpace) | Free GB: $($diskInfo.FreeSpace) | Total GB: $($diskInfo.TotalSize) | Free Percentage: $($diskInfo.FreePercentage)%
 -------------------------------------------------------------------------
 $folderSizes
 "@
@@ -715,12 +717,23 @@ $buttonOK.Add_Click({
                 "$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss'): $_"
             } | Out-String
 
+            <#
             $statusLabel.Text = "Running Disk Cleanup Tool..."
             Invoke-CleanupTool -session $session
+            #>
 
             # Get disk space after cleanup
             $After = Get-DiskSpaceDetails -session $session -diskName $diskName
             
+            $freePercentageAfterCleanup = $After.FreePercentage
+
+            [System.Windows.Forms.MessageBox]::Show(
+                "Cleanup complete. Free space is $($freePercentageAfterCleanup)%. Please check the report for details.", 
+                "Information", 
+                [System.Windows.Forms.MessageBoxButtons]::OK, 
+                [System.Windows.Forms.MessageBoxIcon]::Information
+            )
+
             # Export cleanup report
             Export-CDisk-Cleanup-Report -serverName $serverName -Before $Before -After $After -userCacheLog $clearUserCache -systemCacheLog $clearSystemCache -iisLogCleanupLog $clearIISLogs       
         }

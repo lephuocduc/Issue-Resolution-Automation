@@ -1,6 +1,6 @@
 @{
     Root = 'ScriptManager2.ps1'
-    OutputPath = ''
+    OutputPath = 'output'
     Package = @{
         Enabled = $true
         Obfuscate = $false
@@ -20,5 +20,5 @@
         Modules = $true
         # IgnoredModules = @()
     }
+    PreBuild = 'build.ps1'
 }
-        

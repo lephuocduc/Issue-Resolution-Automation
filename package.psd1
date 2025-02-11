@@ -1,5 +1,5 @@
 @{
-    Root = 'ScriptManager.ps1'
+    Root = 'ScriptManager2.ps1'
     OutputPath = ''
     Package = @{
         Enabled = $true

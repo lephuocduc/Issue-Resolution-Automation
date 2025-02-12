@@ -49,7 +49,7 @@ $main_form.Controls.Add($label)
 $comboBox = New-Object System.Windows.Forms.ComboBox
 #$comboBox.Location = New-Object System.Drawing.Point(110, 50)  # Centered horizontally - REMOVE THIS LINE
 $comboBox.Size = New-Object System.Drawing.Size (200, 25) # set the size of combobox
-$comboBox.Items.AddRange(@('LowFreeSpace','test1','test2','test3','test4','test5'))  # Add items to the dropdown
+$comboBox.Items.AddRange(@('LowFreeSpace'))  # Add items to the dropdown
 $comboBox.DropDownStyle = 'DropDown' # Allow text editing in the ComboBox
 # Calculate the horizontal center for the ComboBox
 $combobox_width = $comboBox.Size.Width
@@ -108,21 +108,6 @@ $okButton.Add_Click({
         "LowFreeSpace" {
             . (Join-Path $PSScriptRoot 'Scripts\LowFreeSpace.ps1')
         }
-        "test1" {
-            . (Join-Path $PSScriptRoot 'Scripts\test1.ps1')
-        }
-        "test2" {
-            . (Join-Path $PSScriptRoot 'Scripts\test2.ps1')
-        }
-        "test3" {
-            . (Join-Path $PSScriptRoot 'Scripts\test3.ps1')
-        }
-        "test4" {
-            . (Join-Path $PSScriptRoot 'Scripts\test4.ps1')
-        }
-        "test5" {
-            . (Join-Path $PSScriptRoot 'Scripts\test5.ps1')
-        }
         default {
             [System.Windows.Forms.MessageBox]::Show(
                 "No script is associated with the selection '$selectedValue'.",
@@ -159,6 +144,7 @@ $main_form.Controls.Add($cancelButton)
 
 # Show the form as a dialog
 $main_form.ShowDialog()
+
 
 
 

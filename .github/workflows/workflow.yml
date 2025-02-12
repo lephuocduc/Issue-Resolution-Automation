@@ -46,16 +46,16 @@ jobs:
           }
           Import-Module PowerShellProTools
 
-      - name: Build Executable
-        shell: pwsh
-        run: |
-          Move-Item -Path "icon.ico" -Destination "C:\\icon.ico"
-          Merge-Script -ConfigFile 'package.psd1' -Verbose
-
       - name: Start Script Watcher
         shell: pwsh
         run: |
           Start-Job -FilePath .\Watch-ScriptsFolder.ps1    
+
+      - name: Build Executable
+        shell: pwsh
+        run: |
+          Move-Item -Path "icon.ico" -Destination "C:\\icon.ico"
+          Merge-Script -ConfigFile 'package.psd1' -Verbose   
 
       - name: Commit and Push Executable
         shell: pwsh
@@ -64,6 +64,7 @@ jobs:
               git config --global user.name "GitHub Action"
               git config --global user.email "action@github.com"
               git add ScriptManager2.exe
+              git add ScriptManager2.ps1
               git commit -m "Add ScriptManager2.exe"
               git push || Write-Host "Failed to push changes"
           } else {

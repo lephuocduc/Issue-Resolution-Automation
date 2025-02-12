@@ -20,7 +20,4 @@
         Modules = $true
         # IgnoredModules = @()
     }
-    FilesToInclude = @(
-    'Scripts'
-    )
 }

@@ -30,7 +30,13 @@
 . "$PSScriptRoot/../modules/module.ps1"
 
 # Load Windows Forms Assembly
-Add-Type -AssemblyName System.Windows.Forms
+try {
+    Add-Type -AssemblyName System.Windows.Forms
+    Add-Type -AssemblyName System.Drawing
+} catch {
+    Write-Error "Failed to load Windows Forms assemblies: $_"
+    exit 1
+}
 
 # Function to check if disk exists on the server
 function Test-DiskAvailability {
@@ -536,7 +542,7 @@ function Get-SecondLevelFolderSizes {
                     $size = $item.Length
                 }
                 $folderDetails += [PSCustomObject]@{
-                    Name = "++ $($item.Name)"
+                    Name = "+ $($item.Name)"
                     Size = [math]::Round($size / 1MB, 2)
                 }
             }
@@ -551,7 +557,7 @@ function Get-SecondLevelFolderSizes {
     
     $output = "Folder structure for ${diskName}:`n"
     foreach ($folder in $folderStructure) {
-        $output += "- $($folder.FolderName)`n"
+        $output += "`n- $($folder.FolderName)`n"
         foreach ($item in $folder.Items) {
             $output += "  $($item.Name): $($item.Size)MB`n"
         }
@@ -583,18 +589,20 @@ function Export-DataDiskReport {
 
     # Build report content
     $reportContent = @"
+-------------------------------------------------------------------------
 Server name: $serverName | Date: $(Get-Date -Format "dd/MM/yyyy HH:mm:ss")
--------------------------------------------------------------------------
+
 Disk usage
-Drive '$diskName': | Used GB: $($diskInfo.UsedSpace) | Free GB: $($diskInfo.FreeSpace) | Total GB: $($diskInfo.TotalSize) | Free Percentage: $($diskInfo.FreePercentage)%
--------------------------------------------------------------------------
+Drive $($diskName): | Used GB: $($diskInfo.UsedSpace) | Free GB: $($diskInfo.FreeSpace) | Total GB: $($diskInfo.TotalSize) | Free Percentage: $($diskInfo.FreePercentage)%
+
+#######################################################################
 $folderSizes
 "@
 
     # Write report to file
     $reportContent | Out-File -FilePath $reportPath -Force
 
-    if (Test-Path -Path $LogFilePath) {
+    if (Test-Path -Path $reportPath) {
         [System.Windows.Forms.MessageBox]::Show(
             "The report has been exported to $reportPath.", 
             "Information", 
@@ -650,7 +658,6 @@ $labelServerName.Location = New-Object System.Drawing.Point(20, 30)
 $labelServerName.Size = New-Object System.Drawing.Size(100, 30)
 $labelServerName.Text = "Server Name:"
 $labelServerName.Font = New-Object System.Drawing.Font("Arial", 11)
-$main_form.Controls.Add($labelServerName)
 
 # Disk Name TextBox
 $textBoxServerName = New-Object System.Windows.Forms.TextBox
@@ -675,15 +682,12 @@ $textBoxServerName.Add_KeyDown({
     }
 })
 
-$main_form.Controls.Add($textBoxServerName)
-
 # Disk Name Label
 $diskLabel = New-Object System.Windows.Forms.Label
 $diskLabel.Location = New-Object System.Drawing.Point(20, 60)
 $diskLabel.Size = New-Object System.Drawing.Size(100, 30)
 $diskLabel.Text = "Disk Name:"
 $diskLabel.Font = New-Object System.Drawing.Font("Arial", 11)
-$main_form.Controls.Add($diskLabel)
 
 # Disk Name TextBox
 $diskTextBox = New-Object System.Windows.Forms.TextBox
@@ -707,7 +711,6 @@ $diskTextBox.Add_KeyDown({
         $e.SuppressKeyPress = $true
     }
 })
-$main_form.Controls.Add($diskTextBox)
 
 # OK Button
 $okButton = New-Object System.Windows.Forms.Button
@@ -717,8 +720,6 @@ $okButton.Text = "OK"
 $okButton.Add_Click({
     $diskName = $diskTextBox.Text.ToUpper()
     $serverName = $textBoxServerName.Text
-
-
     
     # Validate disk name
     if ([string]::IsNullOrEmpty($diskName) -or [string]::IsNullOrEmpty($serverName))  {
@@ -760,7 +761,7 @@ $okButton.Add_Click({
                 "Error", 
                 [System.Windows.Forms.MessageBoxButtons]::OK, 
                 [System.Windows.Forms.MessageBoxIcon]::Error
-            )
+        )
         return
     }
 
@@ -834,6 +835,15 @@ $okButton.Add_Click({
 
             # Get folder sizes
             $folderSizes = Get-SecondLevelFolderSizes -session $session -diskName $diskName
+
+            $freePercentageDataDisk = $diskInfo.FreePercentage
+
+            [System.Windows.Forms.MessageBox]::Show(
+                "Drive $($diskName). Free space is $($freePercentageDataDisk)%.`nPlease check report for details.", 
+                "Information", 
+                [System.Windows.Forms.MessageBoxButtons]::OK, 
+                [System.Windows.Forms.MessageBoxIcon]::Information
+            )
                             
             # Export report
             Export-DataDiskReport -serverName $serverName -diskName $diskName -diskInfo $diskInfo -folderSizes $folderSizes
@@ -868,14 +878,8 @@ $startX = ($main_form.ClientSize.Width - $totalWidth) / 2
 $okButton.Location = New-Object System.Drawing.Point($startX, 100)
 $cancelButton.Location = New-Object System.Drawing.Point(($startX + $buttonWidth + $spaceBetween), 100)
 
-
-$main_form.Controls.Add($okButton)
-$main_form.Controls.Add($cancelButton)
-
-# Status Label
+# Status label
 $statusLabel = New-Object System.Windows.Forms.Label
-#$statusLabel.Location = New-Object System.Drawing.Point(120, 135)
-#$statusLabel.Size = New-Object System.Drawing.Size(300, 100)
 $statusLabel.AutoSize = $true  # Important:  Let the label size itself to the text
 $statusLabel_width = $statusLabel.PreferredWidth # get the actual width of the label based on the text
 $label_x = ($main_form.ClientSize.Width - $statusLabel_width) / 2  # Center horizontally
@@ -883,6 +887,13 @@ $label_y = 135  # Top padding
 $statusLabel.Location = New-Object System.Drawing.Point($label_x, $label_y)
 $main_form.Controls.Add($statusLabel)
 
+# Add components to form
+$main_form.Controls.Add($labelServerName)
+$main_form.Controls.Add($textBoxServerName)
+$main_form.Controls.Add($diskLabel)
+$main_form.Controls.Add($diskTextBox)
+$main_form.Controls.Add($okButton)
+$main_form.Controls.Add($cancelButton)
 
 # Show form
 $main_form.ShowDialog()

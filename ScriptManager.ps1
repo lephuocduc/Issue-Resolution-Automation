@@ -93,7 +93,7 @@ $okButton.Text = 'OK'
 $okButton.Size = New-Object System.Drawing.Size(80, 30)  # Fixed size for consistency
 
 
-# Add Click event to execute the selected script using a switch statement
+# Add Click event  to execute the selected script using a switch statement
 $okButton.Add_Click({
     $selectedValue = $comboBox.Text
     switch ($selectedValue) {

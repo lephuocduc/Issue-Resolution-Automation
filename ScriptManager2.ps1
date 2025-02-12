@@ -49,7 +49,7 @@ $main_form.Controls.Add($label)
 $comboBox = New-Object System.Windows.Forms.ComboBox
 #$comboBox.Location = New-Object System.Drawing.Point(110, 50)  # Centered horizontally - REMOVE THIS LINE
 $comboBox.Size = New-Object System.Drawing.Size (200, 25) # set the size of combobox
-$comboBox.Items.AddRange(@("Low Free Space", "Option2", "Option3"))  # Add items to the dropdown
+$comboBox.Items.AddRange(@('LowFreeSpace','test1','test2','test3','test4'))  # Add items to the dropdown
 $comboBox.DropDownStyle = 'DropDown' # Allow text editing in the ComboBox
 # Calculate the horizontal center for the ComboBox
 $combobox_width = $comboBox.Size.Width
@@ -96,34 +96,38 @@ $okButton.Size = New-Object System.Drawing.Size(80, 30)  # Fixed size for consis
 # Add Click event  to execute the selected script using a switch statement
 $okButton.Add_Click({
     $selectedValue = $comboBox.Text
-    switch ($selectedValue) {
-        "------------------------------"{
+    switch ($selectedValue) {        "------------------------------" {
             [System.Windows.Forms.MessageBox]::Show(
-                "Please select a script from the dropdown.", 
-                "Information", 
-                [System.Windows.Forms.MessageBoxButtons]::OK, 
+                "Please select a script from the dropdown.",
+                "Information",
+                [System.Windows.Forms.MessageBoxButtons]::OK,
                 [System.Windows.Forms.MessageBoxIcon]::Information
             )
             return
         }
-        "Low Free Space" {
+        "LowFreeSpace" {
             . (Join-Path $PSScriptRoot 'Scripts\LowFreeSpace.ps1')
         }
-        "Option2" {
-            . (Join-Path $PSScriptRoot 'Scripts\Option2.ps1')
+        "test1" {
+            . (Join-Path $PSScriptRoot 'Scripts\test1.ps1')
         }
-        "Option3" {
-            . (Join-Path $PSScriptRoot 'Scripts\Option3.ps1')
+        "test2" {
+            . (Join-Path $PSScriptRoot 'Scripts\test2.ps1')
+        }
+        "test3" {
+            . (Join-Path $PSScriptRoot 'Scripts\test3.ps1')
+        }
+        "test4" {
+            . (Join-Path $PSScriptRoot 'Scripts\test4.ps1')
         }
         default {
             [System.Windows.Forms.MessageBox]::Show(
-                "No script is associated with the selection '$selectedValue'.", 
-                "Error", 
-                [System.Windows.Forms.MessageBoxButtons]::OK, 
+                "No script is associated with the selection '$selectedValue'.",
+                "Error",
+                [System.Windows.Forms.MessageBoxButtons]::OK,
                 [System.Windows.Forms.MessageBoxIcon]::Error
             )
-            return
-        }
+            return}
     }
 })
 
@@ -152,3 +156,27 @@ $main_form.Controls.Add($cancelButton)
 
 # Show the form as a dialog
 $main_form.ShowDialog()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,5 +1,5 @@
 @{
-    Root = 'ScriptManager.ps1'
+    Root = 'ScriptManager2.ps1'
     OutputPath = ''
     Package = @{
         Enabled = $true
@@ -12,12 +12,13 @@
         ProductVersion = ''
         Copyright = 'Duc Le'
         RequireElevation = $true
-        ApplicationIconPath = 'C:\icon.ico'
+        ApplicationIconPath = ''
         PackageType = 'Console'
     }
     Bundle = @{
         Enabled = $true
         Modules = $true
         # IgnoredModules = @()
+        IncludeContent = $true
     }
 }

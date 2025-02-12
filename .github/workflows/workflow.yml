@@ -1,5 +1,5 @@
 name: Package PowerShell App
-#
+
 on:
   push:
     branches:

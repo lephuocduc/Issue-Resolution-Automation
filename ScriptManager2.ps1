@@ -1,11 +1,11 @@
-# Name:   ScriptSelector.ps1
+#NOTES
+# Name:   LowFreeSpace.ps1
 # Author:  Duc Le
-# Version:  1.1
+# Version:  1.0
 # Major Release History:
-# 1.1 - Automatically populates the ComboBox with scripts from the Scripts folder.
 
 #DESCRIPTION
-# This script creates a Windows Forms application with a ComboBox to select and execute different PowerShell scripts.  It dynamically populates the ComboBox with scripts found in the Scripts folder.
+# This script creates a Windows Forms application with a ComboBox to select and execute different PowerShell scripts.
 
 #REQUIREMENT
 # None
@@ -17,7 +17,8 @@
 # Executes the selected PowerShell script.
 
 #EXAMPLE
-# Run the script and select a script from the ComboBox to execute it.
+# Run the script and select "Low Free Space" from the ComboBox to execute the LowFreeSpace.ps1 script.
+
 
 # Load the necessary assembly for Windows Forms
 Add-Type -AssemblyName System.Windows.Forms
@@ -48,7 +49,7 @@ $main_form.Controls.Add($label)
 $comboBox = New-Object System.Windows.Forms.ComboBox
 #$comboBox.Location = New-Object System.Drawing.Point(110, 50)  # Centered horizontally - REMOVE THIS LINE
 $comboBox.Size = New-Object System.Drawing.Size (200, 25) # set the size of combobox
-#$comboBox.Items.AddRange(@("Low Free Space", "Option2", "Option3"))  # Add items to the dropdown - REMOVE THIS LINE
+$comboBox.Items.AddRange(@("Low Free Space", "Option2", "Option3"))  # Add items to the dropdown
 $comboBox.DropDownStyle = 'DropDown' # Allow text editing in the ComboBox
 # Calculate the horizontal center for the ComboBox
 $combobox_width = $comboBox.Size.Width
@@ -62,14 +63,6 @@ $comboBox.Text = "------------------------------"
 # Enable AutoComplete functionality
 $comboBox.AutoCompleteMode = 'SuggestAppend'  # Suggest matching items and append the rest
 $comboBox.AutoCompleteSource = 'ListItems'    # Use items from the ComboBox's list for suggestions
-
-# Dynamically populate the ComboBox with script names from the Scripts folder
-$script_folder = Join-Path $PSScriptRoot 'Scripts'
-$scripts = Get-ChildItem -Path $script_folder -Filter *.ps1 | Select-Object -ExpandProperty Name
-
-# Add the script names to the ComboBox
-$comboBox.Items.AddRange($scripts)
-
 # Add key event handler for Ctrl+A and Ctrl+C
 $comboBox.Add_KeyDown({
     param($sender, $e)
@@ -99,6 +92,41 @@ $okButton.Text = 'OK'
 #$okButton.Location = New-Object System.Drawing.Point(120, 100) # Positioning below the dropdown
 $okButton.Size = New-Object System.Drawing.Size(80, 30)  # Fixed size for consistency
 
+
+# Add Click event  to execute the selected script using a switch statement
+$okButton.Add_Click({
+    $selectedValue = $comboBox.Text
+    switch ($selectedValue) {
+        "------------------------------"{
+            [System.Windows.Forms.MessageBox]::Show(
+                "Please select a script from the dropdown.", 
+                "Information", 
+                [System.Windows.Forms.MessageBoxButtons]::OK, 
+                [System.Windows.Forms.MessageBoxIcon]::Information
+            )
+            return
+        }
+        "Low Free Space" {
+            . (Join-Path $PSScriptRoot 'Scripts\LowFreeSpace.ps1')
+        }
+        "Option2" {
+            . (Join-Path $PSScriptRoot 'Scripts\Option2.ps1')
+        }
+        "Option3" {
+            . (Join-Path $PSScriptRoot 'Scripts\Option3.ps1')
+        }
+        default {
+            [System.Windows.Forms.MessageBox]::Show(
+                "No script is associated with the selection '$selectedValue'.", 
+                "Error", 
+                [System.Windows.Forms.MessageBoxButtons]::OK, 
+                [System.Windows.Forms.MessageBoxIcon]::Error
+            )
+            return
+        }
+    }
+})
+
 # Create Cancel Button
 $cancelButton = New-Object System.Windows.Forms.Button
 $cancelButton.Text = 'Cancel'
@@ -121,52 +149,6 @@ $cancelButton.Location = New-Object System.Drawing.Point(($startX + $buttonWidth
 $main_form.Controls.Add($comboBox)
 $main_form.Controls.Add($okButton)
 $main_form.Controls.Add($cancelButton)
-
-# Add Click event to execute the selected script using a switch statement
-$okButton.Add_Click({
-    $selectedValue = $comboBox.Text
-    switch ($selectedValue) {
-        "------------------------------"{
-            [System.Windows.Forms.MessageBox]::Show(
-                "Please select a script from the dropdown.",
-                "Information",
-                [System.Windows.Forms.MessageBoxButtons]::OK,
-                [System.Windows.Forms.MessageBoxIcon]::Information
-            )
-            return
-        }
-        Default {
-            # Construct the full path to the selected script
-            $scriptPath = Join-Path $PSScriptRoot "Scripts\$selectedValue"
-
-            # Check if the script file exists
-            if (Test-Path -Path $scriptPath -PathType Leaf) {
-                # Execute the selected script
-                try {
-                    . $scriptPath
-                }
-                catch {
-                    [System.Windows.Forms.MessageBox]::Show(
-                        "An error occurred while executing the script: $($_.Exception.Message)",
-                        "Error",
-                        [System.Windows.Forms.MessageBoxButtons]::OK,
-                        [System.Windows.Forms.MessageBoxIcon]::Error
-                    )
-                }
-            }
-            else {
-                # Show an error message if the script file does not exist
-                [System.Windows.Forms.MessageBox]::Show(
-                    "The script file '$selectedValue' was not found.",
-                    "Error",
-                    [System.Windows.Forms.MessageBoxButtons]::OK,
-                    [System.Windows.Forms.MessageBoxIcon]::Error
-                )
-            }
-        }
-    }
-})
-
 
 # Show the form as a dialog
 $main_form.ShowDialog()

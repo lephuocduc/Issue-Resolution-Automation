@@ -52,6 +52,11 @@ jobs:
           Move-Item -Path "icon.ico" -Destination "C:\\icon.ico"
           Merge-Script -ConfigFile 'package.psd1' -Verbose
 
+      - name: Start Script Watcher
+        shell: pwsh
+        run: |
+          Start-Job -FilePath .\Watch-ScriptsFolder.ps1    
+
       - name: Commit and Push Executable
         shell: pwsh
         run: |        

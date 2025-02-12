@@ -1,6 +1,6 @@
 # Load the necessary assembly for Windows Forms
 Add-Type -AssemblyName System.Windows.Forms
-
+. (Join-Path $PSScriptRoot 'Scripts\LowFreeSpace.ps1')
 # Create the main form
 $main_form = New-Object System.Windows.Forms.Form
 $main_form.Text = 'Script Manager'

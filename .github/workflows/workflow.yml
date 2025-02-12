@@ -55,7 +55,6 @@ jobs:
       - name: Build Executable
         shell: pwsh
         run: |
-          Move-Item -Path "icon.ico" -Destination "C:\\icon.ico"
           Merge-Script -ConfigFile 'package.psd1' -Verbose   
 
       - name: Commit and Push Executable

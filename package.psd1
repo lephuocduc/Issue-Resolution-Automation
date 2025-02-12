@@ -5,14 +5,14 @@
         Enabled = $true
         Obfuscate = $false
         HideConsoleWindow = $true
-        DotNetVersion = ''
+        DotNetVersion = 'v4.6.2'
         FileVersion = '1.0.0'
         FileDescription = ''
         ProductName = 'ScriptManager'
         ProductVersion = ''
         Copyright = 'Duc Le'
         RequireElevation = $true
-        ApplicationIconPath = ''
+        ApplicationIconPath = 'C:\icon.ico'
         PackageType = 'Console'
     }
     Bundle = @{

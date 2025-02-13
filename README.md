@@ -65,21 +65,21 @@ The primary objective is to streamline the resolution of ServiceNow tickets by:
     * Windows PowerShell 5.1+
     * .NET Framework 4.6.2
     * Administrative access to target servers
-Setup:
+2. Setup:
+    * Download latest ScriptManager.exe release
+    * Place in desired location
+    * No installation required
 
-Download latest ScriptManager.exe release
-Place in desired location
-No installation required
-Usage
-Launch ScriptManager.exe
-Select script from dropdown menu
-Enter required parameters
-Click OK to execute
-Review generated reports in C:\temp
+### Usage
+1. Launch ScriptManager.exe
+2. Select script from dropdown menu
+3. Enter required parameters
+4. Click OK to execute
+5. Review generated reports in C:\temp
+
 The application provides:
-
-Simple GUI interface
-Clear error messages
-Detailed execution logs
-Status updates during long operations
-For script-specific instructions, refer to the comments in each script file under the Scripts directory.
+* Simple GUI interface
+* Clear error messages
+* Detailed execution logs
+* Status updates during long operations
+* For script-specific instructions, refer to the comments in each script file under the Scripts directory.

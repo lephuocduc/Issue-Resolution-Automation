@@ -1,6 +1,6 @@
 @{
     Root = 'ScriptManager.ps1'
-    OutputPath = 'ScriptManager.exe'
+    OutputPath = ''
     Package = @{
         Enabled = $true
         Obfuscate = $false
@@ -12,7 +12,7 @@
         ProductVersion = ''
         Copyright = 'Duc Le'
         RequireElevation = $true
-        ApplicationIconPath = 'C:\icon.ico'
+        ApplicationIconPath = 'icon.ico'
         PackageType = 'Console'
     }
     Bundle = @{

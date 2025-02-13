@@ -49,10 +49,10 @@ jobs:
           }
           Import-Module PowerShellProTools
 
-      - name: Start Script Watcher
-        shell: pwsh
-        run: |
-          .\Watch-ScriptsFolder.ps1
+#      - name: Start Script Watcher
+#        shell: pwsh
+#        run: |
+#          .\Watch-ScriptsFolder.ps1
           
       - name: Build Executable
         shell: pwsh

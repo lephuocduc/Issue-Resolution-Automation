@@ -78,8 +78,8 @@ The primary objective is to streamline the resolution of ServiceNow tickets by:
 5. Review generated reports in C:\temp
 
 The application provides:
-* Simple GUI interface
-* Clear error messages
-* Detailed execution logs
-* Status updates during long operations
-* For script-specific instructions, refer to the comments in each script file under the Scripts directory.
+    * Simple GUI interface
+    * Clear error messages
+    * Detailed execution logs
+    * Status updates during long operations
+    * For script-specific instructions, refer to the comments in each script file under the Scripts directory.

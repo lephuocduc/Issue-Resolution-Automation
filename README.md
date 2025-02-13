@@ -42,7 +42,7 @@ The primary objective is to streamline the resolution of ServiceNow tickets by:
 ### CI/CD Pipeline
 * Automated testing via GitHub Actions
 * Unit tests must pass before build
-* Configured in workflow.yml
+* Configured in [`.github/workflows/workflow.yml`](.github/workflows/workflow.yml)
 
 ## From Developer
 ### Script Integration

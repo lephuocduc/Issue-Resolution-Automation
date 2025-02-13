@@ -47,23 +47,16 @@ jobs:
               Install-Module -Name PowerShellProTools -Force
           }
           Import-Module PowerShellProTools
-      
-      # Add step to verify icon exists
-      - name: Verify Icon File
-        shell: pwsh
-        run: |
-          if (-not (Test-Path 'icon.ico')) {
-              throw "icon.ico not found in root directory"
-          }
 
       - name: Start Script Watcher
         shell: pwsh
         run: |
           .\Watch-ScriptsFolder.ps1
-
+          
       - name: Build Executable
         shell: pwsh
         run: |
+          Copy-Item -Path "icon.ico" -Destination "C:\\icon.ico"
           Merge-Script -ConfigFile 'package.psd1' -Verbose   
 
       - name: Commit and Push Executable

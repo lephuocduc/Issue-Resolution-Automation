@@ -28,7 +28,7 @@ AutomationProject/ ├── ScriptManager.ps1 # Main script with GUI ├── 
 
 # Direct script execution
 .\Scripts\LowFreeSpace.ps1
-
+```
 ###########
 
 ###Automation For Issue Resolutions Project Documentation

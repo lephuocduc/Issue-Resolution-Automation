@@ -55,9 +55,9 @@ The primary objective is to streamline the resolution of ServiceNow tickets by:
 1. Update version in package.psd1
 2. Push changes to trigger GitHub Actions
 3. Pipeline will:
-* Run tests
-* Build executable
-* Publish new release
+    * Run tests
+    * Build executable
+    * Publish new release
 
 ## From User
 ### Installation Guide

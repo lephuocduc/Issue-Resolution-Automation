@@ -1,6 +1,6 @@
 @{
-    Root = 'ScriptManager2.ps1'
-    OutputPath = ''
+    Root = 'setup.ps1'
+    OutputPath = 'ScriptManager.exe'
     Package = @{
         Enabled = $true
         Obfuscate = $false

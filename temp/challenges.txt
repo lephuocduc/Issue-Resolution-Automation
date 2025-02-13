@@ -1,3 +1,0 @@
-1. Cleanup tool
-- Run the following command to create a settings profile (you can choose any number, here we use 11): cleanmgr /sageset:11
-- Run the following command to use cleanup tool with pre-configuration settings: cleanmgr /sagerun:11

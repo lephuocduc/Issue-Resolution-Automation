@@ -6,12 +6,13 @@ on:
       - master
     paths:
       - 'Scripts/*'
-      - 'ScriptManager2.ps1'
+      - 'ScriptManager.ps1'
       - 'modules/*'
       - 'UnitTests/*'
       - .github/workflows/workflow.yml
       - 'package.psd1'
       - 'icon.ico'
+      - 'setup.ps1'
 
 jobs:
   unittest:
@@ -62,12 +63,12 @@ jobs:
       - name: Commit and Push Executable
         shell: pwsh
         run: |        
-          if (Test-Path 'ScriptManager2.exe') {
+          if (Test-Path 'ScriptManager.exe') {
               git config --global user.name "GitHub Action"
               git config --global user.email "action@github.com"
-              git add ScriptManager2.exe
-              git add ScriptManager2.ps1
-              git commit -m "Add ScriptManager2.exe"
+              git add ScriptManager.exe
+              git add ScriptManager.ps1
+              git commit -m "Add ScriptManager.exe"
               git push || Write-Host "Failed to push changes"
           } else {
               Write-Host "Executable not found"

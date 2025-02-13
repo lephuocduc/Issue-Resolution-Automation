@@ -31,7 +31,8 @@ AutomationProject/ ├── ScriptManager.ps1 # Main script with GUI ├── 
 ```
 ###########
 
-### Automation For Issue Resolutions Project Documentation
+# Automation For Issue Resolutions Project Documentation
+
 ## Introduction
 This project implements an automation tool for IT support engineers to resolve common system issues. It provides a centralized GUI interface for executing maintenance scripts that help diagnose and fix problems on remote servers.
 
@@ -43,8 +44,8 @@ The primary objective is to streamline the resolution of ServiceNow tickets by:
 * Reducing manual effort required by support engineers
 * Generating detailed reports for documentation
 
-##Technical Architecture
-#Core Components
+## Technical Architecture
+### Core Components
 ScriptManager.ps1: Main GUI application built with Windows Forms
 module.ps1: Core utility functions for remote server operations
 Scripts/*.ps1: Individual automation scripts for specific tasks

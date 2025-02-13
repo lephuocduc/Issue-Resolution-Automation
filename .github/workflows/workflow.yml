@@ -12,7 +12,6 @@ on:
       - .github/workflows/workflow.yml
       - 'package.psd1'
       - 'icon.ico'
-      - 'setup.ps1'
 
 jobs:
   unittest:
@@ -49,10 +48,10 @@ jobs:
           }
           Import-Module PowerShellProTools
 
-#      - name: Start Script Watcher
-#        shell: pwsh
-#        run: |
-#          .\Watch-ScriptsFolder.ps1
+      - name: Start Script Watcher
+        shell: pwsh
+        run: |
+          .\modules\Watch-ScriptsFolder.ps1
           
       - name: Build Executable
         shell: pwsh

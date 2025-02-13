@@ -22,13 +22,15 @@
 # Load the necessary assembly for Windows Forms
 Add-Type -AssemblyName System.Windows.Forms
 
+$iconPath = Join-Path $PSScriptRoot "icon.ico"
+
 # Create the main form
 $main_form = New-Object System.Windows.Forms.Form
 $main_form.Text = 'Script Manager'
 $main_form.Size = New-Object System.Drawing.Size(400, 190)
 $main_form.StartPosition = "CenterScreen"
 # Add icon
-$main_form.Icon = New-Object System.Drawing.Icon("icon.ico")
+$main_form.Icon = [System.Drawing.Icon]::ExtractAssociatedIcon($iconPath)
 # Prevent resizing
 $main_form.FormBorderStyle = 'FixedSingle'  # Or 'FixedDialog'
 $main_form.MaximizeBox = $false
@@ -160,43 +162,4 @@ $main_form.Controls.Add($cancelButton)
 
 # Show the form as a dialog
 $main_form.ShowDialog()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 

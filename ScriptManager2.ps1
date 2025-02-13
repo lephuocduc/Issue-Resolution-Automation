@@ -19,7 +19,6 @@
 #EXAMPLE
 # Run the script and select "Low Free Space" from the ComboBox to execute the LowFreeSpace.ps1 script.
 
-
 # Load the necessary assembly for Windows Forms
 Add-Type -AssemblyName System.Windows.Forms
 

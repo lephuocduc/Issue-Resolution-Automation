@@ -9,7 +9,7 @@
         FileVersion = '1.0.0'
         FileDescription = ''
         ProductName = 'ScriptManager'
-        ProductVersion = '.\icon.ico'
+        ProductVersion = 'icon.ico'
         Copyright = 'Duc Le'
         RequireElevation = $true
         ApplicationIconPath = ''

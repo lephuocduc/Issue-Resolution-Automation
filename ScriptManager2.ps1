@@ -29,7 +29,7 @@ $main_form.Text = 'Script Manager'
 $main_form.Size = New-Object System.Drawing.Size(400, 190)
 $main_form.StartPosition = "CenterScreen"
 # Add icon
-$main_form.Icon = New-Object System.Drawing.Icon((Join-Path $PSScriptRoot "tool-box_2276313.ico"))
+$main_form.Icon = New-Object System.Drawing.Icon((Join-Path $PSScriptRoot "icon.ico"))
 # Prevent resizing
 $main_form.FormBorderStyle = 'FixedSingle'  # Or 'FixedDialog'
 $main_form.MaximizeBox = $false

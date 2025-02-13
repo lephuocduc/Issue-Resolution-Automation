@@ -11,6 +11,7 @@ on:
       - 'UnitTests/*'
       - .github/workflows/workflow.yml
       - 'package.psd1'
+      - 'icon.ico'
 
 jobs:
   unittest:
@@ -46,6 +47,14 @@ jobs:
               Install-Module -Name PowerShellProTools -Force
           }
           Import-Module PowerShellProTools
+      
+      # Add step to verify icon exists
+      - name: Verify Icon File
+        shell: pwsh
+        run: |
+          if (-not (Test-Path 'icon.ico')) {
+              throw "icon.ico not found in root directory"
+          }
 
       - name: Start Script Watcher
         shell: pwsh

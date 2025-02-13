@@ -1,6 +1,6 @@
 @{
     Root = 'ScriptManager2.ps1'
-    OutputPath = ''  # Set output path
+    OutputPath = ''
     Package = @{
         Enabled = $true
         Obfuscate = $false
@@ -12,7 +12,7 @@
         ProductVersion = ''
         Copyright = 'Duc Le'
         RequireElevation = $true
-        ApplicationIconPath = '.\bin\icon.ico'  # Update icon path
+        ApplicationIconPath = (Join-Path $PSScriptRoot 'icon.ico')
         PackageType = 'Console'
     }
     Bundle = @{

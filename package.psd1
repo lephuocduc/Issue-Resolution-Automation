@@ -12,7 +12,7 @@
         ProductVersion = ''
         Copyright = 'Duc Le'
         RequireElevation = $true
-        ApplicationIconPath = (Join-Path $PSScriptRoot 'icon.ico')
+        ApplicationIconPath = './icon.ico'
         PackageType = 'Console'
     }
     Bundle = @{

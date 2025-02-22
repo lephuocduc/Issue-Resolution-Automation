@@ -896,4 +896,4 @@ $main_form.Controls.Add($okButton)
 $main_form.Controls.Add($cancelButton)
 
 # Show form
-$main_form.ShowDialog()
+#$main_form.ShowDialog()

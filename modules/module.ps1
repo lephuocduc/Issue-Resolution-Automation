@@ -24,19 +24,24 @@ function Test-ServerAvailability {
     return (Test-Connection -ComputerName $serverName -Count 1 -Quiet)
 }
 
-<#
+
 # Function to attempt to create a session and handle credential failures
 function Get-Session {
     param(
         [Parameter(Mandatory = $true)]
-        [string]$serverName
+        [string]$serverName,
+        [Parameter(Mandatory = $false)]
+        [PSCredential]$Credential = $null
     )
     $retryCount = 0
     $maxRetries = 3
     do {
         $retryCount++
-        $credential = Get-Credential
-        if ($null -eq $credential -or $retryCount -ge $maxRetries) {
+        # Only call Get-Credential if no credential was provided
+        if ($null -eq $Credential) {
+            $Credential = Get-Credential
+        }
+        if ($null -eq $Credential -or $retryCount -ge $maxRetries) {
             return $null
         }
 
@@ -50,8 +55,9 @@ function Get-Session {
             }
         }
     } while ($true)
-}#>
+}
 
+<#
 function Get-Session {
     param (
         [Parameter(Mandatory = $true)]
@@ -96,4 +102,4 @@ function Get-Session {
     }
 
     return $session
-}
+}#>

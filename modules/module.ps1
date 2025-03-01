@@ -38,9 +38,9 @@ function Get-Session {
     do {
         $retryCount++
         # Only call Get-Credential if no credential was provided
-        if ($null -eq $Credential) {
-            $Credential = Get-Credential
-        }
+        #if ($null -eq $Credential) {
+            $Credential = Get-Credential -Message "Enter credentials for $ServerName (Attempt $($retryCount) of $MaxRetries)"
+        #}
         if ($null -eq $Credential -or $retryCount -ge $maxRetries) {
             return $null
         }

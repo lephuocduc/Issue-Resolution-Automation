@@ -173,7 +173,7 @@ Describe "Test Clear-SystemCache" {
         #Test case 6: It should delete old Windows Installer patch cache files older than 5 days
         It "Deletes old Windows Installer patch cache files older than 5 days" {
             Clear-SystemCache -session $mockSession
-            Should -Invoke Remove-Item -Times 1
+            Should -Invoke Remove-Item -Times 1 -ParameterFilter { $Path -eq "C:\Windows\Installer\$PatchCache$\patch.msp" }
         }
     }
    
@@ -264,7 +264,7 @@ Describe "Test Compress-IISLogs" {
             Should -Invoke Remove-Item -Times 2 -Exactly
         }
 
-        #Test case 2: It should delete the original logs after compression
+        #Test case 3: It should delete the original logs after compression
         It "Deletes the original logs after compression" {
             Compress-IISLogs -session $mockSession -IISLogPath $IISLogPath -ArchivePath $ArchivePath
             Should -Invoke Remove-Item -Times 1 -Exactly -ParameterFilter { $Path -eq "$IISLogPath\log1.log" }
@@ -284,7 +284,7 @@ Describe "Test Compress-IISLogs" {
             Mock Invoke-Command { & $ScriptBlock $ArgumentList[0] $ArgumentList[1] }
         }
     
-        #Test case 3: It should not attempt to compress or delete when IIS log path does not exist
+        #Test case 4: It should not attempt to compress or delete when IIS log path does not exist
         It "Writes message and does not attempt to compress or delete" {
             Compress-IISLogs -session $mockSession -IISLogPath $IISLogPath -ArchivePath $ArchivePath
             Should -Invoke Write-Host -Times 1 -Exactly -ParameterFilter { 

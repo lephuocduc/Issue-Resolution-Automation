@@ -1,5 +1,3 @@
-Describe "Basic Test" {
-    It "Should pass" {
-        $true | Should -Be $true
-    }
+if ($null -eq $env:UNIT_TEST) {
+    $main_form.ShowDialog()
 }

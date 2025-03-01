@@ -299,7 +299,7 @@ Describe "Test Compress-IISLogs" {
 
     Context "When IIS log path does not exist" {
         BeforeAll {
-            $IISLogPath = "C:\inetpub\logs\LogFiles"
+            #$IISLogPath = "C:\inetpub\logs\LogFiles"
             Mock Test-Path { return $false } -ParameterFilter { $Path -eq $IISLogPath }
             Mock Get-ChildItem {} 
             Mock Compress-Archive {} 

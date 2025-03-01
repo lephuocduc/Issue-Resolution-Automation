@@ -213,9 +213,10 @@ function Clear-SystemCache {
             
             foreach ($file in $filesToDelete) {
                 Write-Host "Deleting: $($file.FullName)"
+                Remove-Item -Path $file.FullName -Force -Recurse -Verbose -ErrorAction SilentlyContinue
             }
             
-            $filesToDelete | Remove-Item -Force -Recurse -Verbose -ErrorAction SilentlyContinue
+            #$filesToDelete | Remove-Item -Force -Recurse -Verbose -ErrorAction SilentlyContinue
             } else {
             Write-Host "Windows Temp path not found"
             }
@@ -262,20 +263,14 @@ function Compress-IISLogs {
 
                 Write-Host "Found $($OldLogs.Count) old log(s) to process"
 
-                # First display all files to be processed
-                foreach ($Log in $OldLogs) {
-                    Write-Host "Processing: $($Log.FullName)"
-                    Write-Host "  - Will compress to: $ArchivePath\$($Log.Name).zip"
-                    Write-Host "  - Will delete original after compression"
-                }
-
                 # Then process the files
-                foreach ($Log in $OldLogs) {
-                    $ArchiveFileName = "$ArchivePath\$($Log.Name).zip"
-                    Write-Host "Processing $($Log.FullName)"
+                foreach ($Log in $OldLogs) {                    
                     try {
+                        $ArchiveFileName = "$ArchivePath\$($Log.Name).zip"
+                        Write-Host "Compressing log file: $($Log.FullName) to $ArchiveFileName"
                         Compress-Archive -Path $Log.FullName -DestinationPath $ArchiveFileName -Update -ErrorAction SilentlyContinue
                         Write-Host "Compression successful: $ArchiveFileName"
+                        Write-Host "Deleting original log file: $($Log.FullName)"
                         Remove-Item -Path $Log.FullName -Force -Verbose -ErrorAction SilentlyContinue
                     } catch {
                         Write-Host "Error compressing or removing log file: $($Log.FullName). Error: $_"
@@ -896,4 +891,7 @@ $main_form.Controls.Add($okButton)
 $main_form.Controls.Add($cancelButton)
 
 # Show form
-$main_form.ShowDialog()
+#$main_form.ShowDialog()
+if ($null -eq $env:UNIT_TEST) {
+    $main_form.ShowDialog()
+}

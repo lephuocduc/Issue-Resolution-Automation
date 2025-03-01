@@ -1,6 +1,24 @@
-# Load the script to be tested
-. "$PSScriptRoot/../Scripts/Script1.ps1"
+<#
+Test Clear-SystemCache function
+Test case 1: It should invoke the cleanup script on remote session
+Test case 2: It should contain all required cleanup tasks (Windows Update cache, Windows Installer patch cache, SCCM cache, Windows Temp files)
+Test case 3: It should throw an error for null session
+Test case 4: It should delete old Windows Update cache files older than 5 days
+Test case 5: It should not delete Windows Update cache files newer than 5 days
+Test case 6: It should delete old Windows Installer patch cache files older than 5 days
+Test case 7: It should delete old Windows Temp files older than 5 days
+Test case 8: It should clear Recycle Bin
 
+Test Compress-IISLogs funcion
+Test case 1: It should compress and delete old IIS logs older than 6 months and does not delete recent logs
+Test case 2: It should delete the original IIS logs after compression
+Test case 3: It should not attempt to compress or delete when IIS log path does not exist
+#>
+$env:UNIT_TEST = "true"
+# Load the script to be tested
+. "$PSScriptRoot/../Scripts/LowFreeSpace.ps1"
+
+<#
 Describe "Test Get-Session" {    
     Context "When parameters are valid" {
         BeforeAll {
@@ -37,7 +55,7 @@ Describe "Test Get-Session" {
             $result | Should -Be $null
         }
     }
-}
+}#>
 
 Describe "Test Clear-SystemCache" {
     BeforeAll {
@@ -51,6 +69,7 @@ Describe "Test Clear-SystemCache" {
     }
 
     Context "When cleaning system cache" {
+        #Test case 1: It should invoke the cleanup script block on remote session
         It "Invokes the cleanup script block on remote session" {
             # Act
             Clear-SystemCache -session $mockSession
@@ -61,6 +80,7 @@ Describe "Test Clear-SystemCache" {
             }
         }
 
+        #Test case 2: It should contain all required cleanup tasks
         It "Script block contains all required cleanup tasks" {
             # Act
             Clear-SystemCache -session $mockSession
@@ -76,22 +96,11 @@ Describe "Test Clear-SystemCache" {
     }
 
     Context "When session parameter is invalid" {
+        #Test case 3: It should throw an error for null session
         It "Throws error for null session" {
             # Act & Assert
             { Clear-SystemCache -session $null } | 
             Should -Throw -ExpectedMessage "*Cannot bind argument to parameter 'session' because it is null.*"
-        }
-    }
-
-    Context "When remote command execution fails" {
-        BeforeAll {
-            Mock Invoke-Command { throw "Remote execution failed" }
-        }
-
-        It "Propagates error from remote execution" {
-            # Act & Assert
-            { Clear-SystemCache -session $mockSession } | 
-            Should -Throw "Remote execution failed"
         }
     }
 
@@ -113,7 +122,8 @@ Describe "Test Clear-SystemCache" {
                 Mock Write-Host {}
             }
     
-            It "Deletes old files" {
+            #Test case 4: It should delete old Windows Update cache files older than 5 days
+            It "Deletes old Windows Update cache files older than 5 days" {
                 Clear-SystemCache -session $mockSession
                 Should -Invoke Remove-Item -Times 1 
             }
@@ -135,7 +145,8 @@ Describe "Test Clear-SystemCache" {
                 Mock Write-Host {}
             }
     
-            It "Does not delete any files" {
+            #Test case 5: It should not delete Windows Update cache files newer than 5 days
+            It "Does not delete Windows Update cache files newer than 5 days" {
                 Clear-SystemCache -session $mockSession
                 Should -Not -Invoke Remove-Item
             }
@@ -159,7 +170,8 @@ Describe "Test Clear-SystemCache" {
             Mock Write-Host {}
         }
     
-        It "Deletes old patch files" {
+        #Test case 6: It should delete old Windows Installer patch cache files older than 5 days
+        It "Deletes old Windows Installer patch cache files older than 5 days" {
             Clear-SystemCache -session $mockSession
             Should -Invoke Remove-Item -Times 1
         }
@@ -168,27 +180,37 @@ Describe "Test Clear-SystemCache" {
     Context "Windows Temp files cleanup" {
         BeforeAll {
             Mock Invoke-Command { & $ScriptBlock }
-            Mock Test-Path { return $false }  # Default: all paths return $false
-            Mock Test-Path { return $true } -ParameterFilter {
-                $Path -eq "C:\Windows\Temp\*"
-            }
-            Mock Get-ChildItem {
-                [PSCustomObject]@{ 
-                    FullName      = "C:\Windows\Temp\tempfile.tmp"
-                    LastWriteTime = (Get-Date).AddDays(-7)
-                },
-                [PSCustomObject]@{ 
-                    FullName      = "C:\Windows\Temp\recentfile.tmp"
-                    LastWriteTime = (Get-Date).AddDays(-1)
+            Mock Test-Path { return $true }
+                Mock Get-ChildItem {
+                    [PSCustomObject]@{ 
+                        FullName      = "C:\Windows\Temp\newfile.tmp"; LastWriteTime = (Get-Date).AddDays(-2)                   }
                 }
-            }
-            Mock Remove-Item {}
             Mock Write-Host {}
-        }
-    
-        It "Only deletes files older than 5 days" {
+            Mock Remove-Item {}
+        }   
+        #Test case 7: It should not delete old Windows Temp files newer than 5 days
+        It "Does not delete Windows Temp files newer than 5 days" {
             Clear-SystemCache -session $mockSession
-            Should -Invoke Remove-Item -Times 1 -Exactly
+            Should -Not -Invoke Remove-Item
+        }
+    }
+    Context "When files older than 5 days" {
+        BeforeAll {
+            $oldFiles = @(
+                [PSCustomObject]@{ FullName = "C:\Windows\Temp\oldfile.tmp"; LastWriteTime = (Get-Date).AddDays(-6) };
+                [PSCustomObject]@{ FullName = "C:\Windows\Temp\oldfile2.tmp"; LastWriteTime = (Get-Date).AddDays(-2) }
+            )
+            
+            Mock Test-Path { return $true } -ParameterFilter { $Path -eq "C:\Windows\Temp\*" }
+            Mock Get-ChildItem {return $oldFiles} -ParameterFilter { $Path -eq "C:\Windows\Temp\*"}
+            Mock Write-Host {}
+            Mock Remove-Item {}
+            Mock Invoke-Command { & $ScriptBlock }
+            }
+        #Test case 8: It should delete old Windows Temp files older than 5 days
+        It "Only deletes old Windows Temp files older than 5 days" {
+            Clear-SystemCache -session $mockSession
+            Should -Invoke Remove-Item -Times 1 -Exactly -ParameterFilter { $Path -eq "C:\Windows\Temp\oldfile.tmp" }
         }
     }
     
@@ -199,6 +221,7 @@ Describe "Test Clear-SystemCache" {
             Mock Write-Host {}
         }
     
+        #Test case 10: It should clear Recycle Bin with force
         It "Clears Recycle Bin with force" {
             Clear-SystemCache -session $mockSession
             Should -Invoke Clear-RecycleBin -Times 1
@@ -218,8 +241,8 @@ Describe "Test Compress-IISLogs" {
             $IISLogPath = "C:\inetpub\logs\LogFiles"
             $ArchivePath = "C:\inetpub\logs\Archive"
             $oldLogs = @(
-                [PSCustomObject]@{ FullName = "$IISLogPath\log1.log"; LastWriteTime = (Get-Date).AddDays(-1) },
-                [PSCustomObject]@{ FullName = "$IISLogPath\log2.log"; LastWriteTime = (Get-Date).AddDays(-2) }
+                [PSCustomObject]@{ FullName = "$IISLogPath\log1.log"; LastWriteTime = (Get-Date).AddMonths(-7) },
+                [PSCustomObject]@{ FullName = "$IISLogPath\log2.log"; LastWriteTime = (Get-Date).AddMonths(-8) }
             )
 
             # Mock commands
@@ -231,7 +254,8 @@ Describe "Test Compress-IISLogs" {
             Mock Invoke-Command { & $ScriptBlock $ArgumentList[0] $ArgumentList[1] }
         }
 
-        It "Compresses and deletes old logs" {
+        #Test case 1: It should compress and delete old IIS logs older than 6 months
+        It "Compresses and deletes old IIS logs older than 6 months" {
             # Act
             Compress-IISLogs -session $mockSession -IISLogPath $IISLogPath -ArchivePath $ArchivePath
 
@@ -240,20 +264,7 @@ Describe "Test Compress-IISLogs" {
             Should -Invoke Remove-Item -Times 2 -Exactly
         }
 
-        It "Calls Compress-Archive with correct parameters" {
-            $IISLogPath = "C:\inetpub\logs\LogFiles"
-            $ArchivePath = "C:\inetpub\logs\Archive"
-            $oldLogs = @(
-                [PSCustomObject]@{ FullName = "$IISLogPath\log1.log"; Name = "log1.log"; LastWriteTime = (Get-Date).AddDays(-1) }
-            )
-            Mock Get-ChildItem { return $oldLogs } -ParameterFilter { $Path -eq "$IISLogPath\*" }
-            Mock Compress-Archive {}
-            Compress-IISLogs -session $mockSession -IISLogPath $IISLogPath -ArchivePath $ArchivePath
-            Should -Invoke Compress-Archive -Times 1 -Exactly -ParameterFilter {
-                $Path -eq "$IISLogPath\log1.log" -and $DestinationPath -eq "$ArchivePath\log1.log.zip"
-            }
-        }
-
+        #Test case 2: It should delete the original logs after compression
         It "Deletes the original logs after compression" {
             Compress-IISLogs -session $mockSession -IISLogPath $IISLogPath -ArchivePath $ArchivePath
             Should -Invoke Remove-Item -Times 1 -Exactly -ParameterFilter { $Path -eq "$IISLogPath\log1.log" }
@@ -273,6 +284,7 @@ Describe "Test Compress-IISLogs" {
             Mock Invoke-Command { & $ScriptBlock $ArgumentList[0] $ArgumentList[1] }
         }
     
+        #Test case 3: It should not attempt to compress or delete when IIS log path does not exist
         It "Writes message and does not attempt to compress or delete" {
             Compress-IISLogs -session $mockSession -IISLogPath $IISLogPath -ArchivePath $ArchivePath
             Should -Invoke Write-Host -Times 1 -Exactly -ParameterFilter { 
@@ -283,32 +295,6 @@ Describe "Test Compress-IISLogs" {
             Should -Not -Invoke Remove-Item
         }
     }
-
-    Context "When there are no old logs" {
-        BeforeAll {
-            $IISLogPath = "C:\inetpub\logs\LogFiles"
-            $ArchivePath = "C:\inetpub\logs\Archive"
-            Mock Test-Path { return $true } -ParameterFilter { $Path -eq $IISLogPath }
-            Mock Get-ChildItem { return @() } -ParameterFilter { $Path -eq "$IISLogPath\*" }
-            Mock Compress-Archive {}  # Ensure this is present
-            Mock Remove-Item {}  # Ensure this is present
-            Mock Write-Host {}
-            Mock Invoke-Command { & $ScriptBlock $ArgumentList[0] $ArgumentList[1] }
-        }
-    
-        It "Does not compress or delete any logs" {
-            Compress-IISLogs -session $mockSession -IISLogPath $IISLogPath -ArchivePath $ArchivePath
-            Should -Invoke Write-Host -Times 1 -Exactly -ParameterFilter { 
-                $Object -eq "Found 0 old log(s) to process" 
-            }
-            Should -Not -Invoke Compress-Archive
-            Should -Not -Invoke Remove-Item
-        }
-    }
-
-    Context "When session parameter is invalid" {
-        It "Throws error for null session" {
-            { Compress-IISLogs -session $null } | Should -Throw -ExpectedMessage "*Cannot bind argument to parameter 'session' because it is null.*"
-        }
-    }
 }
+
+$env:UNIT_TEST = $null

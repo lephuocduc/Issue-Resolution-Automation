@@ -6,13 +6,15 @@ Test case 3: It should throw an error for null session
 Test case 4: It should delete old Windows Update cache files older than 5 days
 Test case 5: It should not delete Windows Update cache files newer than 5 days
 Test case 6: It should delete old Windows Installer patch cache files older than 5 days
-Test case 7: It should delete old Windows Temp files older than 5 days
-Test case 8: It should clear Recycle Bin
+Test case 7: It should not delete old Windows Installer patch cache files newer than 5 days
+Test case 8: It should delete old Windows Temp files older than 5 days
+Test case 9: It should not delete old Windows Temp files newer than 5 days
+Test case 10: It should clear Recycle Bin
 
 Test Compress-IISLogs funcion
-Test case 1: It should compress and delete old IIS logs older than 6 months and does not delete recent logs
-Test case 2: It should delete the original IIS logs after compression
-Test case 3: It should not attempt to compress or delete when IIS log path does not exist
+Test case 1: It should compress and delete old IIS logs older than 6 months
+@Test cae 2: It should not compress or delete old IIS logs newer than 6 months
+Test case 3: It should not compress or delete when IIS log path does not exist
 #>
 $env:UNIT_TEST = "true"
 # Load the script to be tested

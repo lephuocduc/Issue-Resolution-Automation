@@ -9,10 +9,11 @@
 
 #REQUIREMENT
 # Requires the necessary permissions to access and modify files on the target servers.
+# Powershell version 5.1 or later.
 
 #INPUTS
 # Server name and disk name to perform cleanup actions on.
-# Disk C: - Clear user and system caches, compress IIS logs, and generate a detailed report.
+# Disk C: - Clear system caches, compress IIS logs, and generate a detailed report.
 # Data disk - Provide information on disk usage and the sizes of items within each first-level folder.
 
 #OUTPUTS
@@ -21,10 +22,9 @@
 #EXAMPLE
 # Run the script and enter the server name and disk name to start the cleanup process.
 # The script will prompt for confirmation before executing the cleanup actions.
-# If disk C is selected, it will clear user and system caches, compress IIS logs, and generate a detailed report.
+# If disk C is selected, it will clear system caches, compress IIS logs, and generate a detailed report.
 # If a data disk is selected, it will provide information on disk usage and the sizes of items within each first-level folder.
 # A report will be exported to the local machine for further analysis. 
-
 
 # Load module
 . "$PSScriptRoot/../modules/module.ps1"

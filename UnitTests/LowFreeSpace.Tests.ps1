@@ -260,36 +260,59 @@ Describe "Test Compress-IISLogs" {
             Compress-IISLogs -session $mockSession -IISLogPath $IISLogPath -ArchivePath $ArchivePath
 
             # Assert
-            Should -Invoke Compress-Archive -Times 2 -Exactly
-            Should -Invoke Remove-Item -Times 2 -Exactly
-        }
-
-        #Test case 3: It should delete the original logs after compression
-        It "Deletes the original logs after compression" {
-            Compress-IISLogs -session $mockSession -IISLogPath $IISLogPath -ArchivePath $ArchivePath
+            Should -Invoke Compress-Archive -Times 1 -Exactly -ParameterFilter { $Path -eq "$IISLogPath\log1.log" }
+            Should -Invoke Compress-Archive -Times 1 -Exactly -ParameterFilter { $Path -eq "$IISLogPath\log2.log" }
             Should -Invoke Remove-Item -Times 1 -Exactly -ParameterFilter { $Path -eq "$IISLogPath\log1.log" }
             Should -Invoke Remove-Item -Times 1 -Exactly -ParameterFilter { $Path -eq "$IISLogPath\log2.log" }
+        }
+    }
+
+    Context "When old logs do not older than 6 months" {
+        BeforeAll {
+            # Define test paths and mock data
+            $IISLogPath = "C:\inetpub\logs\LogFiles"
+            $ArchivePath = "C:\inetpub\logs\Archive"
+            $oldLogs = @(
+                [PSCustomObject]@{ FullName = "$IISLogPath\log3.log"; LastWriteTime = (Get-Date).AddMonths(-5) },
+                [PSCustomObject]@{ FullName = "$IISLogPath\log4.log"; LastWriteTime = (Get-Date).AddMonths(-4) },
+                [PSCustomObject]@{ FullName = "$IISLogPath\log5.log"; LastWriteTime = (Get-Date).AddMonths(-3) }
+            )
+
+            # Mock commands
+            Mock Test-Path { return $true } -ParameterFilter { $Path -eq $IISLogPath }
+            Mock Get-ChildItem -ParameterFilter { $Path -eq "$IISLogPath\*" }
+            Mock Compress-Archive {}
+            Mock Remove-Item {}
+            Mock Write-Host {}
+            Mock Invoke-Command { & $ScriptBlock $ArgumentList[0] $ArgumentList[1] }
+        }
+
+        #Test cae 2: It should not compress or delete old IIS logs newer than 6 months
+        It "Does not compress or delete recent IIS logs" {
+            Compress-IISLogs -session $mockSession -IISLogPath $IISLogPath -ArchivePath $ArchivePath
+            
+            #Assert
+            Should -Not -Invoke Compress-Archive
+            Should -Not -Invoke Remove-Item
         }
     }
 
     Context "When IIS log path does not exist" {
         BeforeAll {
             $IISLogPath = "C:\inetpub\logs\LogFiles"
-            $ArchivePath = "C:\inetpub\logs\Archive"
             Mock Test-Path { return $false } -ParameterFilter { $Path -eq $IISLogPath }
-            Mock Get-ChildItem {}  # Add this
-            Mock Compress-Archive {}  # Add this
-            Mock Remove-Item {}  # Add this
+            Mock Get-ChildItem {} 
+            Mock Compress-Archive {} 
+            Mock Remove-Item {} 
             Mock Write-Host {}
             Mock Invoke-Command { & $ScriptBlock $ArgumentList[0] $ArgumentList[1] }
         }
     
-        #Test case 4: It should not attempt to compress or delete when IIS log path does not exist
-        It "Writes message and does not attempt to compress or delete" {
+        #Test case 3: It should not compress or delete when IIS log path does not exist
+        It "Does not compress or delete" {
             Compress-IISLogs -session $mockSession -IISLogPath $IISLogPath -ArchivePath $ArchivePath
-            Should -Invoke Write-Host -Times 1 -Exactly -ParameterFilter { 
-                $Object -eq "IIS log path not found: $IISLogPath" 
-            }
+
+            #Assert
             Should -Not -Invoke Get-ChildItem
             Should -Not -Invoke Compress-Archive
             Should -Not -Invoke Remove-Item

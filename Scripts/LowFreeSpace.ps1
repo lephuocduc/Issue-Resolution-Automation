@@ -259,7 +259,7 @@ function Compress-IISLogs {
             if (Test-Path -Path $IISLogPath) {
                 Write-Host "IIS log path exists: $IISLogPath"
                 $OldLogs = Get-ChildItem -Path "$IISLogPath\*" -Recurse -Force |
-                    Where-Object { $_.LastWriteTime -lt (Get-Date).AddMonths(-0) }
+                    Where-Object { $_.LastWriteTime -lt (Get-Date).AddMonths(-6) }
 
                 Write-Host "Found $($OldLogs.Count) old log(s) to process"
 

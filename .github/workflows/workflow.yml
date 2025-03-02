@@ -1,4 +1,4 @@
-name: Package PowerShell App
+name: Package PowerShell App - Master Branch
 
 on:
   push:

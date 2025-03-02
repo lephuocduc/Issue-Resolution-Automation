@@ -1,30 +1,51 @@
 #NOTES
-# Name:   LowFreeSpace.ps1
-# Author:  Duc Le
-# Version:  1.0
+# Name:        LowFreeSpace.ps1
+# Author:      Duc Le
+# Version:     1.0
+# Date:        March 2, 2025
 # Major Release History:
+# 1.0 - Initial release with disk cleanup and reporting features
 
 #DESCRIPTION
-# This script is designed to manage low disk space on remote servers. It includes functions to clear user and system caches, compress IIS logs, and generate detailed reports on disk usage.
+# This script provides a GUI tool to manage low disk space on remote servers by:
+# - Cleaning system caches (Windows Update, Installer, SCCM)
+# - Compressing IIS logs older than 6 months
+# - Generating detailed disk usage reports
+# - Identifying large folders when space remains low
 
-#REQUIREMENT
-# Requires the necessary permissions to access and modify files on the target servers.
-# Powershell version 5.1 or later.
+#REQUIREMENTS
+# - PowerShell 5.1 or later
+# - Admin access on target servers
+# - Windows Forms assemblies
+# - Network connectivity to target servers
 
-#INPUTS
-# Server name and disk name to perform cleanup actions on.
-# Disk C: - Clear system caches, compress IIS logs, and generate a detailed report.
-# Data disk - Provide information on disk usage and the sizes of items within each first-level folder.
+#PARAMETERS
+# Server name: Remote server to analyze/clean
+# Disk name:   Drive letter to process (C: for system cleanup, other letters for analysis)
+
+#FUNCTIONS
+# Test-DiskAvailability:      Verifies disk exists on remote server
+# Clear-SystemCache:          Cleans various system cache locations
+# Compress-IISLogs:          Compresses and archives old IIS logs
+# Get-DiskSpaceDetails:      Retrieves disk space information
+# Get-LargestFolders:        Identifies largest space consumers
+# Export-CDisk-Cleanup-Report: Generates cleanup report
+# Get-SecondLevelFolderSizes: Analyzes folder hierarchy
+# Export-DataDiskReport:      Creates disk analysis report
 
 #OUTPUTS
-# Generates a report detailing the disk usage before and after cleanup, including space saved and logs of actions taken.
+# - Detailed cleanup/analysis reports in C:\temp
+# - GUI status updates during execution
+# - Success/failure messages via MessageBox
 
-#EXAMPLE
-# Run the script and enter the server name and disk name to start the cleanup process.
-# The script will prompt for confirmation before executing the cleanup actions.
-# If disk C is selected, it will clear system caches, compress IIS logs, and generate a detailed report.
-# If a data disk is selected, it will provide information on disk usage and the sizes of items within each first-level folder.
-# A report will be exported to the local machine for further analysis. 
+#EXAMPLES
+# 1. System drive cleanup:
+#    Enter server name and C for disk name
+#    Script will clean caches and compress logs
+#
+# 2. Data drive analysis:
+#    Enter server name and drive letter
+#    Script will analyze space usage
 
 # Load module
 . "$PSScriptRoot/../modules/module.ps1"

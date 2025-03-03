@@ -48,7 +48,7 @@
 #    Script will analyze space usage
 
 # Load module
-. "$PSScriptRoot/../modules/module.ps1"
+#. "$PSScriptRoot/../modules/module.ps1"
 
 # Load Windows Forms Assembly
 try {
@@ -57,6 +57,47 @@ try {
 } catch {
     Write-Error "Failed to load Windows Forms assemblies: $_"
     exit 1
+}
+
+function Test-ServerAvailability {
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$serverName
+    )
+    return (Test-Connection -ComputerName $serverName -Count 1 -Quiet)
+}
+
+
+# Function to attempt to create a session and handle credential failures
+function Get-Session {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$serverName,
+        [Parameter(Mandatory = $false)]
+        [PSCredential]$Credential = $null
+    )
+    $retryCount = 0
+    $maxRetries = 3
+    do {
+        $retryCount++
+        # Only call Get-Credential if no credential was provided
+        #if ($null -eq $Credential) {
+            $Credential = Get-Credential -Message "Enter credentials for $ServerName (Attempt $($retryCount) of $MaxRetries)"
+        #}
+        if ($null -eq $Credential -or $retryCount -ge $maxRetries) {
+            return $null
+        }
+
+        try {
+            Set-Item WSMan:\localhost\Client\TrustedHosts -Value "$serverName" -Concatenate -Force
+            $session = New-PSSession -ComputerName $serverName -Credential $credential -ErrorAction Stop
+            return $session
+        } catch {
+            if ($retryCount -ge $maxRetries) {
+                return $null
+            }
+        }
+    } while ($true)
 }
 
 # Function to check if disk exists on the server

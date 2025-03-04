@@ -250,12 +250,12 @@ Describe "Test Clear-SystemCache" {
                 [PSCustomObject]@{ FullName = "C:\Windows\Temp\oldfile.tmp"; LastWriteTime = (Get-Date).AddDays(-6) };
                 [PSCustomObject]@{ FullName = "C:\Windows\Temp\oldfile2.tmp"; LastWriteTime = (Get-Date).AddDays(-2) }
             )
-            
+            Mock Invoke-Command { & $ScriptBlock }
             Mock Test-Path { return $true } -ParameterFilter { $Path -eq "C:\Windows\Temp\*" }
             Mock Get-ChildItem {return $oldFiles} -ParameterFilter { $Path -eq "C:\Windows\Temp\*"}
             Mock Write-Host {}
             Mock Remove-Item {}
-            Mock Invoke-Command { & $ScriptBlock }
+            
             }
         #Test case 8: It should delete old Windows Temp files older than 5 days
         It "Only deletes old Windows Temp files older than 5 days" {
@@ -267,8 +267,8 @@ Describe "Test Clear-SystemCache" {
     Context "Recycle Bin cleanup verification" {
         BeforeAll {
             Mock Invoke-Command { & $ScriptBlock }
-            Mock Clear-RecycleBin
             Mock Write-Host {}
+            Mock Clear-RecycleBin            
         }
     
         #Test case 10: It should clear Recycle Bin with force

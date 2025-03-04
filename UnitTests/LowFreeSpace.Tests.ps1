@@ -1,4 +1,12 @@
 <#
+Test Test-ServerAvailability function
+Test case 1: It should return true for reachable servers
+Test case 2: It should return false for unreachable servers
+
+Test Get-Session function
+Test case 1: It should return a session when connection succeeds on first try
+Test case 2: It should return null after max retries
+
 Test Clear-SystemCache function
 Test case 1: It should invoke the cleanup script on remote session
 Test case 2: It should contain all required cleanup tasks (Windows Update cache, Windows Installer patch cache, SCCM cache, Windows Temp files)
@@ -8,7 +16,7 @@ Test case 5: It should not delete Windows Update cache files newer than 5 days
 Test case 6: It should delete old Windows Installer patch cache files older than 5 days
 Test case 7: It should not delete old Windows Installer patch cache files newer than 5 days
 Test case 8: It should delete old Windows Temp files older than 5 days
-Test case 9: It should not delete old Windows Temp files newer than 5 days
+@Test case 9: It should not delete old Windows Temp files newer than 5 days
 Test case 10: It should clear Recycle Bin
 
 Test Compress-IISLogs funcion
@@ -58,6 +66,45 @@ Describe "Test Get-Session" {
         }
     }
 }#>
+
+Describe "Test Test-ServerAvailability" {
+    BeforeAll {
+        Mock -CommandName Test-Connection -MockWith {
+            param($ComputerName)
+            if ($ComputerName -eq "reachableServer") {
+                return $true
+            } else {
+                return $false
+            }
+        }
+    }
+
+    # Test case 1: It should return true for reachable servers
+    It "Should return true for reachable servers" {
+        $result = Test-ServerAvailability -serverName "reachableServer"
+        $result | Should -Be $true
+    }
+
+    # Test case 2: It should return false for unreachable servers
+    It "Should return false for unreachable servers" {
+        $result = Test-ServerAvailability -serverName "unreachableServer"
+        $result | Should -Be $false
+    }
+}
+
+Describe "Test Get-Session" {    
+    Context "When connection fails" {
+        BeforeAll {
+            Mock Get-Credential { return $credential }  # Add this mock
+            Mock New-PSSession { throw "Connection failed" }
+        }
+        It "Returns null after max retries" {
+            $credential = [PSCredential]::new("testuser", (ConvertTo-SecureString "testpass" -AsPlainText -Force))
+            $result = Get-Session -serverName "TestServer" -Credential $credential
+            $result | Should -Be $null
+        }
+    }
+}
 
 Describe "Test Clear-SystemCache" {
     BeforeAll {

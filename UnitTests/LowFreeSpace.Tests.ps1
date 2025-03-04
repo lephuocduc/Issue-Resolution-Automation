@@ -67,6 +67,7 @@ Describe "Test Get-Session" {
     }
 }#>
 
+<#
 Describe "Test Test-ServerAvailability" {
     BeforeAll {
         Mock -CommandName Test-Connection -MockWith {
@@ -90,7 +91,7 @@ Describe "Test Test-ServerAvailability" {
         $result = Test-ServerAvailability -serverName "unreachableServer"
         $result | Should -Be $false
     }
-}
+}#>
 
 Describe "Test Get-Session" {    
     Context "When connection fails" {

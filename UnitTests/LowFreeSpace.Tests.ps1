@@ -266,7 +266,7 @@ Describe "Test Clear-SystemCache" {
     Context "Recycle Bin cleanup verification" {
         BeforeAll {
             Mock Invoke-Command { & $ScriptBlock }
-            Mock Clear-RecycleBin {}
+            Mock Clear-RecycleBin
             Mock Write-Host {}
         }
     

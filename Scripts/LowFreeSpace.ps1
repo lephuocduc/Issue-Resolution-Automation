@@ -218,9 +218,10 @@ function Clear-SystemCache {
                 
                 foreach ($file in $filesToDelete) {
                     Write-Host "Deleting: $($file.FullName)"
+                    Remove-Item -Path $file.FullName -Force -Recurse -Verbose -ErrorAction SilentlyContinue
                 }
                 
-                $filesToDelete | Remove-Item -Force -Recurse -Verbose -ErrorAction SilentlyContinue
+                #$filesToDelete | Remove-Item -Force -Recurse -Verbose -ErrorAction SilentlyContinue
             } else {
                 Write-Host "Windows Update cache path not found"
             }
@@ -237,9 +238,10 @@ function Clear-SystemCache {
                 
                 foreach ($file in $filesToDelete) {
                     Write-Host "Deleting: $($file.FullName)"
+                    Remove-Item -Path $file.FullName -Force -Recurse -Verbose -ErrorAction SilentlyContinue
                 }
                 
-                $filesToDelete | Remove-Item -Force -Recurse -Verbose -ErrorAction SilentlyContinue
+                #$filesToDelete | Remove-Item -Force -Recurse -Verbose -ErrorAction SilentlyContinue
             } else {
                 Write-Host "Windows Installer patch cache path not found"
             }

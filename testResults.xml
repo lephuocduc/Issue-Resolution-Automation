@@ -1,0 +1,141 @@
+﻿<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<test-results xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="nunit_schema_2.5.xsd" name="Pester" total="12" errors="0" failures="12" not-run="0" inconclusive="0" ignored="0" skipped="0" invalid="0" date="2025-03-07" time="22:51:59">
+  <environment clr-version="4.0.30319.42000" user-domain="DESKTOP-V41IHL4" cwd="C:\AutomationProject" platform="Microsoft Windows 10 Pro|C:\Windows|\Device\Harddisk0\Partition3" machine-name="DESKTOP-V41IHL4" nunit-version="2.5.8.0" os-version="10.0.19045" user="Duc" />
+  <culture-info current-culture="en-US" current-uiculture="en-US" />
+  <test-suite type="TestFixture" name="Pester" executed="True" result="Failure" success="False" time="0.1" asserts="0" description="Pester">
+    <results>
+      <test-suite type="TestFixture" name="C:\AutomationProject\UnitTests\LowFreeSpace.Tests.ps1" executed="True" result="Failure" success="False" time="0.1" asserts="0" description="C:\AutomationProject\UnitTests\LowFreeSpace.Tests.ps1">
+        <results>
+          <test-suite type="TestFixture" name="Test Get-Session" executed="True" result="Failure" success="False" time="0" asserts="0" description="Test Get-Session">
+            <results>
+              <test-suite type="TestFixture" name="Test Get-Session.When connection fails" executed="True" result="Failure" success="False" time="0" asserts="0" description="Test Get-Session.When connection fails">
+                <results>
+                  <test-case description="Returns null after max retries" name="Test Get-Session.When connection fails.Returns null after max retries" time="0" asserts="0" success="False" result="Failure" executed="True">
+                    <failure>
+                      <message>This test should run but it did not. Most likely a setup in some parent block failed.</message>
+                      <stack-trace />
+                    </failure>
+                  </test-case>
+                </results>
+              </test-suite>
+            </results>
+          </test-suite>
+          <test-suite type="TestFixture" name="Test Clear-SystemCache" executed="True" result="Failure" success="False" time="0" asserts="0" description="Test Clear-SystemCache">
+            <results>
+              <test-suite type="TestFixture" name="Test Clear-SystemCache.When cleaning system cache" executed="True" result="Failure" success="False" time="0" asserts="0" description="Test Clear-SystemCache.When cleaning system cache">
+                <results>
+                  <test-case description="Invokes the cleanup script block on remote session" name="Test Clear-SystemCache.When cleaning system cache.Invokes the cleanup script block on remote session" time="0" asserts="0" success="False" result="Failure" executed="True">
+                    <failure>
+                      <message>This test should run but it did not. Most likely a setup in some parent block failed.</message>
+                      <stack-trace />
+                    </failure>
+                  </test-case>
+                  <test-case description="Script block contains all required cleanup tasks" name="Test Clear-SystemCache.When cleaning system cache.Script block contains all required cleanup tasks" time="0" asserts="0" success="False" result="Failure" executed="True">
+                    <failure>
+                      <message>This test should run but it did not. Most likely a setup in some parent block failed.</message>
+                      <stack-trace />
+                    </failure>
+                  </test-case>
+                </results>
+              </test-suite>
+              <test-suite type="TestFixture" name="Test Clear-SystemCache.When session parameter is invalid" executed="True" result="Failure" success="False" time="0" asserts="0" description="Test Clear-SystemCache.When session parameter is invalid">
+                <results>
+                  <test-case description="Throws error for null session" name="Test Clear-SystemCache.When session parameter is invalid.Throws error for null session" time="0" asserts="0" success="False" result="Failure" executed="True">
+                    <failure>
+                      <message>This test should run but it did not. Most likely a setup in some parent block failed.</message>
+                      <stack-trace />
+                    </failure>
+                  </test-case>
+                </results>
+              </test-suite>
+              <test-suite type="TestFixture" name="Test Clear-SystemCache.When files are older than 5 days" executed="True" result="Failure" success="False" time="0" asserts="0" description="Test Clear-SystemCache.When files are older than 5 days">
+                <results>
+                  <test-case description="Deletes old Windows Update cache files older than 5 days" name="Test Clear-SystemCache.When files are older than 5 days.Deletes old Windows Update cache files older than 5 days" time="0" asserts="0" success="False" result="Failure" executed="True">
+                    <failure>
+                      <message>This test should run but it did not. Most likely a setup in some parent block failed.</message>
+                      <stack-trace />
+                    </failure>
+                  </test-case>
+                </results>
+              </test-suite>
+              <test-suite type="TestFixture" name="Test Clear-SystemCache.When no files older than 5 days exist" executed="True" result="Failure" success="False" time="0" asserts="0" description="Test Clear-SystemCache.When no files older than 5 days exist">
+                <results>
+                  <test-case description="Does not delete Windows Update cache files newer than 5 days" name="Test Clear-SystemCache.When no files older than 5 days exist.Does not delete Windows Update cache files newer than 5 days" time="0" asserts="0" success="False" result="Failure" executed="True">
+                    <failure>
+                      <message>This test should run but it did not. Most likely a setup in some parent block failed.</message>
+                      <stack-trace />
+                    </failure>
+                  </test-case>
+                </results>
+              </test-suite>
+              <test-suite type="TestFixture" name="Test Clear-SystemCache.Windows Installer patch cache cleanup" executed="True" result="Failure" success="False" time="0" asserts="0" description="Test Clear-SystemCache.Windows Installer patch cache cleanup">
+                <results>
+                  <test-case description="Deletes old Windows Installer patch cache files older than 5 days" name="Test Clear-SystemCache.Windows Installer patch cache cleanup.Deletes old Windows Installer patch cache files older than 5 days" time="0" asserts="0" success="False" result="Failure" executed="True">
+                    <failure>
+                      <message>This test should run but it did not. Most likely a setup in some parent block failed.</message>
+                      <stack-trace />
+                    </failure>
+                  </test-case>
+                </results>
+              </test-suite>
+              <test-suite type="TestFixture" name="Test Clear-SystemCache.When files older than 5 days" executed="True" result="Failure" success="False" time="0" asserts="0" description="Test Clear-SystemCache.When files older than 5 days">
+                <results>
+                  <test-case description="Only deletes old Windows Temp files older than 5 days" name="Test Clear-SystemCache.When files older than 5 days.Only deletes old Windows Temp files older than 5 days" time="0" asserts="0" success="False" result="Failure" executed="True">
+                    <failure>
+                      <message>This test should run but it did not. Most likely a setup in some parent block failed.</message>
+                      <stack-trace />
+                    </failure>
+                  </test-case>
+                </results>
+              </test-suite>
+              <test-suite type="TestFixture" name="Test Clear-SystemCache.Recycle Bin cleanup verification" executed="True" result="Failure" success="False" time="0" asserts="0" description="Test Clear-SystemCache.Recycle Bin cleanup verification">
+                <results>
+                  <test-case description="Clears Recycle Bin with force" name="Test Clear-SystemCache.Recycle Bin cleanup verification.Clears Recycle Bin with force" time="0" asserts="0" success="False" result="Failure" executed="True">
+                    <failure>
+                      <message>This test should run but it did not. Most likely a setup in some parent block failed.</message>
+                      <stack-trace />
+                    </failure>
+                  </test-case>
+                </results>
+              </test-suite>
+            </results>
+          </test-suite>
+          <test-suite type="TestFixture" name="Test Compress-IISLogs" executed="True" result="Failure" success="False" time="0" asserts="0" description="Test Compress-IISLogs">
+            <results>
+              <test-suite type="TestFixture" name="Test Compress-IISLogs.When IIS log path exists and there are old logs" executed="True" result="Failure" success="False" time="0" asserts="0" description="Test Compress-IISLogs.When IIS log path exists and there are old logs">
+                <results>
+                  <test-case description="Compresses and deletes old IIS logs older than 6 months" name="Test Compress-IISLogs.When IIS log path exists and there are old logs.Compresses and deletes old IIS logs older than 6 months" time="0" asserts="0" success="False" result="Failure" executed="True">
+                    <failure>
+                      <message>This test should run but it did not. Most likely a setup in some parent block failed.</message>
+                      <stack-trace />
+                    </failure>
+                  </test-case>
+                </results>
+              </test-suite>
+              <test-suite type="TestFixture" name="Test Compress-IISLogs.When old logs do not older than 6 months" executed="True" result="Failure" success="False" time="0" asserts="0" description="Test Compress-IISLogs.When old logs do not older than 6 months">
+                <results>
+                  <test-case description="Does not compress or delete logs 6 months old" name="Test Compress-IISLogs.When old logs do not older than 6 months.Does not compress or delete logs 6 months old" time="0" asserts="0" success="False" result="Failure" executed="True">
+                    <failure>
+                      <message>This test should run but it did not. Most likely a setup in some parent block failed.</message>
+                      <stack-trace />
+                    </failure>
+                  </test-case>
+                </results>
+              </test-suite>
+              <test-suite type="TestFixture" name="Test Compress-IISLogs.When IIS log path does not exist" executed="True" result="Failure" success="False" time="0" asserts="0" description="Test Compress-IISLogs.When IIS log path does not exist">
+                <results>
+                  <test-case description="Does not compress or delete" name="Test Compress-IISLogs.When IIS log path does not exist.Does not compress or delete" time="0" asserts="0" success="False" result="Failure" executed="True">
+                    <failure>
+                      <message>This test should run but it did not. Most likely a setup in some parent block failed.</message>
+                      <stack-trace />
+                    </failure>
+                  </test-case>
+                </results>
+              </test-suite>
+            </results>
+          </test-suite>
+        </results>
+      </test-suite>
+    </results>
+  </test-suite>
+</test-results>

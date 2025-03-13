@@ -1,0 +1,74 @@
+graph TD
+    A[Start: GUI Form Opened] --> B[User Enters Server Name and Disk Name]
+    B --> C{Click OK Button}
+    C --> D[Validate Input]
+    D -->|Empty Server or Disk Name| E[Show Warning: 'Please enter server name and disk name']
+    D -->|Valid Input| F[Test-ServerAvailability]
+    F -->|Not Reachable| G[Show Error: 'Server not reachable']
+    F -->|Reachable| H[Get-Session: Create PSSession]
+    H -->|Retry Limit Reached or Canceled| I[Show Error: 'Session creation canceled or retry limit reached']
+    H -->|Session Created| J[Test-DiskAvailability]
+    J -->|Disk Not Found| K[Show Error: 'Disk not available on server']
+    J -->|Disk Found| L{Disk Name = 'C'?}
+
+    %% C: Drive Cleanup Path
+    L -->|Yes| M[Get-DiskSpaceDetails: Before Cleanup]
+    M -->|Disk Details Retrieved| N[Clear-SystemCache]
+    N --> N1[Check Path: C:\Windows\SoftwareDistribution\Download]
+    N1 -->|Exists| N2[Delete Files Older Than 5 Days]
+    N2 --> N3[Check Path: C:\Windows\Installer\$PatchCache$]
+    N3 -->|Exists| N4[Delete Files Older Than 5 Days]
+    N4 --> N5[Check Path: C:\Windows\ccmcache]
+    N5 -->|Exists| N6[Delete Files Older Than 5 Days]
+    N6 --> N7[Check Path: C:\Windows\Temp]
+    N7 -->|Exists| N8[Delete Files Older Than 5 Days]
+    N8 --> N9[Clear-RecycleBin]
+    N9 -->|Error| N10[Log Error: 'Error cleaning...']
+    N9 -->|Success| O[Compress-IISLogs]
+    N1 -->|Not Found| N3
+    N3 -->|Not Found| N5
+    N5 -->|Not Found| N7
+    N7 -->|Not Found| N9
+
+    O --> O1[Set Paths: IISLogPath=C:\inetpub\logs\LogFiles, ArchivePath=C:\inetpub\logs\Archive]
+    O1 --> O2[Check IISLogPath Exists]
+    O2 -->|Exists| O3[Get Logs Older Than 6 Months]
+    O3 --> O4[For Each Log: Compress to ArchivePath]
+    O4 --> O5[Delete Original Log]
+    O5 -->|Error| O6[Log Error: 'Error compressing or removing log']
+    O5 -->|Success| P[Get-DiskSpaceDetails: After Cleanup]
+    O2 -->|Not Found| P
+
+    P --> Q{FreePercentage < 10%?}
+    Q -->|Yes| R[Get-LargestFolders]
+    R --> R1[Scan C:\Users, Top 5 Folders]
+    R1 --> R2[Scan C:\, Exclude Users/Windows/Program Files, Top 5]
+    R2 --> S[Export-CDisk-Cleanup-Report]
+    Q -->|No| S
+    S --> S1[Create C:\temp if Not Exists]
+    S1 --> S2[Generate Report: Before/After Space, Logs, Top Folders]
+    S2 --> S3[Write Report to C:\temp\LowFreeSpace-C-Disk-*.txt]
+    S3 -->|Success| T[Show Message: 'Cleanup complete. Free space is X%']
+    S3 -->|Error| T1[Show Error: 'Error when exporting']
+
+    %% Non-C: Drive Analysis Path
+    L -->|No| V[Get-DiskSpaceDetails]
+    V --> W[Get-SecondLevelFolderSizes]
+    W --> W1[Get First-Level Folders in DiskName:\]
+    W1 --> W2[For Each Folder: Get Items]
+    W2 --> W3[Calculate Size of Files/Subfolders]
+    W3 --> W4[Sort by Size, Take Top 10 per Folder]
+    W4 --> X[Export-DataDiskReport]
+    X --> X1[Create C:\temp if Not Exists]
+    X1 --> X2[Generate Report: Disk Usage, Folder Sizes]
+    X2 --> X3[Write Report to C:\temp\LowFreeSpace-DiskName-*.txt]
+    X3 -->|Success| Y[Show Message: 'Drive DiskName. Free space is X%']
+    X3 -->|Error| Y1[Show Error: 'Error when exporting']
+
+    %% Cleanup and Exit
+    T --> U[Remove-PSSession and Close Form]
+    Y --> U
+    T1 --> U
+    Y1 --> U
+    C --> Z[Click Cancel Button]
+    Z --> U

@@ -1,7 +1,7 @@
 graph TD
     A[Start: GUI Form Opened] --> B[User Enters Server Name and Disk Name]
     B --> C{Click OK Button}
-    C --> D[Validate Input]
+    C --> D{Validate Input}
     D -->|Empty Server or Disk Name| E[Show Warning: 'Please enter server name and disk name']
     D -->|Valid Input| F[Test-ServerAvailability]
     F -->|Not Reachable| G[Show Error: 'Server not reachable']

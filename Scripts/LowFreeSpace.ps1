@@ -127,6 +127,43 @@ function Test-DiskAvailability {
     }
 }
 
+#Test-LocalLogFileCreation
+function Test-LocalLogFileCreation {
+    [CmdletBinding()]
+    param()
+    
+    try {
+        # Define paths
+        $logPath = "C:\Temp"
+        $testFile = Join-Path $logPath "test_$(Get-Date -Format 'yyyyMMdd_HHmmss').log"
+
+        # Create directory if needed
+        if (-not (Test-Path $logPath)) {
+            New-Item -Path $logPath -ItemType Directory -Force | Out-Null
+        }
+
+        # Test file creation
+        $testContent = "Log creation test: $(Get-Date)"
+        Set-Content -Path $testFile -Value $testContent -ErrorAction Stop
+
+        # Verify and cleanup
+        if (Test-Path $testFile) {
+            Remove-Item -Path $testFile -Force
+            return $true
+        }
+    }
+    catch {
+        Write-Warning "Failed to create log file: $($_.Exception.Message)"
+        return $false
+    }
+}
+
+# Usage (add after disk cleanup operations):
+if (-not (Test-LocalLogFileCreation)) {
+    Write-Warning "Cannot proceed - local log file creation failed"
+    return
+}
+
 <#
 # Function to clear user cache
 function Clear-UserCache {
@@ -821,6 +858,16 @@ $okButton.Add_Click({
                 [System.Windows.Forms.MessageBoxButtons]::OK, 
                 [System.Windows.Forms.MessageBoxIcon]::Error
         )
+        return
+    }
+
+    if (-not (Test-LocalLogFileCreation)) {
+        [System.Windows.Forms.MessageBox]::Show(
+                "Cannot proceed - local log file creation failed", 
+                "Error", 
+                [System.Windows.Forms.MessageBoxButtons]::OK, 
+                [System.Windows.Forms.MessageBoxIcon]::Error
+            )
         return
     }
 

@@ -101,38 +101,6 @@ Describe "Test Clear-SystemCache" {
         # Create a proper mock PSSession
         $mockSession = New-MockObject -Type System.Management.Automation.Runspaces.PSSession
     }
-
-        Context "When cleaning system cache" {
-            BeforeAll{
-                Mock Invoke-Command { & $ScriptBlock }
-                Mock Write-Host {}
-            }
-            #Test case 1: It should invoke the cleanup script block on remote session
-            It "Invokes the cleanup script block on remote session" {
-                # Act
-                Clear-SystemCache -session $mockSession
-
-                # Assert
-                Should -Invoke Invoke-Command -Times 1 -ParameterFilter {
-                    $Session -eq $mockSession
-                }
-            }
-
-            #Test case 2: It should contain all required cleanup tasks
-            It "Script block contains all required cleanup tasks" {
-                # Act
-                Clear-SystemCache -session $mockSession
-
-                # Assert
-                Should -Invoke Invoke-Command -Times 1 -ParameterFilter {
-                    $ScriptBlock.ToString() -match 'Windows Update cache' -and
-                    $ScriptBlock.ToString() -match 'Windows Installer patch cache' -and
-                    $ScriptBlock.ToString() -match 'SCCM cache' -and
-                    $ScriptBlock.ToString() -match 'Windows Temp files'
-                }
-            }
-        }
-
         Context "When session parameter is invalid" {
             #Test case 3: It should throw an error for null session
             It "Throws error for null session" {

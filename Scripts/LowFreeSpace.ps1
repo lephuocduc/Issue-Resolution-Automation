@@ -661,12 +661,12 @@ $iisLogCleanupLog
         if ($topUsers -and $topUsers.Count -gt 0) {
             $reportContent += "`n#######################################################################"
             $reportContent += "`nTop largest folders in C:\Users:`n"
-            $reportContent += ($topUsers | ForEach-Object { " - $($_.Folder): $($_.SizeGB)GB" }) -join "`n"
+            $reportContent += ($topUsers | ForEach-Object { " - $($_.Name) ($($_.Type)): $($_.SizeGB)GB" }) -join "`n"
         }
-
+        
         if ($topRoot -and $topRoot.Count -gt 0) {
             $reportContent += "`n`nTop largest folders in C:\ (excluding system folders):`n"
-            $reportContent += ($topRoot | ForEach-Object { " - $($_.Folder): $($_.SizeGB)GB" }) -join "`n"
+            $reportContent += ($topRoot | ForEach-Object { " - $($_.Name) ($($_.Type)): $($_.SizeGB)GB" }) -join "`n"
         }
     } else {
         # Data disk folder sizes
@@ -916,7 +916,7 @@ $okButton.Add_Click({
                 -diskInfo $After -beforeDiskInfo $Before `
                 -userCacheLog $clearUserCache -systemCacheLog $clearSystemCache `
                 -iisLogCleanupLog $clearIISLogs -folderSizes $formattedOutput `
-                -topUsers $topItems -topRoot $topItems
+                -topUsers $topUsers -topRoot $topItems
         }
         else {
             # Show status

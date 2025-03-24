@@ -131,17 +131,14 @@ Describe "Test Clear-SystemCache" {
             BeforeAll {
                 Mock Invoke-Command { & $ScriptBlock }
                 $oldFiles = @(
-                [PSCustomObject]@{ FullName = "C:\Windows\SoftwareDistribution\Download\oldfile.txt"; LastWriteTime = (Get-Date).AddDays(-6) };
-                [PSCustomObject]@{ FullName = "C:\Windows\SoftwareDistribution\Download\oldfile2.txt"; LastWriteTime = (Get-Date).AddDays(-2) };
-                [PSCustomObject]@{ FullName = "C:\Windows\SoftwareDistribution\Download\oldfile3.txt"; LastWriteTime = (Get-Date).AddDays(-7) }
+                    [PSCustomObject]@{ FullName = "C:\Windows\SoftwareDistribution\Download\oldfile.txt"; LastWriteTime = (Get-Date).AddDays(-6) }
+                    [PSCustomObject]@{ FullName = "C:\Windows\SoftwareDistribution\Download\oldfile2.txt"; LastWriteTime = (Get-Date).AddDays(-2) }
+                    [PSCustomObject]@{ FullName = "C:\Windows\SoftwareDistribution\Download\oldfile3.txt"; LastWriteTime = (Get-Date).AddDays(-7) }
                 )
-                #Mock Test-Path { return $true }
-                Mock Test-Path { return $true } -ParameterFilter {
-                    $Path -eq "C:\Windows\SoftwareDistribution\Download\"
-                }
+                Mock Test-Path { return $true } -ParameterFilter { $Path -eq "C:\Windows\SoftwareDistribution\Download\" }
                 Mock Get-ChildItem { return $oldFiles } -ParameterFilter { $Path -eq "C:\Windows\SoftwareDistribution\Download" }
-                Mock Remove-Item { Write-Host "Remove-Item called with Path: $Path" }              
-                Mock Write-Host {}
+                Mock Remove-Item { Write-Output "Remove-Item called with Path: $Path" }  # Use Write-Output instead
+                # Remove Mock Write-Host {} to avoid suppression
             }
     
             #Test case 4: It should only delete old Windows Update cache files older than 5 days
@@ -151,9 +148,6 @@ Describe "Test Clear-SystemCache" {
                 Should -Invoke Remove-Item -Times 1 -Exactly -ParameterFilter { $Path -eq "C:\Windows\SoftwareDistribution\Download\oldfile.txt" }
                 Should -Invoke Remove-Item -Times 1 -Exactly -ParameterFilter { $Path -eq "C:\Windows\SoftwareDistribution\Download\oldfile3.txt" }
                 Should -Not -Invoke Remove-Item -Times 1 -Exactly -ParameterFilter { $Path -eq "C:\Windows\SoftwareDistribution\Download\oldfile2.txt" }
-                
-
-                #Test-Path -Path "C:\Windows\SoftwareDistribution\Download\oldfile2.txt" | Should -Be $true
             }
         }
     

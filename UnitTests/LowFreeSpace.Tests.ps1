@@ -16,10 +16,8 @@ Test case 2: It should not compress or delete when IIS log path does not exist
 $env:UNIT_TEST = "true"
 # Load the script to be tested
 . "$PSScriptRoot/../Scripts/LowFreeSpace.ps1"
-#Import-Module Pester -RequiredVersion 5.7.1
 
 $PesterModule = Get-Module -ListAvailable -Name Pester
-
 if ($PesterModule) {
     if ($PesterModule.Version -eq "5.7.1") {
         Write-Host "Pester version 5.7.1 is installed."
@@ -142,7 +140,7 @@ Describe "Test Clear-SystemCache" {
                     $Path -eq "C:\Windows\SoftwareDistribution\Download\"
                 }
                 Mock Get-ChildItem { return $oldFiles } -ParameterFilter { $Path -eq "C:\Windows\SoftwareDistribution\Download" }
-                Mock Remove-Item {}                
+                Mock Remove-Item { Write-Host "Remove-Item called with Path: $Path" }              
                 Mock Write-Host {}
             }
     

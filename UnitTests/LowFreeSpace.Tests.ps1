@@ -143,8 +143,8 @@ Describe "Test Clear-SystemCache" {
                 Mock Test-Path { return $false } -ParameterFilter { $Path -eq "C:\Windows\Temp\*" }
 
                 Mock Get-ChildItem { return $oldFiles } -ParameterFilter { $Path -eq "C:\Windows\SoftwareDistribution\Download" }
-                Mock Remove-Item { Write-Output "Remove-Item called with Path: $Path" }  # Use Write-Output instead
-                # Remove Mock Write-Host {} to avoid suppression
+                Mock Remove-Item {}
+                Mock Write-Host {}
 
                 # Mock Clear-RecycleBin (though it doesn’t call Remove-Item, for completeness)
                 Mock Clear-RecycleBin {}
@@ -245,9 +245,10 @@ Describe "Test Compress-IISLogs" {
 
             # Mock commands
             Mock Test-Path { return $true } -ParameterFilter { $Path -eq $IISLogPath }
+            Mock Test-Path { return $true } -ParameterFilter { $Path -eq $ArchiveFileName }
             Mock Get-ChildItem { return $oldLogs } -ParameterFilter { $Path -eq "$IISLogPath\*" }
             Mock Compress-Archive {}
-            Mock Remove-Item {}
+            Mock Remove-Item {Write-Host "Remove-Item called with Path: $Path"}  # Use Write-Host instead
             Mock Write-Host {}
             Mock Invoke-Command { & $ScriptBlock $ArgumentList[0] $ArgumentList[1] }
         }

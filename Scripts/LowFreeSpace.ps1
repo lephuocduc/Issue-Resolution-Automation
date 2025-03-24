@@ -495,6 +495,7 @@ function Get-DiskSpaceDetails {
     return $diskDetails
 }
 
+<#
 # Function to get the largest folders in a after cleanup
 function Get-LargestFolders {
     param(
@@ -533,7 +534,7 @@ function Get-LargestFolders {
 
     $result = Invoke-Command -Session $session -ScriptBlock $scriptBlock -ArgumentList $path, $exclude, $topN
     return $result
-}
+}#>
 
 <#
 # Function to export cleanup report
@@ -614,7 +615,7 @@ $iisLogCleanupLog
     }
 }#>
 
-
+<#
 # Function to list and sort sizes of items (both folders and files) within each first-level folder
 function Get-SecondLevelFolderSizes {
     param(
@@ -660,7 +661,7 @@ function Get-SecondLevelFolderSizes {
         }
     }
     return $output
-}
+}#>
 
 <#
 # Function to export data disk report
@@ -717,6 +718,91 @@ $folderSizes
             )
     }
 }#>
+
+# Function to get top 10 largest folders and files
+function Get-TopItems {
+    param(
+        [Parameter(Mandatory=$true)]
+        [System.Management.Automation.Runspaces.PSSession]$session,
+        [Parameter(Mandatory=$true)]
+        [string]$path,
+        [string[]]$exclude = @(),
+        [int]$topN = 10
+    )
+
+    $scriptBlock = {
+        param($path, $exclude, $topN)
+        try {
+            # Get all items (files and folders) at the root level
+            $rootItems = Get-ChildItem -Path $path -ErrorAction SilentlyContinue | 
+                         Where-Object { $_.Name -notin $exclude }
+
+            $itemSizes = foreach ($item in $rootItems) {
+                try {
+                    $size = 0
+                    if ($item.PSIsContainer) {
+                        # Calculate total size of folder contents
+                        $size = (Get-ChildItem -Path $item.FullName -Recurse -File -ErrorAction SilentlyContinue | 
+                                Measure-Object -Property Length -Sum -ErrorAction SilentlyContinue).Sum
+                    } else {
+                        # File size directly
+                        $size = $item.Length
+                    }
+                    [PSCustomObject]@{
+                        Name = $item.Name
+                        FullPath = $item.FullName
+                        SizeGB = [math]::Round($size / 1GB, 2)
+                        IsFolder = $item.PSIsContainer
+                    }
+                } catch {
+                    Write-Warning "Error processing item $($item.FullName): $_"
+                    continue
+                }
+            }
+
+            # Sort by size and get top N items
+            $topItems = $itemSizes | Sort-Object SizeGB -Descending | Select-Object -First $topN
+
+            # For each folder in the top items, get its largest sub-items
+            $detailedOutput = foreach ($topItem in $topItems) {
+                $output = [PSCustomObject]@{
+                    Name = $topItem.Name
+                    SizeGB = $topItem.SizeGB
+                    Type = if ($topItem.IsFolder) { "Folder" } else { "File" }
+                    SubItems = $null
+                }
+
+                if ($topItem.IsFolder) {
+                    $subItems = Get-ChildItem -Path $topItem.FullPath -ErrorAction SilentlyContinue
+                    $subItemSizes = foreach ($subItem in $subItems) {
+                        $subSize = 0
+                        if ($subItem.PSIsContainer) {
+                            $subSize = (Get-ChildItem -Path $subItem.FullName -Recurse -File -ErrorAction SilentlyContinue | 
+                                       Measure-Object -Property Length -Sum -ErrorAction SilentlyContinue).Sum
+                        } else {
+                            $subSize = $subItem.Length
+                        }
+                        [PSCustomObject]@{
+                            Name = "+ $($subItem.Name)"
+                            SizeMB = [math]::Round($subSize / 1MB, 2)
+                            Type = if ($subItem.PSIsContainer) { "Folder" } else { "File" }
+                        }
+                    }
+                    $output.SubItems = $subItemSizes | Sort-Object SizeMB -Descending | Select-Object -First 10
+                }
+                $output
+            }
+
+            return $detailedOutput
+        } catch {
+            Write-Warning "Error in Get-TopItems script block: $_"
+            return @()
+        }
+    }
+
+    $result = Invoke-Command -Session $session -ScriptBlock $scriptBlock -ArgumentList $path, $exclude, $topN
+    return $result
+}
 
 # Function to export disk report (merged C: cleanup and data disk reports)
 function Export-DiskReport {
@@ -1017,20 +1103,18 @@ $okButton.Add_Click({
             # Get disk space after cleanup
             $After = Get-DiskSpaceDetails -session $session -diskName $diskName
             
-            $freePercentageDataDisk = $After.FreePercentage
+            $freePercentageDisk = $After.FreePercentage
 
-            # Check if free space is still below 10%
-            $topUsers = $null
-            $topRoot = $null
+            # After cleanup, if free space is still low
             if ($After.FreePercentage -lt 10) {
-                Update-StatusLabel -text "Free space still low. Identifying large folders..."             
-                $topUsers = Get-LargestFolders -session $session -path "C:\Users" -topN 5
-                $excludeRoot = @("Users", "Windows", "Program Files", "Program Files (x86)", "Program Data")
-                $topRoot = Get-LargestFolders -session $session -path "C:\" -exclude $excludeRoot -topN 5
+                Update-StatusLabel -text "Free space still low. Identifying top items..."
+                $topItems = Get-TopItems -session $session -path "C:\" -exclude @("Windows", "Program Files", "Program Files (x86)", "ProgramData") -topN 10
             }
 
+            
+
             [System.Windows.Forms.MessageBox]::Show(
-                "Drive $($diskName). Free space is $($freePercentageDataDisk)%.`nPlease check report for details.", 
+                "Drive $($diskName). Free space is $($freePercentageDisk)%.`nPlease check report for details.", 
                 "Information", 
                 [System.Windows.Forms.MessageBoxButtons]::OK, 
                 [System.Windows.Forms.MessageBoxIcon]::Information
@@ -1042,25 +1126,42 @@ $okButton.Add_Click({
                 -userCacheLog $clearUserCache -systemCacheLog $clearSystemCache -iisLogCleanupLog $clearIISLogs `
                 -topUsers $topUsers -topRoot $topRoot#>
             
+            # Format output for the report
+            $formattedOutput = "`nTop 10 largest items on $($diskName):`n"
+            foreach ($item in $topItems) {
+                $formattedOutput += "- $($item.Name) ($($item.Type)): $($item.SizeGB)GB`n"
+                if ($item.SubItems) {
+                    foreach ($subItem in $item.SubItems) {
+                        $formattedOutput += "  $($subItem.Name) ($($subItem.Type)): $($subItem.SizeMB)MB`n"
+                    }
+                }
+            }
+            
             Export-DiskReport -serverName $serverName -diskName "C" `
-            -diskInfo $After -beforeDiskInfo $Before `
-            -userCacheLog $clearUserCache -systemCacheLog $clearSystemCache `
-            -iisLogCleanupLog $clearIISLogs -topUsers $topUsers -topRoot $topRoot
+                -diskInfo $After -beforeDiskInfo $Before `
+                -userCacheLog $clearUserCache -systemCacheLog $clearSystemCache `
+                -iisLogCleanupLog $clearIISLogs -folderSizes $formattedOutput
         }
         else {
             # Show status
-            Update-StatusLabel -text "Getting disk information. Please wait..."
-
-            # Get disk space details
+            Update-StatusLabel -text "Getting disk information and top items..."
             $diskInfo = Get-DiskSpaceDetails -session $session -diskName $diskName
+            $topItems = Get-TopItems -session $session -path "$($diskName):\" -topN 10
 
-            # Get folder sizes
-            $folderSizes = Get-SecondLevelFolderSizes -session $session -diskName $diskName
+            $formattedOutput = "`nTop 10 largest items on $($diskName):`n"
+            foreach ($item in $topItems) {
+                $formattedOutput += "- $($item.Name) ($($item.Type)): $($item.SizeGB)GB`n"
+                if ($item.SubItems) {
+                    foreach ($subItem in $item.SubItems) {
+                        $formattedOutput += "  $($subItem.Name) ($($subItem.Type)): $($subItem.SizeMB)MB`n"
+                    }
+                }
+            }
 
-            $freePercentageDataDisk = $diskInfo.FreePercentage
+            $freePercentageDisk = $diskInfo.FreePercentage
 
             [System.Windows.Forms.MessageBox]::Show(
-                "Drive $($diskName). Free space is $($freePercentageDataDisk)%.`nPlease check report for details.", 
+                "Drive $($diskName). Free space is $($freePercentageDisk)%.`nPlease check report for details.", 
                 "Information", 
                 [System.Windows.Forms.MessageBoxButtons]::OK, 
                 [System.Windows.Forms.MessageBoxIcon]::Information
@@ -1069,7 +1170,7 @@ $okButton.Add_Click({
             # Export report
             #Export-DataDiskReport -serverName $serverName -diskName $diskName -diskInfo $diskInfo -folderSizes $folderSizes
             Export-DiskReport -serverName $serverName -diskName $diskName `
-                -diskInfo $diskInfo -folderSizes $folderSizes
+                -diskInfo $diskInfo -folderSizes $formattedOutput
 
         }
         # Close session

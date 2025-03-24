@@ -127,8 +127,8 @@ function Test-DiskAvailability {
     }
 }
 
-#Test-LocalLogFileCreation
-function Test-LocalLogFileCreation {
+#Test-LogFileCreation
+function Test-LogFileCreation {
     [CmdletBinding()]
     param()
     
@@ -159,7 +159,7 @@ function Test-LocalLogFileCreation {
 }
 
 # Usage (add after disk cleanup operations):
-if (-not (Test-LocalLogFileCreation)) {
+if (-not (Test-LogFileCreation)) {
     Write-Warning "Cannot proceed - local log file creation failed"
     return
 }
@@ -535,6 +535,7 @@ function Get-LargestFolders {
     return $result
 }
 
+<#
 # Function to export cleanup report
 function Export-CDisk-Cleanup-Report {
     param (
@@ -611,7 +612,7 @@ $iisLogCleanupLog
             [System.Windows.Forms.MessageBoxIcon]::Error
         )
     }
-}
+}#>
 
 
 # Function to list and sort sizes of items (both folders and files) within each first-level folder
@@ -661,6 +662,7 @@ function Get-SecondLevelFolderSizes {
     return $output
 }
 
+<#
 # Function to export data disk report
 function Export-DataDiskReport {
     param(
@@ -713,6 +715,121 @@ $folderSizes
                 [System.Windows.Forms.MessageBoxButtons]::OK, 
                 [System.Windows.Forms.MessageBoxIcon]::Error
             )
+    }
+}#>
+
+# Function to export disk report (merged C: cleanup and data disk reports)
+function Export-DiskReport {
+    param (
+        [Parameter(Mandatory)]
+        [string]$serverName,
+        [Parameter(Mandatory)]
+        [string]$diskName,
+        [Parameter(Mandatory)]
+        [PSObject]$diskInfo,
+        [Parameter(Mandatory = $false)]
+        [PSObject]$beforeDiskInfo,  # Used for C: cleanup
+        [Parameter(Mandatory = $false)]
+        [string]$userCacheLog,      # Used for C: cleanup
+        [Parameter(Mandatory = $false)]
+        [string]$systemCacheLog,    # Used for C: cleanup
+        [Parameter(Mandatory = $false)]
+        [string]$iisLogCleanupLog,  # Used for C: cleanup
+        [Parameter(Mandatory = $false)]
+        [array]$topUsers,           # Used for C: cleanup if space still low
+        [Parameter(Mandatory = $false)]
+        [array]$topRoot,            # Used for C: cleanup if space still low
+        [Parameter(Mandatory = $false)]
+        [string]$folderSizes        # Used for data disk analysis
+    )
+
+    # Create temp directory if it doesn't exist
+    if (-not (Test-Path "C:\temp")) { 
+        New-Item -ItemType Directory -Path "C:\temp" | Out-Null
+    }
+
+    # Setup report path with timestamp
+    $timestamp = Get-Date -Format "ddMMyyyy-HHmm"
+    $reportPath = "C:\temp\LowFreeSpace-$diskName-$serverName-$timestamp.txt"
+
+    # Initialize report content
+    $reportContent = @"
+-------------------------------------------------------------------------
+Server name: $serverName | Date: $(Get-Date -Format "dd/MM/yyyy HH:mm:ss")
+"@
+
+    # Add disk usage information
+    if ($diskName -eq "C" -and $beforeDiskInfo -and $diskInfo) {
+        # C: drive cleanup report
+        $spaceSaved = [math]::Round($diskInfo.FreeSpace - $beforeDiskInfo.FreeSpace, 2)
+        $reportContent += @"
+
+Disk usage before cleanup:
+Drive C: | Used GB: $($beforeDiskInfo.UsedSpace) | Free GB: $($beforeDiskInfo.FreeSpace) | Total GB: $($beforeDiskInfo.TotalSize) | Free Percentage: $($beforeDiskInfo.FreePercentage)%
+
+Disk usage after cleanup:
+Drive C: | Used GB: $($diskInfo.UsedSpace) | Free GB: $($diskInfo.FreeSpace) | Total GB: $($diskInfo.TotalSize) | Free Percentage: $($diskInfo.FreePercentage)%
+
+Space saved: $spaceSaved GB
+"@
+    } else {
+        # Data disk report
+        $reportContent += @"
+
+Disk usage:
+Drive $($diskName): | Used GB: $($diskInfo.UsedSpace) | Free GB: $($diskInfo.FreeSpace) | Total GB: $($diskInfo.TotalSize) | Free Percentage: $($diskInfo.FreePercentage)%
+"@
+    }
+
+    # Add detailed sections based on disk type
+    if ($diskName -eq "C") {
+        # C: drive cleanup details
+        $reportContent += @"
+#######################################################################
+$userCacheLog
+#######################################################################
+$systemCacheLog
+#######################################################################
+$iisLogCleanupLog
+"@
+
+        # Append top folders if available
+        if ($topUsers -and $topUsers.Count -gt 0) {
+            $reportContent += "`n#######################################################################"
+            $reportContent += "`nTop 5 largest folders in C:\Users:`n"
+            $reportContent += ($topUsers | ForEach-Object { " - $($_.Folder): $($_.SizeGB)GB" }) -join "`n"
+        }
+
+        if ($topRoot -and $topRoot.Count -gt 0) {
+            $reportContent += "`n`nTop 5 largest folders in C:\ (excluding system folders):`n"
+            $reportContent += ($topRoot | ForEach-Object { " - $($_.Folder): $($_.SizeGB)GB" }) -join "`n"
+        }
+    } else {
+        # Data disk folder sizes
+        $reportContent += @"
+#######################################################################
+$folderSizes
+"@
+    }
+
+    # Write report to file
+    $reportContent | Out-File -FilePath $reportPath -Force
+
+    # Show message box based on success/failure
+    if (Test-Path -Path $reportPath) {
+        [System.Windows.Forms.MessageBox]::Show(
+            "The report has been exported to $reportPath.", 
+            "Information", 
+            [System.Windows.Forms.MessageBoxButtons]::OK, 
+            [System.Windows.Forms.MessageBoxIcon]::Information
+        )
+    } else {
+        [System.Windows.Forms.MessageBox]::Show(
+            "Error when exporting.", 
+            "Error", 
+            [System.Windows.Forms.MessageBoxButtons]::OK, 
+            [System.Windows.Forms.MessageBoxIcon]::Error
+        )
     }
 }
 
@@ -861,7 +978,7 @@ $okButton.Add_Click({
         return
     }
 
-    if (-not (Test-LocalLogFileCreation)) {
+    if (-not (Test-LogFileCreation)) {
         [System.Windows.Forms.MessageBox]::Show(
                 "Cannot proceed - local log file creation failed", 
                 "Error", 
@@ -928,9 +1045,14 @@ $okButton.Add_Click({
 
             # Export cleanup report
             #Export-CDisk-Cleanup-Report -serverName $serverName -Before $Before -After $After -userCacheLog $clearUserCache -systemCacheLog $clearSystemCache -iisLogCleanupLog $clearIISLogs       
-            Export-CDisk-Cleanup-Report -serverName $serverName -Before $Before -After $After `
+            <#Export-CDisk-Cleanup-Report -serverName $serverName -Before $Before -After $After `
                 -userCacheLog $clearUserCache -systemCacheLog $clearSystemCache -iisLogCleanupLog $clearIISLogs `
-                -topUsers $topUsers -topRoot $topRoot
+                -topUsers $topUsers -topRoot $topRoot#>
+            
+            Export-DiskReport -serverName $serverName -diskName "C" `
+            -diskInfo $After -beforeDiskInfo $Before `
+            -userCacheLog $clearUserCache -systemCacheLog $clearSystemCache `
+            -iisLogCleanupLog $clearIISLogs -topUsers $topUsers -topRoot $topRoot
         }
         else {
             # Show status
@@ -952,7 +1074,9 @@ $okButton.Add_Click({
             )
                             
             # Export report
-            Export-DataDiskReport -serverName $serverName -diskName $diskName -diskInfo $diskInfo -folderSizes $folderSizes
+            #Export-DataDiskReport -serverName $serverName -diskName $diskName -diskInfo $diskInfo -folderSizes $folderSizes
+            Export-DiskReport -serverName $serverName -diskName $diskName `
+                -diskInfo $diskInfo -folderSizes $folderSizes
 
         }
         # Close session

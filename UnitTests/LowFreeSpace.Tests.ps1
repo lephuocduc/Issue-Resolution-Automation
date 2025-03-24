@@ -163,9 +163,13 @@ Describe "Test Clear-SystemCache" {
         Context "When no files older than 5 days exist" {
             BeforeAll {
                 Mock Invoke-Command { & $ScriptBlock }
-                Mock Test-Path { return $true } -ParameterFilter {
-                    $Path -eq "C:\Windows\SoftwareDistribution\Download\"
-                }
+                Mock Test-Path { return $true } -ParameterFilter { $Path -eq "C:\Windows\SoftwareDistribution\Download\" }
+
+                # Mock other paths to return no files
+                Mock Test-Path { return $false } -ParameterFilter { $Path -eq "C:\Windows\Installer\$PatchCache$\*" }
+                Mock Test-Path { return $false } -ParameterFilter { $Path -eq "C:\Windows\ccmcache\*" }
+                Mock Test-Path { return $false } -ParameterFilter { $Path -eq "C:\Windows\Temp\*" }
+                
                 Mock Get-ChildItem { return @() } -ParameterFilter { $Path -eq "C:\Windows\SoftwareDistribution\Download" }
                 Mock Remove-Item {}
                 Mock Write-Host {}

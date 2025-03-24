@@ -16,6 +16,24 @@ Test case 2: It should not compress or delete when IIS log path does not exist
 $env:UNIT_TEST = "true"
 # Load the script to be tested
 . "$PSScriptRoot/../Scripts/LowFreeSpace.ps1"
+#Import-Module Pester -RequiredVersion 5.7.1
+
+$PesterModule = Get-Module -ListAvailable -Name Pester
+
+if ($PesterModule) {
+    if ($PesterModule.Version -eq "5.7.1") {
+        Write-Host "Pester version 5.7.1 is installed."
+        Import-Module Pester -RequiredVersion 5.7.1
+    } else {
+        Write-Host "Pester is installed, but the version is $($PesterModule.Version).  Expected version 5.7.1."
+        Write-Host "Installing Pester version 5.7.1..."
+        Install-Module -Name Pester -RequiredVersion 5.7.1 -Force -SkipPublisherCheck
+        Import-Module Pester -RequiredVersion 5.7.1
+    }
+} else {
+    Write-Host "Pester is not installed."
+}
+
 
 <#
 Describe "Test Get-Session" {    
@@ -100,9 +118,7 @@ Describe "Test Clear-SystemCache" {
     BeforeAll {
         # Create a proper mock PSSession
         $mockSession = New-MockObject -Type System.Management.Automation.Runspaces.PSSession
-    }
-
-        
+    }      
 
         Context "When session parameter is invalid" {
             #Test case 3: It should throw an error for null session

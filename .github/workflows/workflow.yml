@@ -24,7 +24,7 @@ jobs:
         shell: pwsh
         run: |
           if (-not (Get-Module -ListAvailable -Name Pester)) {
-              Install-Module -Name Pester -Force -SkipPublisherCheck
+              Install-Module -Name Pester -RequiredVersion 5.7.1 -Force -SkipPublisherCheck
           }
 
       - name: Run Unit Tests

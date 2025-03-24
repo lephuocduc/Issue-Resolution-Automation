@@ -23,8 +23,19 @@ jobs:
       - name: Install Pester
         shell: pwsh
         run: |
-          if (-not (Get-Module -ListAvailable -Name Pester)) {
-              Install-Module -Name Pester -RequiredVersion 5.7.1 -Force -SkipPublisherCheck
+          $PesterModule = Get-Module -ListAvailable -Name Pester
+          if ($PesterModule) {
+              if ($PesterModule.Version -eq "5.7.1") {
+                  Write-Host "Pester version 5.7.1 is installed."
+                  Import-Module Pester -RequiredVersion 5.7.1
+              } else {
+                  Write-Host "Pester is installed, but the version is $($PesterModule.Version).  Expected version 5.7.1."
+                  Write-Host "Installing Pester version 5.7.1..."
+                  Install-Module -Name Pester -RequiredVersion 5.7.1 -Force -SkipPublisherCheck
+                  Import-Module Pester -RequiredVersion 5.7.1
+              }
+          } else {
+              Write-Host "Pester is not installed."
           }
 
       - name: Run Unit Tests

@@ -101,6 +101,9 @@ Describe "Test Clear-SystemCache" {
         # Create a proper mock PSSession
         $mockSession = New-MockObject -Type System.Management.Automation.Runspaces.PSSession
     }
+
+        
+
         Context "When session parameter is invalid" {
             #Test case 3: It should throw an error for null session
             It "Throws error for null session" {

@@ -1,4 +1,5 @@
 %% Do not include Update Status function
+%% Show error, Do not show information
 graph TD
     A[Start: GUI Form Opened] --> B{User Enters Server Name and Disk Name}
     B --> |Click OK Button| D{Validate Input}
@@ -35,40 +36,27 @@ graph TD
     S --> S2{Check IISLogPath Exists}
     S2 -->|Exists| S3[Get Logs Older Than 6 Months]
     S3 --> S4[For Each Log: Compress to ArchivePath]
-    S4 --> S5{Delete original IIS Log after compressed}
+    S4 --> S5{Delete Original IIS Log After Compressed}
     S5 -->|Error| S6[Log Error: 'Error compressing or removing log']
     S5 -->|Success| T[Get-DiskSpaceDetails: After Cleanup]
     S2 -->|Not Found| T
 
     T --> U{FreePercentage < 10%?}
-    U -->|Yes| W[Get-LargestFolders]
-    W --> W1[Scan C:\Users, Top 5 Folders]
-    W1 --> W2[Scan C:\, Exclude Users/Windows/Program Files, Top 5]
-    W2 --> X[Export-DiskReport]
-    U -->|No| X
+    U -->|Yes| W[Get-TopItems<br>Exclude System Folders]
+    W --> X2C[Generate Report:<br>* Before/After Space<br>* System Cache Log<br>* IIS Log<br>* Top Items if Low]
+    X2C --> X[Export-DiskReport to C:\temp\LowFreeSpace-$diskName-$serverName-$timestamp.txt]
+    U -->|No| X2C
 
     %% Non-C: Drive Analysis Path
     N -->|No| AA[Get-DiskSpaceDetails]
-    AA --> AB[Get-SecondLevelFolderSizes]
-    AB --> AB1[Get First-Level Folders in DiskName:\]
-    AB1 --> AB2[For Each Folder: Get Items]
-    AB2 --> AB3[Calculate Size of Files/Subfolders]
-    AB3 --> AB4[Sort by Size, Take Top 10 per Folder]
-    AB4 --> X[Export-DiskReport]
+    AA --> AB[Get-TopItems]
+    AB --> X2D[Generate Report:<br>* Disk Usage<br>* Top Items]
 
     %% Unified Export Path
-    X -->|C: Drive| X2C[Generate Report: Before/After Space, System Cache Log, IIS Log, Top Folders if Low]
-    X -->|Non-C: Drive| X2D[Generate Report: Disk Usage, Folder Sizes]
-    X2C --> X3
-    X2D --> X3
-    X3{Write Report to C:\temp\LowFreeSpace-DiskName-ddMMyyyy.txt}
-    X3 -->|Success| Y{Check Disk Type}
-    X3 -->|Error| Y1[Show Error: 'Error when exporting']
-    Y -->|C: Drive| Y2[Show Message: 'Drive C:. Free space is $freePercentageAfterCleanup%']
-    Y -->|Non-C: Drive| Y3[Show Message: 'Drive DiskName. Free space is $freePercentageDataDisk%']
+    X --> |Success| Y1[Show Message: 'Drive DiskName. Free space is $freePercentage%']
+    X2D --> X
+    X3{Write Report to C:\temp\LowFreeSpace-DiskName-ddMMyyyy-HHmm.txt}
 
     %% Cleanup and Exit
-    Y2 --> AE[Remove-PSSession and Close Form]
-    Y3 --> AE
-    Y1 --> AE
+    Y1 --> AE[Remove-PSSession and Close Form]
     B --> |Click Cancel Button| AE

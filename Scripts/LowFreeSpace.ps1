@@ -633,6 +633,7 @@ Disk usage after cleanup:
 Drive C: | Used GB: $($diskInfo.UsedSpace) | Free GB: $($diskInfo.FreeSpace) | Total GB: $($diskInfo.TotalSize) | Free Percentage: $($diskInfo.FreePercentage)%
 
 Space saved: $spaceSaved GB
+
 "@
     } else {
         # Data disk report
@@ -640,6 +641,7 @@ Space saved: $spaceSaved GB
 
 Disk usage:
 Drive $($diskName): | Used GB: $($diskInfo.UsedSpace) | Free GB: $($diskInfo.FreeSpace) | Total GB: $($diskInfo.TotalSize) | Free Percentage: $($diskInfo.FreePercentage)%
+
 "@
     }
 
@@ -658,12 +660,12 @@ $iisLogCleanupLog
         # Append top folders if available
         if ($topUsers -and $topUsers.Count -gt 0) {
             $reportContent += "`n#######################################################################"
-            $reportContent += "`nTop 5 largest folders in C:\Users:`n"
+            $reportContent += "`nTop largest folders in C:\Users:`n"
             $reportContent += ($topUsers | ForEach-Object { " - $($_.Folder): $($_.SizeGB)GB" }) -join "`n"
         }
 
         if ($topRoot -and $topRoot.Count -gt 0) {
-            $reportContent += "`n`nTop 5 largest folders in C:\ (excluding system folders):`n"
+            $reportContent += "`n`nTop largest folders in C:\ (excluding system folders):`n"
             $reportContent += ($topRoot | ForEach-Object { " - $($_.Folder): $($_.SizeGB)GB" }) -join "`n"
         }
     } else {
@@ -880,28 +882,16 @@ $okButton.Add_Click({
             $After = Get-DiskSpaceDetails -session $session -diskName $diskName
             
             $freePercentageDisk = $After.FreePercentage
+            $topItems = $null  # Initialize to avoid passing unintended data
+            $topUsers = $null
 
             # After cleanup, if free space is still low
-            if ($After.FreePercentage -lt 10) {
+            if ($After.FreePercentage -lt 50) {
                 Update-StatusLabel -text "Free space still low. Identifying top items..."
-                $topItems = Get-TopItems -session $session -path "C:\" -exclude @("Windows", "Program Files", "Program Files (x86)", "ProgramData") -topN 10
+                $topItems = Get-TopItems -session $session -path "$($diskName):\" -exclude @("Windows", "Program Files", "Program Files (x86)", "ProgramData","Users") -topN 10
+                $topUsers = Get-TopItems -session $session -path "$($diskName):\Users" -topN 10
             }
 
-            
-
-            [System.Windows.Forms.MessageBox]::Show(
-                "Drive $($diskName). Free space is $($freePercentageDisk)%.`nPlease check report for details.", 
-                "Information", 
-                [System.Windows.Forms.MessageBoxButtons]::OK, 
-                [System.Windows.Forms.MessageBoxIcon]::Information
-            )
-
-            # Export cleanup report
-            #Export-CDisk-Cleanup-Report -serverName $serverName -Before $Before -After $After -userCacheLog $clearUserCache -systemCacheLog $clearSystemCache -iisLogCleanupLog $clearIISLogs       
-            <#Export-CDisk-Cleanup-Report -serverName $serverName -Before $Before -After $After `
-                -userCacheLog $clearUserCache -systemCacheLog $clearSystemCache -iisLogCleanupLog $clearIISLogs `
-                -topUsers $topUsers -topRoot $topRoot#>
-            
             # Format output for the report
             $formattedOutput = "`nTop 10 largest items on $($diskName):`n"
             foreach ($item in $topItems) {
@@ -912,11 +902,21 @@ $okButton.Add_Click({
                     }
                 }
             }
+
+            [System.Windows.Forms.MessageBox]::Show(
+                "Drive $($diskName). Free space is $($freePercentageDisk)%.`nPlease check report for details.", 
+                "Information", 
+                [System.Windows.Forms.MessageBoxButtons]::OK, 
+                [System.Windows.Forms.MessageBoxIcon]::Information
+            )
             
-            Export-DiskReport -serverName $serverName -diskName "C" `
+            
+            
+            Export-DiskReport -serverName $serverName -diskName $diskName `
                 -diskInfo $After -beforeDiskInfo $Before `
                 -userCacheLog $clearUserCache -systemCacheLog $clearSystemCache `
-                -iisLogCleanupLog $clearIISLogs -folderSizes $formattedOutput
+                -iisLogCleanupLog $clearIISLogs -folderSizes $formattedOutput `
+                -topUsers $topItems -topRoot $topItems
         }
         else {
             # Show status
@@ -924,9 +924,9 @@ $okButton.Add_Click({
             $diskInfo = Get-DiskSpaceDetails -session $session -diskName $diskName
             $topItems = Get-TopItems -session $session -path "$($diskName):\" -topN 10
 
-            $formattedOutput = "`nTop 10 largest items on $($diskName):`n"
+            $formattedOutput = "`nTop 10 largest items on $($diskName):"
             foreach ($item in $topItems) {
-                $formattedOutput += "- $($item.Name) ($($item.Type)): $($item.SizeGB)GB`n"
+                $formattedOutput += "`n- $($item.Name) ($($item.Type)): $($item.SizeGB)GB`n"
                 if ($item.SubItems) {
                     foreach ($subItem in $item.SubItems) {
                         $formattedOutput += "  $($subItem.Name) ($($subItem.Type)): $($subItem.SizeMB)MB`n"
@@ -944,7 +944,6 @@ $okButton.Add_Click({
             )
                             
             # Export report
-            #Export-DataDiskReport -serverName $serverName -diskName $diskName -diskInfo $diskInfo -folderSizes $folderSizes
             Export-DiskReport -serverName $serverName -diskName $diskName `
                 -diskInfo $diskInfo -folderSizes $formattedOutput
 

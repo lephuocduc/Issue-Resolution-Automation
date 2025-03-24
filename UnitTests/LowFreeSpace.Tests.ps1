@@ -136,9 +136,18 @@ Describe "Test Clear-SystemCache" {
                     [PSCustomObject]@{ FullName = "C:\Windows\SoftwareDistribution\Download\oldfile3.txt"; LastWriteTime = (Get-Date).AddDays(-7) }
                 )
                 Mock Test-Path { return $true } -ParameterFilter { $Path -eq "C:\Windows\SoftwareDistribution\Download\" }
+
+                # Mock other paths to return no files
+                Mock Test-Path { return $false } -ParameterFilter { $Path -eq "C:\Windows\Installer\$PatchCache$\*" }
+                Mock Test-Path { return $false } -ParameterFilter { $Path -eq "C:\Windows\ccmcache\*" }
+                Mock Test-Path { return $false } -ParameterFilter { $Path -eq "C:\Windows\Temp\*" }
+
                 Mock Get-ChildItem { return $oldFiles } -ParameterFilter { $Path -eq "C:\Windows\SoftwareDistribution\Download" }
                 Mock Remove-Item { Write-Output "Remove-Item called with Path: $Path" }  # Use Write-Output instead
                 # Remove Mock Write-Host {} to avoid suppression
+
+                # Mock Clear-RecycleBin (though it doesn’t call Remove-Item, for completeness)
+                Mock Clear-RecycleBin {}
             }
     
             #Test case 4: It should only delete old Windows Update cache files older than 5 days

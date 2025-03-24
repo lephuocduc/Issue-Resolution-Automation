@@ -249,9 +249,15 @@ function Clear-SystemCache {
         # Windows Update cache (older than 5 days)
         try {
             if (Test-Path -Path "C:\Windows\SoftwareDistribution\Download\") {
-                Write-Host "Starting to clean Windows Update cache"
+                
                 $filesToDelete = Get-ChildItem -Path "C:\Windows\SoftwareDistribution\Download" -Recurse -Force |
                     Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-5) }
+                
+                if ($filesToDelete.Count -gt 0) {
+                    Write-Host "Starting to clean Windows Update cache"
+                }else {
+                    Write-Host "Windows Update cache not found"
+                }
                 
                 foreach ($file in $filesToDelete) {
                     Write-Host "Deleting: $($file.FullName)"
@@ -280,7 +286,7 @@ function Clear-SystemCache {
                 
                 #$filesToDelete | Remove-Item -Force -Recurse -Verbose -ErrorAction SilentlyContinue
             } else {
-                Write-Host "Windows Installer patch cache path not found"
+                Write-Host "Windows Installer patch cache not found"
             }
         } catch {
             Write-Host "Error cleaning Windows Installer patch cache: $_"
@@ -308,18 +314,22 @@ function Clear-SystemCache {
         # Windows Temp files (older than 5 days)
         try {
             if (Test-Path -Path "C:\Windows\Temp\*") {
-            Write-Host "Starting to clean Windows Temp files"
             $filesToDelete = Get-ChildItem -Path "C:\Windows\Temp\*" -Recurse -Force |
                 Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-5) }
+            
+            if ($filesToDelete.Count -gt 0) {
+                Write-Host "Starting to clean Windows Temp files"
+            }else {
+                Write-Host "Windows Temp not found"
+            }
             
             foreach ($file in $filesToDelete) {
                 Write-Host "Deleting: $($file.FullName)"
                 Remove-Item -Path $file.FullName -Force -Recurse -Verbose -ErrorAction SilentlyContinue
             }
             
-            #$filesToDelete | Remove-Item -Force -Recurse -Verbose -ErrorAction SilentlyContinue
             } else {
-            Write-Host "Windows Temp path not found"
+            Write-Host "Windows Temp not found"
             }
         } catch {
             Write-Host "Error cleaning Windows Temp files: $_"
@@ -348,17 +358,24 @@ function Compress-IISLogs {
         [string]$IISLogPath = "C:\inetpub\logs\LogFiles",
         [string]$ArchivePath = "C:\inetpub\logs\Archive"
     )
-    Write-Host "Starting Compress-IISLogs with IISLogPath: $IISLogPath and ArchivePath: $ArchivePath"
+    #Write-Host "Starting Compress-IISLogs with IISLogPath: $IISLogPath and ArchivePath: $ArchivePath"
 
     $ScriptBlock = {
         param($IISLogPath, $ArchivePath)
 
-        Write-Host "Remote execution started for Compress-IISLogs"
+        #Write-Host "Remote execution started for Compress-IISLogs"
 
         # Ensure the archive directory exists
         try {
             if (Test-Path -Path $IISLogPath) {
                 Write-Host "IIS log path exists: $IISLogPath"
+                if (-not (Test-Path -Path $ArchivePath)) {
+                    Write-Host "Creating archive path: $ArchivePath"
+                    New-Item -Path $ArchivePath -ItemType Directory -Force | Out-Null
+                }
+                else {
+                    Write-Host "Archive path already exists: $ArchivePath"
+                }
                 $OldLogs = Get-ChildItem -Path "$IISLogPath\*" -Recurse -Force |
                     Where-Object { $_.LastWriteTime -lt (Get-Date).AddMonths(-6) }
 
@@ -368,11 +385,16 @@ function Compress-IISLogs {
                 foreach ($Log in $OldLogs) {                    
                     try {
                         $ArchiveFileName = "$ArchivePath\$($Log.Name).zip"
-                        Write-Host "Compressing log file: $($Log.FullName) to $ArchiveFileName"
                         Compress-Archive -Path $Log.FullName -DestinationPath $ArchiveFileName -Update -ErrorAction SilentlyContinue
-                        Write-Host "Compression successful: $ArchiveFileName"
-                        Write-Host "Deleting original log file: $($Log.FullName)"
-                        Remove-Item -Path $Log.FullName -Force -Verbose -ErrorAction SilentlyContinue
+                        if (Test-Path -Path $ArchiveFileName) {
+                            Write-Host "Compressed IIS log file: $($Log.FullName) to $ArchiveFileName"
+                            Remove-Item -Path $Log.FullName -Force -Verbose -ErrorAction SilentlyContinue
+                            if ((Test-Path -Path $Log.FullName)) {
+                                Write-Host "Error removing log file: $($Log.FullName)"
+                            }else {
+                                Write-Host "Removed log file: $($Log.FullName)"
+                            }
+                        }
                     } catch {
                         Write-Host "Error compressing or removing log file: $($Log.FullName). Error: $_"
                     }
@@ -789,6 +811,7 @@ $okButton.Add_Click({
                 "$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss'): $_"
             } | Out-String
 
+
             # Get disk space after cleanup
             $After = Get-DiskSpaceDetails -session $session -diskName $diskName
             
@@ -813,6 +836,13 @@ $okButton.Add_Click({
                     }
                 }
             }                    
+
+            [System.Windows.Forms.MessageBox]::Show(
+                "Drive $($diskName). Free space is $($freePercentageDisk)%.`nPlease check report for details.", 
+                "Information", 
+                [System.Windows.Forms.MessageBoxButtons]::OK, 
+                [System.Windows.Forms.MessageBoxIcon]::Information
+            )
             
             Export-DiskReport -serverName $serverName -diskName $diskName `
                 -diskInfo $After -beforeDiskInfo $Before `
@@ -837,19 +867,19 @@ $okButton.Add_Click({
             }
 
             $freePercentageDisk = $diskInfo.FreePercentage
+
+            [System.Windows.Forms.MessageBox]::Show(
+                "Drive $($diskName). Free space is $($freePercentageDisk)%.`nPlease check report for details.", 
+                "Information", 
+                [System.Windows.Forms.MessageBoxButtons]::OK, 
+                [System.Windows.Forms.MessageBoxIcon]::Information
+            )
                             
             # Export report
             Export-DiskReport -serverName $serverName -diskName $diskName `
                 -diskInfo $diskInfo -folderSizes $formattedOutput
 
         }
-        [System.Windows.Forms.MessageBox]::Show(
-                "Drive $($diskName). Free space is $($freePercentageDisk)%.`nPlease check report for details.", 
-                "Information", 
-                [System.Windows.Forms.MessageBoxButtons]::OK, 
-                [System.Windows.Forms.MessageBoxIcon]::Information
-            )
-
         # Close session
         Remove-PSSession -Session $session
         $main_form.Close()        

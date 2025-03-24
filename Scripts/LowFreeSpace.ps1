@@ -823,13 +823,6 @@ $folderSizes
             [System.Windows.Forms.MessageBoxButtons]::OK, 
             [System.Windows.Forms.MessageBoxIcon]::Information
         )
-    } else {
-        [System.Windows.Forms.MessageBox]::Show(
-            "Error when exporting.", 
-            "Error", 
-            [System.Windows.Forms.MessageBoxButtons]::OK, 
-            [System.Windows.Forms.MessageBoxIcon]::Error
-        )
     }
 }
 
@@ -1024,7 +1017,7 @@ $okButton.Add_Click({
             # Get disk space after cleanup
             $After = Get-DiskSpaceDetails -session $session -diskName $diskName
             
-            $freePercentageAfterCleanup = $After.FreePercentage
+            $freePercentageDataDisk = $After.FreePercentage
 
             # Check if free space is still below 10%
             $topUsers = $null
@@ -1037,7 +1030,7 @@ $okButton.Add_Click({
             }
 
             [System.Windows.Forms.MessageBox]::Show(
-                "Cleanup complete. Free space is $($freePercentageAfterCleanup)%.`nPlease check report for details.", 
+                "Drive $($diskName). Free space is $($freePercentageDataDisk)%.`nPlease check report for details.", 
                 "Information", 
                 [System.Windows.Forms.MessageBoxButtons]::OK, 
                 [System.Windows.Forms.MessageBoxIcon]::Information

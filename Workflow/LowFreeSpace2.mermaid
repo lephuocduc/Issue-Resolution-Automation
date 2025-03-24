@@ -1,3 +1,4 @@
+%% Do not include Update Status function
 graph TD
     A[Start: GUI Form Opened] --> B{User Enters Server Name and Disk Name}
     B --> |Click OK Button| D{Validate Input}
@@ -14,7 +15,7 @@ graph TD
 
     %% C: Drive Cleanup Path
     N -->|Yes| O[Get-DiskSpaceDetails: Before Cleanup]
-    O -->|Disk Details Retrieved| Q[Clear-SystemCache]
+    O --> Q[Clear-SystemCache]
     Q --> Q1{Check Path: C:\Windows\SoftwareDistribution\Download}
     Q1 -->|Exists| Q2[Delete Files Older Than 5 Days]
     Q2 --> Q3{Check Path: C:\Windows\Installer\$PatchCache$}
@@ -31,11 +32,10 @@ graph TD
     Q5 -->|Not Found| Q7
     Q7 -->|Not Found| Q9
 
-    S --> S1[Set Paths: IISLogPath=C:\inetpub\logs\LogFiles, ArchivePath=C:\inetpub\logs\Archive]
-    S1 --> S2{Check IISLogPath Exists}
+    S --> S2{Check IISLogPath Exists}
     S2 -->|Exists| S3[Get Logs Older Than 6 Months]
     S3 --> S4[For Each Log: Compress to ArchivePath]
-    S4 --> S5{Delete Original Log}
+    S4 --> S5{Delete original IIS Log after compressed}
     S5 -->|Error| S6[Log Error: 'Error compressing or removing log']
     S5 -->|Success| T[Get-DiskSpaceDetails: After Cleanup]
     S2 -->|Not Found| T
@@ -44,13 +44,8 @@ graph TD
     U -->|Yes| W[Get-LargestFolders]
     W --> W1[Scan C:\Users, Top 5 Folders]
     W1 --> W2[Scan C:\, Exclude Users/Windows/Program Files, Top 5]
-    W2 --> X[Export-CDisk-Cleanup-Report]
+    W2 --> X[Export-DiskReport]
     U -->|No| X
-    X --> X1[Create C:\temp if Not Exists]
-    X1 --> X2[Generate Report: Before/After Space, System Cache Log, IIS Log, Top Folders]
-    X2 --> X3{Write Report to C:\temp\LowFreeSpace-C-Disk-*.txt}
-    X3 -->|Success| Y[Show Message: 'Cleanup complete. Free space is X%']
-    X3 -->|Error| Y1[Show Error: 'Error when exporting']
 
     %% Non-C: Drive Analysis Path
     N -->|No| AA[Get-DiskSpaceDetails]
@@ -59,16 +54,21 @@ graph TD
     AB1 --> AB2[For Each Folder: Get Items]
     AB2 --> AB3[Calculate Size of Files/Subfolders]
     AB3 --> AB4[Sort by Size, Take Top 10 per Folder]
-    AB4 --> AC[Export-DataDiskReport]
-    AC --> AC1[Create C:\temp if Not Exists]
-    AC1 --> AC2[Generate Report: Disk Usage, Folder Sizes]
-    AC2 --> AC3{Write Report to C:\temp\LowFreeSpace-DiskName-*.txt}
-    AC3 -->|Success| AD[Show Message: 'Drive DiskName. Free space is X%']
-    AC3 -->|Error| AD1[Show Error: 'Error when exporting']
+    AB4 --> X[Export-DiskReport]
+
+    %% Unified Export Path
+    X -->|C: Drive| X2C[Generate Report: Before/After Space, System Cache Log, IIS Log, Top Folders if Low]
+    X -->|Non-C: Drive| X2D[Generate Report: Disk Usage, Folder Sizes]
+    X2C --> X3
+    X2D --> X3
+    X3{Write Report to C:\temp\LowFreeSpace-DiskName-ddMMyyyy.txt}
+    X3 -->|Success| Y{Check Disk Type}
+    X3 -->|Error| Y1[Show Error: 'Error when exporting']
+    Y -->|C: Drive| Y2[Show Message: 'Drive C:. Free space is $freePercentageAfterCleanup%']
+    Y -->|Non-C: Drive| Y3[Show Message: 'Drive DiskName. Free space is $freePercentageDataDisk%']
 
     %% Cleanup and Exit
-    Y --> AE[Remove-PSSession and Close Form]
-    AD --> AE
+    Y2 --> AE[Remove-PSSession and Close Form]
+    Y3 --> AE
     Y1 --> AE
-    AD1 --> AE
     B --> |Click Cancel Button| AE

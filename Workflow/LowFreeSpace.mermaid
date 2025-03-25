@@ -1,0 +1,108 @@
+flowchart TD
+    A["Start: GUI Form Opened"] ==> B{"User Enters Server Name<br>and Disk Name"}
+    B == Click OK Button ==> D{"Validate Input"}
+    D -- Empty Server or Disk Name --> E@{ label: "Show Warning:<br>'Please enter server name and disk name'" }
+    D == Valid Input ==> F{"Test-ServerAvailability"}
+    F -- Not Reachable --> G@{ label: "Show Error:<br>'Server not reachable'" }
+    F == Reachable ==> H{"Get-Session:<br>Create PSSession"}
+    H -- Retry Limit Reached or Canceled --> I@{ label: "Show Error:<br>'Session creation canceled or retry limit reached'" }
+    H == Session Created ==> J{"Test-DiskAvailability"}
+    J -- Disk Not Found --> K@{ label: "Show Error:<br>'Disk not available on server'" }
+    J == Disk Found ==> L{"Test-LogFileCreation"}
+    L -- Failed --> M@{ label: "Show Error:<br>'Cannot proceed - local log file creation failed'" }
+    L == Success ==> N@{ label: "Disk Name = 'C'?" }
+    N == Yes ==> O["Get-DiskSpaceDetails:<br>Before Cleanup"]
+    O ==> Q["Clear-SystemCache"]
+    Q ==> Q1{"Check Path:<br>C:\Windows\SoftwareDistribution\Download"}
+    Q1 == Exists ==> Q2["Delete Files Older Than 5 Days"]
+    Q2 ==> Q3{"Check Path:<br>C:\Windows\Installer\$PatchCache$"}
+    Q3 == Exists ==> Q4["Delete Files Older Than 5 Days"]
+    Q4 ==> Q5{"Check Path:<br>C:\Windows\ccmcache"}
+    Q5 == Exists ==> Q6["Delete Files Older Than 5 Days"]
+    Q6 ==> Q7{"Check Path:<br>C:\Windows\Temp"}
+    Q7 == Exists ==> Q8["Delete Files Older Than 5 Days"]
+    Q8 ==> Q9["Clear-RecycleBin"]
+    Q9 -- Error --> Q10@{ label: "Log Error:<br>'Error cleaning Recycle Bin'" }
+    Q9 == Success ==> S["Compress-IISLogs"]
+    Q1 -- Not Found --> Q3
+    Q3 -- Not Found --> Q5
+    Q5 -- Not Found --> Q7
+    Q7 -- Not Found --> Q9
+    S ==> S1{"Check IISLogPath Exists<br>(C:\inetpub\logs\LogFiles)"}
+    S1 -- No --> T["Get-DiskSpaceDetails:<br>After Cleanup"]
+    S1 == Yes ==> S2["Ensure ArchivePath Exists<br>(C:\inetpub\logs\Archive)"]
+    S2 ==> S3["Get Logs Older Than 6 Months"]
+    S3 ==> S4{"Any Logs Found?"}
+    S4 -- No --> T
+    S4 == Yes ==> S5["For Each Log: Compress to<br>ArchivePath as .zip"]
+    S5 ==> S6{"Compression Succeeded?"}
+    S6 -- No --> S7@{ label: "Log Error:<br>'Error compressing log'" }
+    S6 == Yes ==> S8["Delete Original Log"]
+    S8 ==> S9{"Deletion Succeeded?"}
+    S9 -- No --> S10@{ label: "Log Error:<br>'Error removing log'" }
+    S9 == Yes ==> S11{"More Logs to Process?"}
+    S11 == Yes ==> S5
+    S11 == No ==> T
+    S7 --> S11
+    S10 --> S11
+    T ==> U{"FreePercentage &lt; 10%?"}
+    U == Yes ==> V["Get-TopItems:<br>C:\ (exclude Windows, Program Files, etc.)"]
+    V ==> W["Get-TopItems:<br>C:\Users"]
+    W ==> X["Generate Report:<br>* Before/After Space<br>* System Cache Log<br>* IIS Log<br>* Top Items if Low"]
+    U -- No --> X
+    N == No ==> AA["Get-DiskSpaceDetails"]
+    AA ==> AB["Get-TopItems:<br>DiskName:\\"]
+    AB ==> X2["Generate Report:<br>* Disk Usage<br>* Top Items"]
+    X ==> Y@{ label: "Show Message:<br>'Drive DiskName. Free space is $freePercentage%'" }
+    X2 ==> Y
+    Y ==> Z["Export-DiskReport to<br>C:\temp\LowFreeSpace-$diskName-$serverName-$timestamp.txt"]
+    Z ==> AE["Remove-PSSession and Close Form"]
+    B -- Click Cancel Button --> AF["Close Form"]
+
+     A:::green
+     AE:::red
+     AF:::red
+    classDef green fill:#00FF00
+    classDef red fill:#FF0000
+    linkStyle 1 stroke:#2962FF,fill:none
+    linkStyle 3 stroke:#2962FF,fill:none
+    linkStyle 5 stroke:#2962FF,fill:none
+    linkStyle 7 stroke:#2962FF,fill:none
+    linkStyle 9 stroke:#2962FF,fill:none
+    linkStyle 11 stroke:#2962FF,fill:none
+    linkStyle 12 stroke:#FF6D00,fill:none
+    linkStyle 13 stroke:#FF6D00,fill:none
+    linkStyle 14 stroke:#FF6D00,fill:none
+    linkStyle 15 stroke:#FF6D00,fill:none
+    linkStyle 16 stroke:#FF6D00,fill:none
+    linkStyle 17 stroke:#FF6D00,fill:none
+    linkStyle 18 stroke:#FF6D00,fill:none
+    linkStyle 19 stroke:#FF6D00,fill:none
+    linkStyle 20 stroke:#FF6D00,fill:none
+    linkStyle 21 stroke:#FF6D00,fill:none
+    linkStyle 22 stroke:#FF6D00,fill:none
+    linkStyle 24 stroke:#FF6D00,fill:none
+    linkStyle 29 stroke:#FF6D00,fill:none
+    linkStyle 31 stroke:#FF6D00,fill:none
+    linkStyle 32 stroke:#FF6D00,fill:none
+    linkStyle 33 stroke:#FF6D00,fill:none
+    linkStyle 35 stroke:#FF6D00,fill:none
+    linkStyle 36 stroke:#FF6D00,fill:none
+    linkStyle 38 stroke:#FF6D00,fill:none
+    linkStyle 39 stroke:#FF6D00,fill:none
+    linkStyle 41 stroke:#FF6D00,fill:none
+    linkStyle 42 stroke:#FF6D00,fill:none
+    linkStyle 43 stroke:#FF6D00,fill:none
+    linkStyle 46 stroke:#FF6D00,fill:none
+    linkStyle 47 stroke:#FF6D00,fill:none
+    linkStyle 48 stroke:#FF6D00,fill:none
+    linkStyle 49 stroke:#FF6D00,fill:none
+    linkStyle 51 stroke:#FFD600,fill:none
+    linkStyle 52 stroke:#FFD600,fill:none
+    linkStyle 53 stroke:#FFD600,fill:none
+    linkStyle 54 stroke:#FF6D00,fill:none
+    linkStyle 55 stroke:#FFD600,fill:none
+    linkStyle 56 stroke:#FF6D00,fill:none
+    linkStyle 57 stroke:#FF6D00
+
+

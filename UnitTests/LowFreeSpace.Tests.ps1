@@ -13,25 +13,30 @@ Test Compress-IISLogs function
 Test case 1: It should only compress and delete old IIS logs older than 6 months
 Test case 2: It should not compress or delete when IIS log path does not exist
 #>
+
+# Check for Pester 5.7.1 and exit if not available
+$PesterModule = Get-Module -ListAvailable -Name Pester | Where-Object { $_.Version -eq "5.7.1" }
+if (-not $PesterModule) {
+    Write-Host "Pester version 5.7.1 is not installed. Attempting to install..."
+    try {
+        Install-Module -Name Pester -RequiredVersion 5.7.1 -Force -SkipPublisherCheck -ErrorAction Stop
+        Import-Module Pester -RequiredVersion 5.7.1
+        Write-Host "Pester 5.7.1 successfully installed and imported."
+    }
+    catch {
+        Write-Host "Failed to install Pester 5.7.1. Error: $_"
+        Write-Host "This script requires Pester 5.7.1 to run. Exiting..."
+        exit 1
+    }
+}
+else {
+    Write-Host "Pester version 5.7.1 is installed."
+    Import-Module Pester -RequiredVersion 5.7.1
+}
+
 $env:UNIT_TEST = "true"
 # Load the script to be tested
 . "$PSScriptRoot/../Scripts/LowFreeSpace.ps1"
-
-$PesterModule = Get-Module -ListAvailable -Name Pester
-if ($PesterModule) {
-    if ($PesterModule.Version -eq "5.7.1") {
-        Write-Host "Pester version 5.7.1 is installed."
-        Import-Module Pester -RequiredVersion 5.7.1
-    } else {
-        Write-Host "Pester is installed, but the version is $($PesterModule.Version).  Expected version 5.7.1."
-        Write-Host "Installing Pester version 5.7.1..."
-        Install-Module -Name Pester -RequiredVersion 5.7.1 -Force -SkipPublisherCheck
-        Import-Module Pester -RequiredVersion 5.7.1
-    }
-} else {
-    Write-Host "Pester is not installed."
-}
-
 
 <#
 Describe "Test Get-Session" {    
@@ -121,6 +126,7 @@ Describe "Test Clear-SystemCache" {
         Context "When session parameter is invalid" {
             #Test case 3: It should throw an error for null session
             It "Throws error for null session" {
+                Write-Host "Throws error for null session"
                 # Act & Assert
                 { Clear-SystemCache -session $null } | 
                 Should -Throw -ExpectedMessage "*Cannot bind argument to parameter 'session' because it is null.*"
@@ -152,6 +158,7 @@ Describe "Test Clear-SystemCache" {
     
             #Test case 4: It should only delete old Windows Update cache files older than 5 days
             It "Only deletes old Windows Update cache files older than 5 days" {
+                Write-Host "Only deletes old Windows Update cache files older than 5 days"
                 Clear-SystemCache -session $mockSession
                 Should -Invoke Remove-Item -Times 2 -Exactly
                 Should -Invoke Remove-Item -Times 1 -Exactly -ParameterFilter { $Path -eq "C:\Windows\SoftwareDistribution\Download\oldfile.txt" }
@@ -177,6 +184,7 @@ Describe "Test Clear-SystemCache" {
     
             #Test case 5: It should not delete any files if Windows Update cache files aren't found
             It "Does not delete any files if Windows Update cache files aren't found" {
+                Write-Host "Does not delete any files if Windows Update cache files aren't found"
                 Clear-SystemCache -session $mockSession
                 Should -Not -Invoke Remove-Item
             }
@@ -201,6 +209,7 @@ Describe "Test Clear-SystemCache" {
     
         #Test case 6: It should only delete old Windows Installer patch cache files older than 5 days
         It "Deletes old Windows Installer patch cache files older than 5 days" {
+            Write-Host "Deletes old Windows Installer patch cache files older than 5 days"
             Clear-SystemCache -session $mockSession
             Should -Invoke Remove-Item -Times 1 -Exactly -ParameterFilter { $Path -eq "C:\Windows\Installer\$PatchCache$\patch.msp" }
             Should -Invoke Remove-Item -Times 1 -Exactly -ParameterFilter { $Path -eq "C:\Windows\Installer\$PatchCache$\patch3.msp" }
@@ -213,13 +222,14 @@ Describe "Test Clear-SystemCache" {
             Mock Invoke-Command { & $ScriptBlock }
             Mock Test-Path {return $false} -ParameterFilter { $Path -eq "C:\Windows\Temp\*" }
             Mock Test-Path {return $false} -ParameterFilter { $Path -eq "C:\Windows\Installer\$PatchCache$\*" }
-            Mock Test-Path {return $false} -ParameterFilter { $Path -eq "C:\Windows\SoftwareDistribution\Download\*" }
+            Mock Test-Path {return $false} -ParameterFilter { $Path -eq "C:\Windows\SoftwareDistribution\Download\" }
             Mock Write-Host {}
             Mock Clear-RecycleBin            
         }
     
         #Test case 7: It should clear Recycle Bin with force
         It "Clears Recycle Bin with force" {
+            Write-Host "Clears Recycle Bin with force"
             Clear-SystemCache -session $mockSession
             Should -Invoke Clear-RecycleBin -Times 1 -Exactly
         }
@@ -255,6 +265,7 @@ Describe "Test Compress-IISLogs" {
 
         #Test case 1: It should only compress and delete old IIS logs older than 6 months
         It "Only compresses and deletes old IIS logs older than 6 months" {
+            Write-Host "Only compresses and deletes old IIS logs older than 6 months"
             # Act
             Compress-IISLogs -session $mockSession -IISLogPath $IISLogPath -ArchivePath $ArchivePath
 
@@ -283,6 +294,7 @@ Describe "Test Compress-IISLogs" {
     
         #Test case 2: It should not compress or delete when IIS log path does not exist
         It "Does not compress or delete" {
+            Write-Host "Does not compress or delete"
             Compress-IISLogs -session $mockSession -IISLogPath $IISLogPath -ArchivePath $ArchivePath
 
             #Assert

@@ -59,11 +59,28 @@ try {
     exit 1
 }
 
+function Write-Log {
+    param (
+        [string]$Message,
+        [string]$Level = "Info",
+        [string]$LogPath = "C:\temp\LowFreeSpace.log"
+    )
+
+    # Create log directory if it doesn't exist
+    if (-not (Test-Path -Path (Split-Path $LogPath))) {
+        New-Item -Path (Split-Path $LogPath) -ItemType Directory -Force | Out-Null
+    }
+
+    $timestamp = Get-Date -Format "dd-MM-yyyy HH:mm:ss"
+    "$timestamp [$Level] $Message" | Out-File -FilePath $LogPath -Append
+}
+
 function Test-ServerAvailability {
     param(
         [Parameter(Mandatory=$true)]
         [string]$serverName
     )
+    Write-Log "Testing server availability for $serverName"
     return (Test-Connection -ComputerName $serverName -Count 1 -Quiet)
 }
 
@@ -79,21 +96,26 @@ function Get-Session {
     $retryCount = 0
     $maxRetries = 3
     do {
+        Write-Log "Attempting to create session for $serverName (Attempt $($retryCount + 1) of $maxRetries)"
         $retryCount++
         # Only call Get-Credential if no credential was provided
         #if ($null -eq $Credential) {
             $Credential = Get-Credential -Message "Enter credentials for $ServerName (Attempt $($retryCount) of $MaxRetries)"
         #}
         if ($null -eq $Credential -or $retryCount -ge $maxRetries) {
+            Write-Log "Session creation canceled or retry limit reached."
             return $null
         }
 
         try {
-            Set-Item WSMan:\localhost\Client\TrustedHosts -Value "$serverName" -Concatenate -Force
+            Write-Log "Setting TrustedHosts for $serverName"
+            Set-Item WSMan:\localhost\Client\TrustedHosts -Value "$serverName" -Concatenate -Force #In a non-domain (workgroup) environment, the remote computer’s name or IP must be added to the local computer’s TrustedHosts list
             $session = New-PSSession -ComputerName $serverName -Credential $credential -ErrorAction Stop
+            Write-Log "Session created successfully for $serverName"
             return $session
         } catch {
             if ($retryCount -ge $maxRetries) {
+                Write-Log "Failed to create session for $serverName after $maxRetries attempts: $_" "Error"
                 return $null
             }
         }
@@ -109,6 +131,7 @@ function Test-DiskAvailability {
         [string]$diskName
     )
     try {
+        Write-Log "Checking disk availability for disk $diskName"
         $diskExists = Invoke-Command -Session $session -ScriptBlock {
             param($diskName)
             
@@ -120,9 +143,11 @@ function Test-DiskAvailability {
                 return $true
             }
         } -ArgumentList $diskName -ErrorAction SilentlyContinue
+        Write-Log "Disk $diskName availability check completed: $diskExists"
         return $diskExists
     }
     catch {
+        Write-Log "Error checking disk availability: $_" "Error"
         return $false
     }
 }
@@ -133,6 +158,7 @@ function Test-LogFileCreation {
     param()
     
     try {
+        Write-Log "Testing log file creation"
         # Define paths
         $logPath = "C:\Temp"
         $testFile = Join-Path $logPath "test_$(Get-Date -Format 'yyyyMMdd_HHmmss').log"
@@ -149,19 +175,14 @@ function Test-LogFileCreation {
         # Verify and cleanup
         if (Test-Path $testFile) {
             Remove-Item -Path $testFile -Force
+            Write-Log "Log file created and verified successfully: $testFile"
             return $true
         }
     }
     catch {
-        Write-Warning "Failed to create log file: $($_.Exception.Message)"
+        Write-Log "Log file creation failed: $_" "Error"
         return $false
     }
-}
-
-# Usage (add after disk cleanup operations):
-if (-not (Test-LogFileCreation)) {
-    Write-Warning "Cannot proceed - local log file creation failed"
-    return
 }
 
 <#

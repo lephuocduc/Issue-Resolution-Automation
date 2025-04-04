@@ -156,7 +156,7 @@ Describe "Test Clear-SystemCache" {
                 Mock Clear-RecycleBin {}
             }
     
-            #Test case 4: It should only delete old Windows Update cache files older than 5 days
+            #Test case 4: It should delete old Windows Update cache files older than 5 days, ignore files newer than 5 days
             It "Only deletes old Windows Update cache files older than 5 days" {
                 Write-Host "Only deletes old Windows Update cache files older than 5 days"
                 Clear-SystemCache -session $mockSession
@@ -191,7 +191,7 @@ Describe "Test Clear-SystemCache" {
         }
         
     
-    Context "Windows Installer patch cache cleanup" {
+    Context "Windows Installer patch cache cleanup, 2 files older than 5 days exist, 1 file newer than 5 days exists" {
         BeforeAll {
             Mock Invoke-Command { & $ScriptBlock }
             Mock Test-Path { return $true } -ParameterFilter {
@@ -207,7 +207,7 @@ Describe "Test Clear-SystemCache" {
             Mock Write-Host {}
         }
     
-        #Test case 6: It should only delete old Windows Installer patch cache files older than 5 days
+        #Test case 6: It should only delete old Windows Installer patch cache files older than 5 days, ignore files newer than 5 days
         It "Deletes old Windows Installer patch cache files older than 5 days" {
             Write-Host "Deletes old Windows Installer patch cache files older than 5 days"
             Clear-SystemCache -session $mockSession

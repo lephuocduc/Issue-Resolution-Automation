@@ -742,7 +742,7 @@ function Export-DiskReport {
 
         # Top Folders Section
         if ($diskName -eq "C" -and ($topUsers -or $topRoot)) {
-            $html += "<h2>Top Folders (Space Still Low)</h2>`n"
+            $html += "<h2>Top Folders</h2>`n"
             if ($topUsers) {
                 $html += "<h3>Top Users in C:\Users</h3>`n"
                 $html += Format-TopItemsHtml -items $topUsers

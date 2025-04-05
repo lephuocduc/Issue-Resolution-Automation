@@ -571,7 +571,7 @@ function Get-TopItems {
                                 $subSize = $subItem.Length
                             }
                             [PSCustomObject]@{
-                                Name = "+ $($subItem.Name)"
+                                Name = "$($subItem.Name)"
                                 SizeMB = [math]::Round($subSize / 1MB, 2)
                                 Type = if ($subItem.PSIsContainer) { "Folder" } else { "File" }
                             }

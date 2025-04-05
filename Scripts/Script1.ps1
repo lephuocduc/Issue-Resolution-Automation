@@ -944,83 +944,83 @@ $okButton.Add_Click({
     try {
         if ($diskName -eq "C") {
             Update-StatusLabel -text "Cleaning C disk. Please wait..."
-    $Before = Get-DiskSpaceDetails -session $session -diskName $diskName
+            $Before = Get-DiskSpaceDetails -session $session -diskName $diskName
 
-    Update-StatusLabel -text "Cleaning system cache..."
-    $clearSystemCache = Clear-SystemCache -session $session -Verbose *>&1 | ForEach-Object {
-        "$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss'): $_"
-    } | Out-String
+            Update-StatusLabel -text "Cleaning system cache..."
+            $clearSystemCache = Clear-SystemCache -session $session -Verbose *>&1 | ForEach-Object {
+                "$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss'): $_"
+            } | Out-String
 
-    Update-StatusLabel -text "Compressing IIS logs..."
-    $clearIISLogs = Compress-IISLogs -session $session -Verbose *>&1 | ForEach-Object {
-        "$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss'): $_"
-    } | Out-String
+            Update-StatusLabel -text "Compressing IIS logs..."
+            $clearIISLogs = Compress-IISLogs -session $session -Verbose *>&1 | ForEach-Object {
+                "$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss'): $_"
+            } | Out-String
 
-    $After = Get-DiskSpaceDetails -session $session -diskName $diskName
-    $freePercentageDisk = $After.FreePercentage
-    $topRoot = $null
-    $topUsers = $null
+            $After = Get-DiskSpaceDetails -session $session -diskName $diskName
+            $freePercentageDisk = $After.FreePercentage
+            $topRoot = $null
+            $topUsers = $null
 
-    if ($After.FreePercentage -lt 50) {
-        Update-StatusLabel -text "Free space still low. Identifying top items..."
-        $topRoot = Get-TopItems -session $session -path "$($diskName):\" -exclude @("Windows", "Program Files", "Program Files (x86)", "ProgramData","Users") -topN 10
-        $topUsers = Get-TopItems -session $session -path "$($diskName):\Users" -topN 10
-    }
-
-    [System.Windows.Forms.MessageBox]::Show(
-        "Drive $($diskName). Free space is $($freePercentageDisk)%.`nPlease check report for details.", 
-        "Information", 
-        [System.Windows.Forms.MessageBoxButtons]::OK, 
-        [System.Windows.Forms.MessageBoxIcon]::Information
-    )
-
-    Export-DiskReport -serverName $serverName -diskName $diskName `
-        -diskInfo $After -beforeDiskInfo $Before `
-        -userCacheLog $clearUserCache -systemCacheLog $clearSystemCache `
-        -iisLogCleanupLog $clearIISLogs `
-        -topUsers $topUsers -topRoot $topRoot
-        }
-        else {
-            Update-StatusLabel -text "Getting disk information and top items..."
-    $diskInfo = Get-DiskSpaceDetails -session $session -diskName $diskName
-    $topItems = Get-TopItems -session $session -path "$($diskName):\" -topN 10
-
-    $freePercentageDisk = $diskInfo.FreePercentage
-
-    [System.Windows.Forms.MessageBox]::Show(
-        "Drive $($diskName). Free space is $($freePercentageDisk)%.`nPlease check report for details.", 
-        "Information", 
-        [System.Windows.Forms.MessageBoxButtons]::OK, 
-        [System.Windows.Forms.MessageBoxIcon]::Information
-    )
-
-    Export-DiskReport -serverName $serverName -diskName $diskName `
-        -diskInfo $diskInfo -topItems $topItems
-
-        }
-        # Close session
-        Remove-PSSession -Session $session
-        if ($session.State -eq "Closed") {
-            Write-Log "Session closed successfully"
-        } else {
-            Write-Log "Failed to close session" "Error"
-        }
-        $main_form.Close()        
-    } catch {
-        [System.Windows.Forms.MessageBox]::Show($_.Exception.Message, "Error")
-    }
-    }
-    finally {
-        # Cleanup session if it exists
-        if ($session) { 
-            Remove-PSSession -Session $session 
-            if ($session.State -eq "Closed") {
-                Write-Log "Session closed successfully"
-            } else {
-                Write-Log "Failed to close session" "Error"
+            if ($After.FreePercentage -lt 50) {
+                Update-StatusLabel -text "Free space still low. Identifying top items..."
+                $topRoot = Get-TopItems -session $session -path "$($diskName):\" -exclude @("Windows", "Program Files", "Program Files (x86)", "ProgramData","Users") -topN 10
+                $topUsers = Get-TopItems -session $session -path "$($diskName):\Users" -topN 10
             }
-        }
-    }
+
+            [System.Windows.Forms.MessageBox]::Show(
+                "Drive $($diskName). Free space is $($freePercentageDisk)%.`nPlease check report for details.", 
+                "Information", 
+                [System.Windows.Forms.MessageBoxButtons]::OK, 
+                [System.Windows.Forms.MessageBoxIcon]::Information
+            )
+
+            Export-DiskReport -serverName $serverName -diskName $diskName `
+                -diskInfo $After -beforeDiskInfo $Before `
+                -userCacheLog $clearUserCache -systemCacheLog $clearSystemCache `
+                -iisLogCleanupLog $clearIISLogs `
+                -topUsers $topUsers -topRoot $topRoot
+                }
+                else {
+                    Update-StatusLabel -text "Getting disk information and top items..."
+            $diskInfo = Get-DiskSpaceDetails -session $session -diskName $diskName
+            $topItems = Get-TopItems -session $session -path "$($diskName):\" -topN 10
+
+            $freePercentageDisk = $diskInfo.FreePercentage
+
+            [System.Windows.Forms.MessageBox]::Show(
+                "Drive $($diskName). Free space is $($freePercentageDisk)%.`nPlease check report for details.", 
+                "Information", 
+                [System.Windows.Forms.MessageBoxButtons]::OK, 
+                [System.Windows.Forms.MessageBoxIcon]::Information
+            )
+
+            Export-DiskReport -serverName $serverName -diskName $diskName `
+                -diskInfo $diskInfo -topItems $topItems
+
+                }
+                # Close session
+                Remove-PSSession -Session $session
+                if ($session.State -eq "Closed") {
+                    Write-Log "Session closed successfully"
+                } else {
+                    Write-Log "Failed to close session" "Error"
+                }
+                $main_form.Close()        
+            } catch {
+                [System.Windows.Forms.MessageBox]::Show($_.Exception.Message, "Error")
+            }
+            }
+            finally {
+                # Cleanup session if it exists
+                if ($session) { 
+                    Remove-PSSession -Session $session 
+                    if ($session.State -eq "Closed") {
+                        Write-Log "Session closed successfully"
+                    } else {
+                        Write-Log "Failed to close session" "Error"
+                    }
+                }
+            }
 })
 
 # Exit Button

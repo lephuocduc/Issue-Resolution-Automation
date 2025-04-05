@@ -63,7 +63,7 @@ function Write-Log {
     param (
         [string]$Message,
         [string]$Level = "Info",
-        [string]$LogPath = "C:\temp\LowFreeSpace.log"
+        [string]$LogPath = "C:\temp\LowFreeSpace-log.log"
     )
 
     # Create log directory if it doesn't exist
@@ -80,8 +80,21 @@ function Test-ServerAvailability {
         [Parameter(Mandatory=$true)]
         [string]$serverName
     )
-    Write-Log "Testing server availability for $serverName"
-    return (Test-Connection -ComputerName $serverName -Count 1 -Quiet)
+    try {
+        Write-Log "Testing server availability for $serverName"
+        $result = Test-Connection -ComputerName $serverName -Count 1 -Quiet
+        if ($result) {
+            Write-Log "Server $serverName is reachable"
+            return $true
+        } else {
+            Write-Log "Server $serverName is not reachable" "Error"
+            return $false
+        }
+    }
+    catch {
+        Write-Log "Error testing server availability: $_" "Error"
+        return $false
+    }
 }
 
 
@@ -95,31 +108,36 @@ function Get-Session {
     )
     $retryCount = 0
     $maxRetries = 3
-    do {
-        Write-Log "Attempting to create session for $serverName (Attempt $($retryCount + 1) of $maxRetries)"
-        $retryCount++
-        # Only call Get-Credential if no credential was provided
-        #if ($null -eq $Credential) {
-            $Credential = Get-Credential -Message "Enter credentials for $ServerName (Attempt $($retryCount) of $MaxRetries)"
-        #}
-        if ($null -eq $Credential -or $retryCount -ge $maxRetries) {
-            Write-Log "Session creation canceled or retry limit reached."
-            return $null
-        }
-
-        try {
-            Write-Log "Setting TrustedHosts for $serverName"
-            Set-Item WSMan:\localhost\Client\TrustedHosts -Value "$serverName" -Concatenate -Force #In a non-domain (workgroup) environment, the remote computer’s name or IP must be added to the local computer’s TrustedHosts list
-            $session = New-PSSession -ComputerName $serverName -Credential $credential -ErrorAction Stop
-            Write-Log "Session created successfully for $serverName"
-            return $session
-        } catch {
-            if ($retryCount -ge $maxRetries) {
-                Write-Log "Failed to create session for $serverName after $maxRetries attempts: $_" "Error"
+    try {
+        do {
+            Write-Log "Attempting to create session for $serverName (Attempt $($retryCount + 1) of $maxRetries)"
+            $retryCount++
+            # Only call Get-Credential if no credential was provided
+            #if ($null -eq $Credential) {
+                $Credential = Get-Credential -Message "Enter credentials for $ServerName (Attempt $($retryCount) of $MaxRetries)"
+            #}
+            if ($null -eq $Credential -or $retryCount -ge $maxRetries) {
+                Write-Log "Session creation canceled or retry limit reached for $serverName" "Error"
                 return $null
             }
-        }
-    } while ($true)
+    
+            try {
+                Set-Item WSMan:\localhost\Client\TrustedHosts -Value "$serverName" -Concatenate -Force #In a non-domain (workgroup) environment, the remote computer’s name or IP must be added to the local computer’s TrustedHosts list
+                $session = New-PSSession -ComputerName $serverName -Credential $credential -ErrorAction Stop
+                Write-Log "Session created successfully for $serverName"
+                return $session
+            } catch {
+                if ($retryCount -ge $maxRetries) {
+                    Write-Log "Failed to create session for $serverName after $maxRetries attempts: $_" "Error"
+                    return $null
+                }
+            }
+        } while ($true)
+    }
+    catch {
+        write-Log "Error creating session: $_" "Error"
+        return $null
+    }
 }
 
 # Function to check if disk exists on the server
@@ -143,7 +161,11 @@ function Test-DiskAvailability {
                 return $true
             }
         } -ArgumentList $diskName -ErrorAction SilentlyContinue
-        Write-Log "Disk $diskName availability check completed: $diskExists"
+        if ($diskExists) {
+            Write-Log "Disk $diskName is available"
+        } else {
+            Write-Log "Disk $diskName is not available" "Error"
+        }
         return $diskExists
     }
     catch {
@@ -266,112 +288,117 @@ function Clear-SystemCache {
         [System.Management.Automation.Runspaces.PSSession]$session
     )
 
-    $ScriptBlock = {
-        # Windows Update cache (older than 5 days)
-        try {
-            if (Test-Path -Path "C:\Windows\SoftwareDistribution\Download\") {
-                $filesToDelete = Get-ChildItem -Path "C:\Windows\SoftwareDistribution\Download" -Recurse -Force |
-                    Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-5) }
-                
-                if ($filesToDelete.Count -gt 0) {
-                    Write-Host "Starting to clean Windows Update cache"
-                    foreach ($file in $filesToDelete) {
-                        Remove-Item -Path $file.FullName -Force -Recurse -Verbose -ErrorAction SilentlyContinue
-                        if ((Test-Path -Path $file.FullName)) {
-                            Write-Host "Error deleting Windows Update cache file: $($file.FullName)"
-                        }else {
-                            Write-Host "Deleted: $($file.FullName)"
+    try {
+        Write-Host "Starting to clear system cache"
+        $ScriptBlock = {
+            # Windows Update cache (older than 5 days)
+            try {
+                if (Test-Path -Path "C:\Windows\SoftwareDistribution\Download\") {
+                    $filesToDelete = Get-ChildItem -Path "C:\Windows\SoftwareDistribution\Download" -Recurse -Force |
+                        Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-5) }
+                    
+                    if ($filesToDelete.Count -gt 0) {
+                        Write-Host "Starting to clean Windows Update cache"
+                        foreach ($file in $filesToDelete) {
+                            Remove-Item -Path $file.FullName -Force -Recurse -Verbose -ErrorAction SilentlyContinue
+                            if ((Test-Path -Path $file.FullName)) {
+                                Write-Host "Error deleting Windows Update cache file: $($file.FullName)"
+                            }else {
+                                Write-Host "Deleted: $($file.FullName)"
+                            }
                         }
-                    }
-                }else {
-                    Write-Host "Windows Update cache not found"
-                }   
-            }
-        } catch {
-            Write-Host "Error cleaning Windows Update cache: $_"
-        }
-
-
-        # Windows Installer patch cache (older than 5 days)
-        try {
-            if (Test-Path -Path "C:\Windows\Installer\$PatchCache$\*") {
-                $filesToDelete = Get-ChildItem -Path "C:\Windows\Installer\$PatchCache$\*" -Recurse -Force |
-                    Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-5) }
-                
-                if ($filesToDelete.Count -gt 0) {
-                    Write-Host "Starting to clean Windows Installer patch cache"
-                    foreach ($file in $filesToDelete) {
-                        Remove-Item -Path $file.FullName -Force -Recurse -Verbose -ErrorAction SilentlyContinue
-                        if ((Test-Path -Path $file.FullName)) {
-                            Write-Host "Error deleting Windows Installer patch cache file: $($file.FullName)"
-                        }else {
-                            Write-Host "Deleted: $($file.FullName)"
-                        }
-                    }
-                }else {
-                    Write-Host "Windows Installer patch cache not found"
-                }                
-            }
-        } catch {
-            Write-Host "Error cleaning Windows Installer patch cache: $_"
-        }
-
-        # SCCM cache (older than 5 days)
-        try {
-            if (Test-Path -Path "C:\Windows\ccmcache\*") {
-                $filesToDelete = Get-ChildItem -Path "C:\Windows\ccmcache\*" -Recurse -Force |
-                    Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-5) }
-                if ($filesToDelete.Count -gt 0) {
-                    Write-Host "Starting to clean SCCM cache"
-                    foreach ($file in $filesToDelete) {
-                        Remove-Item -Path $file.FullName -Force -Recurse -Verbose -ErrorAction SilentlyContinue
-                        if ((Test-Path -Path $file.FullName)) {
-                            Write-Host "Error deleting SCCM cache file: $($file.FullName)"
-                        }else {
-                            Write-Host "Deleted: $($file.FullName)"
-                        }
-                    }
-                }else {
-                    Write-Host "SCCM cache not found"
+                    }else {
+                        Write-Host "Windows Update cache not found"
+                    }   
                 }
+            } catch {
+                Write-Host "Error cleaning Windows Update cache: $_"
             }
-        } catch {
-            Write-Host "Error cleaning SCCM cache: $_"
-        }
-
-        # Windows Temp files (older than 5 days)
-        try {
-            if (Test-Path -Path "C:\Windows\Temp\*") {
-                $filesToDelete = Get-ChildItem -Path "C:\Windows\Temp\*" -Recurse -Force |
-                    Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-5) }
-                if ($filesToDelete.Count -gt 0) {
-                    Write-Host "Starting to clean Windows Temp files"
-                    foreach ($file in $filesToDelete) {
-                        Remove-Item -Path $file.FullName -Force -Recurse -Verbose -ErrorAction SilentlyContinue
-                        if ((Test-Path -Path $file.FullName)) {
-                            Write-Host "Error deleting Windows Temp file: $($file.FullName)"
-                        }else {
-                            Write-Host "Deleted: $($file.FullName)"
+    
+    
+            # Windows Installer patch cache (older than 5 days)
+            try {
+                if (Test-Path -Path "C:\Windows\Installer\$PatchCache$\*") {
+                    $filesToDelete = Get-ChildItem -Path "C:\Windows\Installer\$PatchCache$\*" -Recurse -Force |
+                        Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-5) }
+                    
+                    if ($filesToDelete.Count -gt 0) {
+                        Write-Host "Starting to clean Windows Installer patch cache"
+                        foreach ($file in $filesToDelete) {
+                            Remove-Item -Path $file.FullName -Force -Recurse -Verbose -ErrorAction SilentlyContinue
+                            if ((Test-Path -Path $file.FullName)) {
+                                Write-Host "Error deleting Windows Installer patch cache file: $($file.FullName)"
+                            }else {
+                                Write-Host "Deleted: $($file.FullName)"
+                            }
                         }
-                    }
-                } else {
-                    Write-Host "Windows Temp not found"
+                    }else {
+                        Write-Host "Windows Installer patch cache not found"
+                    }                
                 }
+            } catch {
+                Write-Host "Error cleaning Windows Installer patch cache: $_"
             }
-        } catch {
-            Write-Host "Error cleaning Windows Temp files: $_"
+    
+            # SCCM cache (older than 5 days)
+            try {
+                if (Test-Path -Path "C:\Windows\ccmcache\*") {
+                    $filesToDelete = Get-ChildItem -Path "C:\Windows\ccmcache\*" -Recurse -Force |
+                        Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-5) }
+                    if ($filesToDelete.Count -gt 0) {
+                        Write-Host "Starting to clean SCCM cache"
+                        foreach ($file in $filesToDelete) {
+                            Remove-Item -Path $file.FullName -Force -Recurse -Verbose -ErrorAction SilentlyContinue
+                            if ((Test-Path -Path $file.FullName)) {
+                                Write-Host "Error deleting SCCM cache file: $($file.FullName)"
+                            }else {
+                                Write-Host "Deleted: $($file.FullName)"
+                            }
+                        }
+                    }else {
+                        Write-Host "SCCM cache not found"
+                    }
+                }
+            } catch {
+                Write-Host "Error cleaning SCCM cache: $_"
+            }
+    
+            # Windows Temp files (older than 5 days)
+            try {
+                if (Test-Path -Path "C:\Windows\Temp\*") {
+                    $filesToDelete = Get-ChildItem -Path "C:\Windows\Temp\*" -Recurse -Force |
+                        Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-5) }
+                    if ($filesToDelete.Count -gt 0) {
+                        Write-Host "Starting to clean Windows Temp files"
+                        foreach ($file in $filesToDelete) {
+                            Remove-Item -Path $file.FullName -Force -Recurse -Verbose -ErrorAction SilentlyContinue
+                            if ((Test-Path -Path $file.FullName)) {
+                                Write-Host "Error deleting Windows Temp file: $($file.FullName)"
+                            }else {
+                                Write-Host "Deleted: $($file.FullName)"
+                            }
+                        }
+                    } else {
+                        Write-Host "Windows Temp not found"
+                    }
+                }
+            } catch {
+                Write-Host "Error cleaning Windows Temp files: $_"
+            }
+    
+            # Recycle Bin
+            try {
+                Clear-RecycleBin -Force -ErrorAction SilentlyContinue
+                Write-Host "Recycle Bin cleaned"
+            } catch {
+                Write-Host "Error cleaning Recycle Bin: $_"
+            }
         }
-
-        # Recycle Bin
-        try {
-            Clear-RecycleBin -Force -ErrorAction SilentlyContinue
-            Write-Host "Recycle Bin cleaned"
-        } catch {
-            Write-Host "Error cleaning Recycle Bin: $_"
-        }
+        Invoke-Command -Session $session -ScriptBlock $ScriptBlock
     }
-
-    Invoke-Command -Session $session -ScriptBlock $ScriptBlock
+    catch {
+        Write-Host "Error clearing system cache: $_" "Error"
+    }
 }
 
 
@@ -384,56 +411,60 @@ function Compress-IISLogs {
         [string]$IISLogPath = "C:\inetpub\logs\LogFiles",
         [string]$ArchivePath = "C:\inetpub\logs\Archive"
     )
-    #Write-Host "Starting Compress-IISLogs with IISLogPath: $IISLogPath and ArchivePath: $ArchivePath"
 
-    $ScriptBlock = {
-        param($IISLogPath, $ArchivePath)
-
-        #Write-Host "Remote execution started for Compress-IISLogs"
-
-        # Ensure the archive directory exists
-        try {
-            if (Test-Path -Path $IISLogPath) {
-                Write-Host "IIS log path exists: $IISLogPath"
-                if (-not (Test-Path -Path $ArchivePath)) {
-                    Write-Host "Creating archive path: $ArchivePath"
-                    New-Item -Path $ArchivePath -ItemType Directory -Force | Out-Null
-                }
-                else {
-                    Write-Host "Archive path already exists: $ArchivePath"
-                }
-                $OldLogs = Get-ChildItem -Path "$IISLogPath\*" -Recurse -Force |
-                    Where-Object { $_.LastWriteTime -lt (Get-Date).AddMonths(-6) }
-
-                Write-Host "Found $($OldLogs.Count) old log(s) to process"
-
-                # Then process the files
-                foreach ($Log in $OldLogs) {                    
-                    try {
-                        $ArchiveFileName = "$ArchivePath\$($Log.Name).zip"
-                        Compress-Archive -Path $Log.FullName -DestinationPath $ArchiveFileName -Update -ErrorAction SilentlyContinue
-                        if (Test-Path -Path $ArchiveFileName) {
-                            Write-Host "Compressed IIS log file: $($Log.FullName) to $ArchiveFileName"
-                            Remove-Item -Path $Log.FullName -Force -Verbose -ErrorAction SilentlyContinue
-                            if ((Test-Path -Path $Log.FullName)) {
-                                Write-Host "Error removing log file: $($Log.FullName)"
-                            }else {
-                                Write-Host "Removed log file: $($Log.FullName)"
-                            }
-                        }
-                    } catch {
-                        Write-Host "Error compressing or removing log file: $($Log.FullName). Error: $_"
-                    }
-                }
-            } else {
-                Write-Host "IIS log path not found: $IISLogPath"
-            }
-        } catch {
-            Write-Host "Error processing IIS logs: $_"
-        }
-    }
+    try {
+        $ScriptBlock = {
+            param($IISLogPath, $ArchivePath)
     
-    Invoke-Command -Session $session -ScriptBlock $ScriptBlock -ArgumentList $IISLogPath, $ArchivePath
+            #Write-Host "Remote execution started for Compress-IISLogs"
+    
+            # Ensure the archive directory exists
+            try {
+                if (Test-Path -Path $IISLogPath) {
+                    Write-Host "IIS log path exists: $IISLogPath"
+                    if (-not (Test-Path -Path $ArchivePath)) {
+                        Write-Host "Creating archive path: $ArchivePath"
+                        New-Item -Path $ArchivePath -ItemType Directory -Force | Out-Null
+                    }
+                    else {
+                        Write-Host "Archive path already exists: $ArchivePath"
+                    }
+                    $OldLogs = Get-ChildItem -Path "$IISLogPath\*" -Recurse -Force |
+                        Where-Object { $_.LastWriteTime -lt (Get-Date).AddMonths(-6) }
+    
+                    Write-Host "Found $($OldLogs.Count) old log(s) to process"
+    
+                    # Then process the files
+                    foreach ($Log in $OldLogs) {                    
+                        try {
+                            $ArchiveFileName = "$ArchivePath\$($Log.Name).zip"
+                            Compress-Archive -Path $Log.FullName -DestinationPath $ArchiveFileName -Update -ErrorAction SilentlyContinue
+                            if (Test-Path -Path $ArchiveFileName) {
+                                Write-Host "Compressed IIS log file: $($Log.FullName) to $ArchiveFileName"
+                                Remove-Item -Path $Log.FullName -Force -Verbose -ErrorAction SilentlyContinue
+                                if ((Test-Path -Path $Log.FullName)) {
+                                    Write-Host "Error removing log file: $($Log.FullName)"
+                                }else {
+                                    Write-Host "Removed log file: $($Log.FullName)"
+                                }
+                            }
+                        } catch {
+                            Write-Host "Error compressing or removing log file: $($Log.FullName). Error: $_"
+                        }
+                    }
+                } else {
+                    Write-Host "IIS log path not found: $IISLogPath"
+                }
+            } catch {
+                Write-Host "Error processing IIS logs: $_"
+            }
+        }
+        
+        Invoke-Command -Session $session -ScriptBlock $ScriptBlock -ArgumentList $IISLogPath, $ArchivePath
+    }
+    catch {
+        Write-Log "Error compressing IIS or removing log files: $_" "Error"
+    }
 }
 
 # Function to get disk space on a remote PC
@@ -445,26 +476,33 @@ function Get-DiskSpaceDetails {
         [string]$diskName
     )
 
-    $diskDetails = Invoke-Command -Session $session -ScriptBlock {
-        param($diskName)
-        $drive = Get-PSDrive -Name $diskName -ErrorAction SilentlyContinue
-        if ($null -eq $drive) {
-            return $null
-        }
-
-        $freeSpace = [math]::Round($drive.Free / 1GB, 2)
-        $totalSize = [math]::Round(($drive.Free + $drive.Used) / 1GB, 2)
-        $freePercentage = [math]::Round(($drive.Free / ($drive.Free + $drive.Used)) * 100, 2)
-
-        return [PSCustomObject]@{
-            UsedSpace = [math]::Round(($drive.Used / 1GB), 2)
-            FreeSpace = $freeSpace
-            TotalSize = $totalSize
-            FreePercentage = $freePercentage
-        }
-    } -ArgumentList $diskName
-
-    return $diskDetails
+    try {
+        Write-Log "Getting disk space details for $diskName"
+        $diskDetails = Invoke-Command -Session $session -ScriptBlock {
+            param($diskName)
+            $drive = Get-PSDrive -Name $diskName -ErrorAction SilentlyContinue
+            if ($null -eq $drive) {
+                return $null
+            }
+    
+            $freeSpace = [math]::Round($drive.Free / 1GB, 2)
+            $totalSize = [math]::Round(($drive.Free + $drive.Used) / 1GB, 2)
+            $freePercentage = [math]::Round(($drive.Free / ($drive.Free + $drive.Used)) * 100, 2)
+    
+            return [PSCustomObject]@{
+                UsedSpace = [math]::Round(($drive.Used / 1GB), 2)
+                FreeSpace = $freeSpace
+                TotalSize = $totalSize
+                FreePercentage = $freePercentage
+            }
+        } -ArgumentList $diskName
+    
+        return $diskDetails
+    }
+    catch {
+        Write-Log "Error getting disk space details: $_" "Error"
+        return $null
+    }
 }
 
 # Function to get top 10 largest folders and files
@@ -478,78 +516,85 @@ function Get-TopItems {
         [int]$topN = 10
     )
 
-    $scriptBlock = {
-        param($path, $exclude, $topN)
-        try {
-            # Get all items (files and folders) at the root level
-            $rootItems = Get-ChildItem -Path $path -ErrorAction SilentlyContinue | 
-                         Where-Object { $_.Name -notin $exclude }
-
-            $itemSizes = foreach ($item in $rootItems) {
-                try {
-                    $size = 0
-                    if ($item.PSIsContainer) {
-                        # Calculate total size of folder contents
-                        $size = (Get-ChildItem -Path $item.FullName -Recurse -File -ErrorAction SilentlyContinue | 
-                                Measure-Object -Property Length -Sum -ErrorAction SilentlyContinue).Sum
-                    } else {
-                        # File size directly
-                        $size = $item.Length
-                    }
-                    [PSCustomObject]@{
-                        Name = $item.Name
-                        FullPath = $item.FullName
-                        SizeGB = [math]::Round($size / 1GB, 2)
-                        IsFolder = $item.PSIsContainer
-                    }
-                } catch {
-                    Write-Warning "Error processing item $($item.FullName): $_"
-                    continue
-                }
-            }
-
-            # Sort by size and get top N items
-            $topItems = $itemSizes | Sort-Object SizeGB -Descending | Select-Object -First $topN
-
-            # For each folder in the top items, get its largest sub-items
-            $detailedOutput = foreach ($topItem in $topItems) {
-                $output = [PSCustomObject]@{
-                    Name = $topItem.Name
-                    SizeGB = $topItem.SizeGB
-                    Type = if ($topItem.IsFolder) { "Folder" } else { "File" }
-                    SubItems = $null
-                }
-
-                if ($topItem.IsFolder) {
-                    $subItems = Get-ChildItem -Path $topItem.FullPath -ErrorAction SilentlyContinue
-                    $subItemSizes = foreach ($subItem in $subItems) {
-                        $subSize = 0
-                        if ($subItem.PSIsContainer) {
-                            $subSize = (Get-ChildItem -Path $subItem.FullName -Recurse -File -ErrorAction SilentlyContinue | 
-                                       Measure-Object -Property Length -Sum -ErrorAction SilentlyContinue).Sum
+    try {
+        Write-Log "Getting top $topN items in $path"
+        $scriptBlock = {
+            param($path, $exclude, $topN)
+            try {
+                # Get all items (files and folders) at the root level
+                $rootItems = Get-ChildItem -Path $path -ErrorAction SilentlyContinue | 
+                             Where-Object { $_.Name -notin $exclude }
+    
+                $itemSizes = foreach ($item in $rootItems) {
+                    try {
+                        $size = 0
+                        if ($item.PSIsContainer) {
+                            # Calculate total size of folder contents
+                            $size = (Get-ChildItem -Path $item.FullName -Recurse -File -ErrorAction SilentlyContinue | 
+                                    Measure-Object -Property Length -Sum -ErrorAction SilentlyContinue).Sum
                         } else {
-                            $subSize = $subItem.Length
+                            # File size directly
+                            $size = $item.Length
                         }
                         [PSCustomObject]@{
-                            Name = "+ $($subItem.Name)"
-                            SizeMB = [math]::Round($subSize / 1MB, 2)
-                            Type = if ($subItem.PSIsContainer) { "Folder" } else { "File" }
+                            Name = $item.Name
+                            FullPath = $item.FullName
+                            SizeGB = [math]::Round($size / 1GB, 2)
+                            IsFolder = $item.PSIsContainer
                         }
+                    } catch {
+                        Write-Warning "Error processing item $($item.FullName): $_"
+                        continue
                     }
-                    $output.SubItems = $subItemSizes | Sort-Object SizeMB -Descending | Select-Object -First 10
                 }
-                $output
+    
+                # Sort by size and get top N items
+                $topItems = $itemSizes | Sort-Object SizeGB -Descending | Select-Object -First $topN
+    
+                # For each folder in the top items, get its largest sub-items
+                $detailedOutput = foreach ($topItem in $topItems) {
+                    $output = [PSCustomObject]@{
+                        Name = $topItem.Name
+                        SizeGB = $topItem.SizeGB
+                        Type = if ($topItem.IsFolder) { "Folder" } else { "File" }
+                        SubItems = $null
+                    }
+    
+                    if ($topItem.IsFolder) {
+                        $subItems = Get-ChildItem -Path $topItem.FullPath -ErrorAction SilentlyContinue
+                        $subItemSizes = foreach ($subItem in $subItems) {
+                            $subSize = 0
+                            if ($subItem.PSIsContainer) {
+                                $subSize = (Get-ChildItem -Path $subItem.FullName -Recurse -File -ErrorAction SilentlyContinue | 
+                                           Measure-Object -Property Length -Sum -ErrorAction SilentlyContinue).Sum
+                            } else {
+                                $subSize = $subItem.Length
+                            }
+                            [PSCustomObject]@{
+                                Name = "+ $($subItem.Name)"
+                                SizeMB = [math]::Round($subSize / 1MB, 2)
+                                Type = if ($subItem.PSIsContainer) { "Folder" } else { "File" }
+                            }
+                        }
+                        $output.SubItems = $subItemSizes | Sort-Object SizeMB -Descending | Select-Object -First 10
+                    }
+                    $output
+                }
+    
+                return $detailedOutput
+            } catch {
+                Write-Warning "Error in Get-TopItems script block: $_"
+                return @()
             }
-
-            return $detailedOutput
-        } catch {
-            Write-Warning "Error in Get-TopItems script block: $_"
-            return @()
         }
+    
+        $result = Invoke-Command -Session $session -ScriptBlock $scriptBlock -ArgumentList $path, $exclude, $topN
+        return $result
     }
-
-    $result = Invoke-Command -Session $session -ScriptBlock $scriptBlock -ArgumentList $path, $exclude, $topN
-    return $result
+    catch {
+        Write-Log "Error getting top items: $_" "Error"
+        return @()
+    }
 }
 
 # Function to export disk report (merged C: cleanup and data disk reports)
@@ -577,7 +622,9 @@ function Export-DiskReport {
         [string]$folderSizes        # Used for data disk analysis
     )
 
-    # Create temp directory if it doesn't exist
+    try {
+    Write-Log "Exporting disk report for $diskName on $serverName"
+        # Create temp directory if it doesn't exist
     if (-not (Test-Path "C:\temp")) { 
         New-Item -ItemType Directory -Path "C:\temp" | Out-Null
     }
@@ -653,12 +700,25 @@ $folderSizes
 
     # Show message box based on success/failure
     if (Test-Path -Path $reportPath) {
+        Write-Log "Disk report exported successfully to $reportPath"
         [System.Windows.Forms.MessageBox]::Show(
             "The report has been exported to $reportPath.", 
             "Information", 
             [System.Windows.Forms.MessageBoxButtons]::OK, 
             [System.Windows.Forms.MessageBoxIcon]::Information
         )
+    } else {
+        Write-Log "Failed to export disk report to $reportPath" "Error"
+        [System.Windows.Forms.MessageBox]::Show(
+            "Failed to export the report. Please check the log file for details.", 
+            "Error", 
+            [System.Windows.Forms.MessageBoxButtons]::OK, 
+            [System.Windows.Forms.MessageBoxIcon]::Error
+        )
+    }
+    }
+    catch {
+        Write-Log "Error exporting disk report: $_" "Error"
     }
 }
 
@@ -846,7 +906,7 @@ $okButton.Add_Click({
             $topUsers = $null
 
             # After cleanup, if free space is still low
-            if ($After.FreePercentage -lt 10) {
+            if ($After.FreePercentage -lt 50) {
                 Update-StatusLabel -text "Free space still low. Identifying top items..."
                 $topItems = Get-TopItems -session $session -path "$($diskName):\" -exclude @("Windows", "Program Files", "Program Files (x86)", "ProgramData","Users") -topN 10
                 $topUsers = Get-TopItems -session $session -path "$($diskName):\Users" -topN 10
@@ -908,6 +968,11 @@ $okButton.Add_Click({
         }
         # Close session
         Remove-PSSession -Session $session
+        if ($session.State -eq "Closed") {
+            Write-Log "Session closed successfully"
+        } else {
+            Write-Log "Failed to close session" "Error"
+        }
         $main_form.Close()        
     } catch {
         [System.Windows.Forms.MessageBox]::Show($_.Exception.Message, "Error")

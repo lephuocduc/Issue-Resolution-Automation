@@ -820,7 +820,8 @@ $okButton = New-Object System.Windows.Forms.Button
 $okButton.Size = New-Object System.Drawing.Size(80, 30)
 $okButton.Text = "OK"
 $okButton.Add_Click({
-    $diskName = $diskTextBox.Text.ToUpper()
+    try {
+        $diskName = $diskTextBox.Text.ToUpper()
     $serverName = $textBoxServerName.Text
     
     # Validate disk name
@@ -976,6 +977,18 @@ $okButton.Add_Click({
         $main_form.Close()        
     } catch {
         [System.Windows.Forms.MessageBox]::Show($_.Exception.Message, "Error")
+    }
+    }
+    finally {
+        # Cleanup session if it exists
+        if ($session) { 
+            Remove-PSSession -Session $session 
+            if ($session.State -eq "Closed") {
+                Write-Log "Session closed successfully"
+            } else {
+                Write-Log "Failed to close session" "Error"
+            }
+        }
     }
 })
 

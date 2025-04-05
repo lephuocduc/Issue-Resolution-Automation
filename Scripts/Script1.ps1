@@ -606,52 +606,69 @@ function Export-DiskReport {
         [Parameter(Mandatory)]
         [PSObject]$diskInfo,
         [Parameter(Mandatory = $false)]
-        [PSObject]$beforeDiskInfo,  # Used for C: cleanup
+        [PSObject]$beforeDiskInfo,
         [Parameter(Mandatory = $false)]
-        [string]$userCacheLog,      # Used for C: cleanup
+        [string]$userCacheLog,
         [Parameter(Mandatory = $false)]
-        [string]$systemCacheLog,    # Used for C: cleanup
+        [string]$systemCacheLog,
         [Parameter(Mandatory = $false)]
-        [string]$iisLogCleanupLog,  # Used for C: cleanup
+        [string]$iisLogCleanupLog,
         [Parameter(Mandatory = $false)]
-        [array]$topUsers,           # Used for C: cleanup if space still low
+        [array]$topUsers,
         [Parameter(Mandatory = $false)]
-        [array]$topRoot,            # Used for C: cleanup if space still low
+        [array]$topRoot,
         [Parameter(Mandatory = $false)]
-        [array]$topItems            # Used for data disk analysis
+        [array]$topItems
     )
 
-    # Helper function to format top items into HTML
     function Format-TopItemsHtml {
-        param($items)
+        param(
+            [Parameter(Mandatory=$true)]
+            [array]$items,
+            [Parameter(Mandatory=$true)]
+            [string]$type
+        )
         if (-not $items) { return "" }
-        $html = "<ul>`n"
-        foreach ($item in $items) {
-            $html += "<li>$($item.Name) ($($item.Type)): $($item.SizeGB)GB</li>`n"
-            if ($item.SubItems) {
-                $html += "<ul>`n"
-                foreach ($subItem in $item.SubItems) {
-                    $html += "<li>$($subItem.Name) ($($subItem.Type)): $($subItem.SizeMB)MB</li>`n"
-                }
-                $html += "</ul>`n"
+
+        if ($type -eq "Users") {
+            $html = "<table class='top-users'>`n"
+            $html += "<thead><tr><th>User</th><th>Total Size</th></tr></thead>`n"
+            $html += "<tbody>`n"
+            foreach ($item in $items) {
+                $html += "<tr><td><strong>$($item.Name)</strong></td><td>$($item.SizeGB)GB</td></tr>`n"
             }
+            $html += "</tbody>`n</table>`n"
+        } else {
+            $html = "<table class='top-folders'>`n"
+            $html += "<thead><tr><th>Folder</th><th>Subfolder/File</th><th>Size</th></tr></thead>`n"
+            $html += "<tbody>`n"
+            foreach ($item in $items) {
+                if ($item.SubItems -and $item.SubItems.Count -gt 0) {
+                    $rowspan = $item.SubItems.Count
+                    $firstSubItem = $item.SubItems[0]
+                    $html += "<tr><td rowspan='$rowspan'><strong>$($item.Name)</strong> ($($item.SizeGB)GB)</td><td>$($firstSubItem.Name)</td><td>$($firstSubItem.SizeMB)MB</td></tr>`n"
+                    for ($i = 1; $i -lt $item.SubItems.Count; $i++) {
+                        $subItem = $item.SubItems[$i]
+                        $html += "<tr><td>$($subItem.Name)</td><td>$($subItem.SizeMB)MB</td></tr>`n"
+                    }
+                } else {
+                    $html += "<tr><td><strong>$($item.Name)</strong> ($($item.SizeGB)GB)</td><td colspan='2'>Empty</td></tr>`n"
+                }
+            }
+            $html += "</tbody>`n</table>`n"
         }
-        $html += "</ul>`n"
         return $html
     }
 
     try {
         Write-Log "Exporting disk report for $diskName on $serverName"
-        # Create temp directory if it doesn't exist
         if (-not (Test-Path "C:\temp")) { 
             New-Item -ItemType Directory -Path "C:\temp" | Out-Null
         }
 
-        # Setup report path with timestamp (use .html extension)
         $timestamp = Get-Date -Format "ddMMyyyy-HHmm"
         $reportPath = "C:\temp\LowFreeSpace-$diskName-$serverName-$timestamp.html"
 
-        # Start HTML with styling
         $html = @"
 <html>
 <head>
@@ -660,11 +677,16 @@ function Export-DiskReport {
         body { font-family: Arial, sans-serif; }
         h1 { color: #333; }
         h2 { color: #555; }
-        table { border-collapse: collapse; width: 100%; }
+        h3 { margin-top: 20px; }
+        .section { margin-bottom: 20px; }
+        table { border-collapse: collapse; width: 100%; margin-top: 10px; }
         th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-        th { background-color: #f2f2f2; }
+        th { background-color: #f2f2f2; font-weight: bold; }
+        td strong { color: #333; }
+        .top-users th, .top-users td { vertical-align: middle; }
+        .top-folders th, .top-folders td { vertical-align: top; }
+        .top-folders td[rowspan] { background-color: #f9f9f9; font-weight: bold; }
         pre { background-color: #f9f9f9; padding: 10px; border: 1px solid #ddd; }
-        ul { list-style-type: none; }
     </style>
 </head>
 <body>
@@ -672,36 +694,15 @@ function Export-DiskReport {
     <p>Date: $(Get-Date -Format "dd/MM/yyyy HH:mm:ss")</p>
 "@
 
-        # Disk Usage Section
+        # Disk Usage Section (unchanged)
         if ($diskName -eq "C" -and $beforeDiskInfo) {
             $spaceSaved = [math]::Round($diskInfo.FreeSpace - $beforeDiskInfo.FreeSpace, 2)
             $html += @"
     <h2>Disk Usage</h2>
     <table>
-        <tr>
-            <th>State</th>
-            <th>Drive</th>
-            <th>Used GB</th>
-            <th>Free GB</th>
-            <th>Total GB</th>
-            <th>Free Percentage</th>
-        </tr>
-        <tr>
-            <td>Before Cleanup</td>
-            <td>$diskName</td>
-            <td>$($beforeDiskInfo.UsedSpace)</td>
-            <td>$($beforeDiskInfo.FreeSpace)</td>
-            <td>$($beforeDiskInfo.TotalSize)</td>
-            <td>$($beforeDiskInfo.FreePercentage)%</td>
-        </tr>
-        <tr>
-            <td>After Cleanup</td>
-            <td>$diskName</td>
-            <td>$($diskInfo.UsedSpace)</td>
-            <td>$($diskInfo.FreeSpace)</td>
-            <td>$($diskInfo.TotalSize)</td>
-            <td>$($diskInfo.FreePercentage)%</td>
-        </tr>
+        <tr><th>State</th><th>Drive</th><th>Used GB</th><th>Free GB</th><th>Total GB</th><th>Free Percentage</th></tr>
+        <tr><td>Before Cleanup</td><td>$diskName</td><td>$($beforeDiskInfo.UsedSpace)</td><td>$($beforeDiskInfo.FreeSpace)</td><td>$($beforeDiskInfo.TotalSize)</td><td>$($beforeDiskInfo.FreePercentage)%</td></tr>
+        <tr><td>After Cleanup</td><td>$diskName</td><td>$($diskInfo.UsedSpace)</td><td>$($diskInfo.FreeSpace)</td><td>$($diskInfo.TotalSize)</td><td>$($diskInfo.FreePercentage)%</td></tr>
     </table>
     <p>Space saved: $spaceSaved GB</p>
 "@
@@ -709,25 +710,13 @@ function Export-DiskReport {
             $html += @"
     <h2>Disk Usage</h2>
     <table>
-        <tr>
-            <th>Drive</th>
-            <th>Used GB</th>
-            <th>Free GB</th>
-            <th>Total GB</th>
-            <th>Free Percentage</th>
-        </tr>
-        <tr>
-            <td>$diskName</td>
-            <td>$($diskInfo.UsedSpace)</td>
-            <td>$($diskInfo.FreeSpace)</td>
-            <td>$($diskInfo.TotalSize)</td>
-            <td>$($diskInfo.FreePercentage)%</td>
-        </tr>
+        <tr><th>Drive</th><th>Used GB</th><th>Free GB</th><th>Total GB</th><th>Free Percentage</th></tr>
+        <tr><td>$diskName</td><td>$($diskInfo.UsedSpace)</td><td>$($diskInfo.FreeSpace)</td><td>$($diskInfo.TotalSize)</td><td>$($diskInfo.FreePercentage)%</td></tr>
     </table>
 "@
         }
 
-        # Cleanup Logs for C drive
+        # Cleanup Logs for C drive (unchanged)
         if ($diskName -eq "C") {
             $html += @"
     <h2>Cleanup Logs</h2>
@@ -742,27 +731,26 @@ function Export-DiskReport {
 
         # Top Folders Section
         if ($diskName -eq "C" -and ($topUsers -or $topRoot)) {
-            $html += "<h2>Top Folders</h2>`n"
+            $html += "<div class='section'><h2>Top Folders (Space Still Low)</h2>`n"
             if ($topUsers) {
                 $html += "<h3>Top Users in C:\Users</h3>`n"
-                $html += Format-TopItemsHtml -items $topUsers
+                $html += Format-TopItemsHtml -items $topUsers -type "Users"
             }
             if ($topRoot) {
                 $html += "<h3>Top Root Folders in C:\ (excluding system folders)</h3>`n"
-                $html += Format-TopItemsHtml -items $topRoot
+                $html += Format-TopItemsHtml -items $topRoot -type "Root"
             }
+            $html += "</div>`n"
         } elseif ($topItems) {
-            $html += "<h2>Top Folders on $diskName</h2>`n"
-            $html += Format-TopItemsHtml -items $topItems
+            $html += "<div class='section'><h2>Top Folders on $diskName</h2>`n"
+            $html += Format-TopItemsHtml -items $topItems -type "Root"
+            $html += "</div>`n"
         }
 
-        # Close HTML
         $html += "</body></html>"
 
-        # Write to file
         $html | Out-File -FilePath $reportPath -Force
 
-        # Show message box
         if (Test-Path -Path $reportPath) {
             Write-Log "Disk report exported successfully to $reportPath"
             [System.Windows.Forms.MessageBox]::Show(

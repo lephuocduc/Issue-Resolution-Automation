@@ -50,6 +50,9 @@
 # Load module
 #. "$PSScriptRoot/../modules/module.ps1"
 
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
+
 function Write-Log {
     param (
         [string]$Message,

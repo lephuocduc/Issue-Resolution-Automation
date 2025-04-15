@@ -1,54 +1,71 @@
-#NOTES
+# NOTES
 # Name:        LowFreeSpace.ps1
 # Author:      Duc Le
 # Version:     1.0
-# Date:        March 2, 2025
-# Major Release History:
-# 1.0 - Initial release with disk cleanup and reporting features
+# Date:        April 15, 2025
+# Release History:
+#   1.0 - Initial release with disk cleanup, IIS log compression, and detailed reporting
 
-#DESCRIPTION
-# This script provides a GUI tool to manage low disk space on remote servers by:
-# - Cleaning system caches (Windows Update, Installer, SCCM)
-# - Compressing IIS logs older than 6 months
-# - Generating detailed disk usage reports
-# - Identifying large folders when space remains low
+# DESCRIPTION
+# A PowerShell script with a graphical user interface (GUI) designed to manage low disk space on remote Windows servers. It automates disk cleanup and analysis tasks, targeting both system and data drives. Key features include:
+# - System cache cleanup: Removes temporary files, Windows Update caches, SCCM caches, Windows Installer patches, and Recycle Bin contents older than 5 days
+# - IIS log management: Compresses and archives IIS log files older than 6 months to save space
+# - Disk usage analysis: Generates detailed reports on disk space, including free space, used space, and total capacity
+# - Large item identification: Detects the top space-consuming folders and files when disk space remains low (<50% free)
+# - Remote execution: Supports running cleanup and analysis on remote servers via PowerShell sessions
+# - Reporting: Produces HTML reports with before/after cleanup metrics and folder/file size breakdowns
 
-#REQUIREMENTS
-# - PowerShell 5.1 or later
-# - Admin access on target servers
-# - Windows Forms assemblies
-# - Network connectivity to target servers
+# REQUIREMENTS
+# - PowerShell 5.1 or later (compatible with Windows PowerShell; PowerShell Core untested)
+# - Administrative credentials for target servers to perform cleanup and access protected areas
+# - System.Windows.Forms and System.Drawing assemblies for GUI functionality
+# - Network connectivity to target servers (ping and PowerShell remoting enabled)
+# - TrustedHosts configuration for non-domain environments (handled automatically by script)
+# - Local write permissions for report generation (C:\temp directory)
 
-#PARAMETERS
-# Server name: Remote server to analyze/clean
-# Disk name:   Drive letter to process (C: for system cleanup, other letters for analysis)
+# PARAMETERS
+# - ServerName: The hostname or IP address of the remote server to analyze or clean
+# - DiskName: The drive letter to process (e.g., "C" for system drive cleanup, "D" for data drive analysis)
 
-#FUNCTIONS
-# Test-DiskAvailability:      Verifies disk exists on remote server
-# Clear-SystemCache:          Cleans various system cache locations
-# Compress-IISLogs:          Compresses and archives old IIS logs
-# Get-DiskSpaceDetails:      Retrieves disk space information
-# Get-LargestFolders:        Identifies largest space consumers
-# Export-CDisk-Cleanup-Report: Generates cleanup report
-# Get-SecondLevelFolderSizes: Analyzes folder hierarchy
-# Export-DataDiskReport:      Creates disk analysis report
+# FUNCTIONS
+# - Test-ServerAvailability: Pings the target server to confirm network reachability
+# - Get-Session: Creates a PowerShell remoting session with retry logic for credential failures
+# - Test-DiskAvailability: Verifies the specified disk exists on the remote server
+# - Test-ReportFileCreation: Ensures the local system can create report files in C:\temp
+# - Clear-SystemCache: Deletes cached files from Windows Update, SCCM, Installer, Temp, and Recycle Bin
+# - Compress-IISLogs: Compresses IIS logs older than 6 months into ZIP archives and removes originals
+# - Get-DiskSpaceDetails: Collects disk metrics (free space, used space, total size, free percentage)
+# - Get-TopItems: Identifies the top 10 largest folders/files, including subfolder breakdowns
+# - Export-DiskReport: Generates an HTML report with disk stats, cleanup logs, and large item details
+# - Update-StatusLabel: Dynamically updates the GUI with progress messages
+# - Remove-Session: Closes remote sessions and disposes of GUI resources
 
-#OUTPUTS
-# - Detailed cleanup/analysis reports in C:\temp
-# - GUI status updates during execution
-# - Success/failure messages via MessageBox
+# OUTPUTS
+# - HTML Reports: Saved to C:\temp with filenames like LowFreeSpace-<DiskName>-<ServerName>-<Timestamp>.html
+#   - For C: drive: Includes before/after cleanup stats, cleanup logs, and top folder/user details
+#   - For other drives: Includes disk usage and top folder/file analysis
+# - GUI Updates: Real-time status messages during execution (e.g., "Cleaning system cache...")
+# - MessageBox Notifications: Alerts for success, errors, or warnings (e.g., disk not found, session failures)
+# - Log File: Execution details logged to C:\temp\LowFreeSpace-log.log for troubleshooting
 
-#EXAMPLES
-# 1. System drive cleanup:
-#    Enter server name and C for disk name
-#    Script will clean caches and compress logs
+# EXAMPLES
+# 1. System Drive Cleanup:
+#    - Input: Server name (e.g., "Server01") and DiskName "C"
+#    - Actions: Cleans system caches, compresses IIS logs, generates a report comparing before/after stats
+#    - Output: Report with cleanup details and top folders/users if free space remains below 50%
+#    - Use Case: Free up space on a system drive with low disk space warnings
 #
-# 2. Data drive analysis:
-#    Enter server name and drive letter
-#    Script will analyze space usage
-
-# Load module
-#. "$PSScriptRoot/../modules/module.ps1"
+# 2. Data Drive Analysis:
+#    - Input: Server name (e.g., "Server02") and DiskName "D"
+#    - Actions: Analyzes disk usage and identifies the top 10 largest folders/files
+#    - Output: Report with disk metrics and detailed folder/file size breakdown
+#    - Use Case: Investigate space usage on a data drive to plan storage management
+#
+# 3. Error Handling:
+#    - Scenario: Invalid server name or unreachable server
+#    - Output: MessageBox with error details (e.g., "Server not reachable") and log entry
+#    - Scenario: Non-existent disk
+#    - Output: MessageBox indicating disk not found
 
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing

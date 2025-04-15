@@ -1,17 +1,14 @@
 <#
-Test Clear-SystemCache function
-Test case 1: It should invoke the cleanup script block on remote session
-Test case 2: It should contain all required cleanup tasks (Windows Update Cache, Windows Installer Patch Cache, SCCM Cache, Windows Temp files)
-Test case 3: It should throw an error for null session
-Test case 4: It should only delete old Windows Update cache files older than 5 days
-Test case 5: It should not delete any files if Windows Update cache files aren't found
-Test case 6: It should only delete old Windows Installer patch cache files older than 5 days
-Test case 7: It should clear Recycle Bin
+Test Cases in Test Clear-SystemCache:
+1. "Throws error for null session": Verifies that the function throws an error when the session parameter is null.
+2. "Only deletes old Windows Update cache files older than 5 days": Confirms that only files older than 5 days are deleted from the Windows Update cache.
+3. "Does not delete any files if Windows Update cache files aren't found": Ensures no files are deleted if no relevant files are found in the cache.
+4. "Deletes old Windows Installer patch cache files older than 5 days": Validates that only old files older than 5 days are deleted from the Windows Installer patch cache.
+5. "Clears Recycle Bin with force": Verifies that the function clears the Recycle Bin with force.
 
-
-Test Compress-IISLogs function
-Test case 1: It should only compress and delete old IIS logs older than 6 months
-Test case 2: It should not compress or delete when IIS log path does not exist
+Test Cases in Test Compress-IISLogs:
+1. "Only compresses and deletes old IIS logs older than 6 months": Ensures that only IIS logs older than 6 months are compressed and deleted.
+2. "Does not compress or delete when IIS log path does not exist": Verifies that no compression or deletion occurs when the IIS log path does not exist.
 #>
 
 # Check for Pester 5.7.1 and exit if not available

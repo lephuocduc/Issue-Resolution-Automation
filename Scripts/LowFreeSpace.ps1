@@ -50,15 +50,6 @@
 # Load module
 #. "$PSScriptRoot/../modules/module.ps1"
 
-# Load Windows Forms Assembly
-try {
-    Add-Type -AssemblyName System.Windows.Forms
-    Add-Type -AssemblyName System.Drawing
-} catch {
-    Write-Error "Failed to load Windows Forms assemblies: $_"
-    exit 1
-}
-
 function Write-Log {
     param (
         [string]$Message,
@@ -112,15 +103,11 @@ function Get-Session {
         do {
             Write-Log "Attempting to create session for $serverName (Attempt $($retryCount + 1) of $maxRetries)"
             $retryCount++
-            # Only call Get-Credential if no credential was provided
-            #if ($null -eq $Credential) {
-                $Credential = Get-Credential -Message "Enter credentials for $ServerName (Attempt $($retryCount) of $MaxRetries)"
-            #}
+            $Credential = Get-Credential -Message "Enter credentials for $ServerName (Attempt $($retryCount) of $MaxRetries)"
             if ($null -eq $Credential -or $retryCount -ge $maxRetries) {
                 Write-Log "Session creation canceled or retry limit reached for $serverName" "Error"
                 return $null
             }
-    
             try {
                 Set-Item WSMan:\localhost\Client\TrustedHosts -Value "$serverName" -Concatenate -Force #In a non-domain (workgroup) environment, the remote computer’s name or IP must be added to the local computer’s TrustedHosts list
                 $session = New-PSSession -ComputerName $serverName -Credential $credential -ErrorAction Stop
@@ -174,8 +161,7 @@ function Test-DiskAvailability {
     }
 }
 
-#Test-LogFileCreation
-function Test-LogFileCreation {
+function Test-ReportFileCreation {
     [CmdletBinding()]
     param()
     
@@ -183,7 +169,7 @@ function Test-LogFileCreation {
         Write-Log "Testing log file creation"
         # Define paths
         $logPath = "C:\Temp"
-        $testFile = Join-Path $logPath "test_$(Get-Date -Format 'yyyyMMdd_HHmmss').log"
+        $testFile = Join-Path $logPath "test_$(Get-Date -Format 'ddMMyyyy_HHmmss').html"
 
         # Create directory if needed
         if (-not (Test-Path $logPath)) {
@@ -206,79 +192,6 @@ function Test-LogFileCreation {
         return $false
     }
 }
-
-<#
-# Function to clear user cache
-function Clear-UserCache {
-    [CmdletBinding()]
-    param (
-        [Parameter(Mandatory)]
-        [System.Management.Automation.Runspaces.PSSession]$session,
-        [string[]]$ExcludedProfiles = @("Administrator", "Public", "SVC_DailyChecks", "Duc")
-    )
-    Write-Host "Starting to clear User Cache"
-
-    $ScriptBlock = {
-        param($ExcludedProfiles)
-        
-        Write-Host "Excluded profiles: $($ExcludedProfiles -join ', ')"
-
-        try {
-            $ProfileFolders = Get-ChildItem -Directory -Path 'C:\Users' -ErrorAction SilentlyContinue | 
-                Where-Object { $_.Name -notin $ExcludedProfiles } |
-                Select-Object -ExpandProperty Name
-
-            Write-Host "Found profiles to process: $($ProfileFolders -join ', ')"
-
-        foreach ($Folder in $ProfileFolders) {
-            $PathsToClean = @(
-                "C:\Users\$Folder\AppData\Local\Microsoft\Windows\Temporary Internet Files\",
-                "C:\Users\$Folder\AppData\Local\Microsoft\Edge\User Data\Default\Cache\Cache_Data",
-                "C:\Users\$Folder\AppData\Local\Microsoft\Edge\User Data\Default\Service Worker\CacheStorage",
-                "C:\Users\$Folder\AppData\Local\Temp\",
-                "C:\Users\$Folder\AppData\Local\Microsoft\Terminal Server Client\Cache",
-                "C:\Users\$Folder\AppData\Local\Google\Chrome\User Data\Default\Cache",
-                "C:\Users\$Folder\AppData\Local\Microsoft\Teams",
-                "C:\Users\$Folder\AppData\Local\Microsoft\Edge\User Data\Default\Code Cache",
-                "C:\Users\$Folder\AppData\Roaming\Microsoft\Teams\Service Worker\CacheStorage",
-                "C:\Users\$Folder\AppData\Local\Microsoft\Windows\InetCache\IE",
-                "C:\Users\$Folder\AppData\Local\Microsoft\Windows\WebCache",
-                "C:\Users\$Folder\AppData\Local\Google\Chrome\User Data\Default\Code Cache",
-                "C:\Users\$Folder\AppData\Local\Google\Chrome\User Data\Default\Service Worker\CacheStorage"
-            )
-
-            foreach ($Path in $PathsToClean) {
-                if (Test-Path -Path $Path -ErrorAction SilentlyContinue) {
-                    try {
-                        # First find and display files to be deleted
-                        $filesToDelete = Get-ChildItem -Path $Path -Recurse -Force -ErrorAction SilentlyContinue |
-                            Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-0) }
-                        
-                        foreach ($file in $filesToDelete) {
-                            Write-Host "Deleting: $($file.FullName)"
-                        }
-        
-                        # Then delete the files
-                        $filesToDelete | Remove-Item -Force -Recurse -Verbose -ErrorAction SilentlyContinue
-                    }
-                    catch [System.UnauthorizedAccessException] {
-                        Write-Host "Access denied to $Path"
-                    }
-                    catch {
-                        Write-Host "Error cleaning $Path : $_"
-                    }
-                }
-            }
-        }
-    }
-    catch {
-        Write-Host "Failed to process profiles: $_"
-    }
-}
-
-Invoke-Command -Session $session -ScriptBlock $ScriptBlock -ArgumentList (,$ExcludedProfiles)
-}
-#>
 
 # Function to clear system cache
 function Clear-SystemCache {
@@ -571,7 +484,7 @@ function Get-TopItems {
                                 $subSize = $subItem.Length
                             }
                             [PSCustomObject]@{
-                                Name = "+ $($subItem.Name)"
+                                Name = "$($subItem.Name)"
                                 SizeMB = [math]::Round($subSize / 1MB, 2)
                                 Type = if ($subItem.PSIsContainer) { "Folder" } else { "File" }
                             }
@@ -597,7 +510,6 @@ function Get-TopItems {
     }
 }
 
-# Function to export disk report (merged C: cleanup and data disk reports)
 function Export-DiskReport {
     param (
         [Parameter(Mandatory)]
@@ -607,117 +519,169 @@ function Export-DiskReport {
         [Parameter(Mandatory)]
         [PSObject]$diskInfo,
         [Parameter(Mandatory = $false)]
-        [PSObject]$beforeDiskInfo,  # Used for C: cleanup
+        [PSObject]$beforeDiskInfo,
         [Parameter(Mandatory = $false)]
-        [string]$userCacheLog,      # Used for C: cleanup
+        [string]$userCacheLog,
         [Parameter(Mandatory = $false)]
-        [string]$systemCacheLog,    # Used for C: cleanup
+        [string]$systemCacheLog,
         [Parameter(Mandatory = $false)]
-        [string]$iisLogCleanupLog,  # Used for C: cleanup
+        [string]$iisLogCleanupLog,
         [Parameter(Mandatory = $false)]
-        [array]$topUsers,           # Used for C: cleanup if space still low
+        [array]$topUsers,
         [Parameter(Mandatory = $false)]
-        [array]$topRoot,            # Used for C: cleanup if space still low
+        [array]$topRoot,
         [Parameter(Mandatory = $false)]
-        [string]$folderSizes        # Used for data disk analysis
+        [array]$topItems
     )
 
+    function Format-TopItemsHtml {
+        param(
+            [Parameter(Mandatory=$true)]
+            [array]$items,
+            [Parameter(Mandatory=$true)]
+            [string]$type
+        )
+        if (-not $items) { return "" }
+
+        if ($type -eq "Users") {
+            $html = "<table class='top-users'>`n"
+            $html += "<thead><tr><th>User</th><th>Total Size</th></tr></thead>`n"
+            $html += "<tbody>`n"
+            foreach ($item in $items) {
+                $html += "<tr><td><strong>$($item.Name)</strong></td><td>$($item.SizeGB)GB</td></tr>`n"
+            }
+            $html += "</tbody>`n</table>`n"
+        } else {
+            $html = "<table class='top-folders'>`n"
+            $html += "<thead><tr><th>Folder</th><th>Subfolder/File</th><th>Size</th></tr></thead>`n"
+            $html += "<tbody>`n"
+            foreach ($item in $items) {
+                if ($item.SubItems -and $item.SubItems.Count -gt 0) {
+                    $rowspan = $item.SubItems.Count
+                    $firstSubItem = $item.SubItems[0]
+                    $html += "<tr><td rowspan='$rowspan'><strong>$($item.Name)</strong> ($($item.SizeGB)GB)</td><td>$($firstSubItem.Name)</td><td>$($firstSubItem.SizeMB)MB</td></tr>`n"
+                    for ($i = 1; $i -lt $item.SubItems.Count; $i++) {
+                        $subItem = $item.SubItems[$i]
+                        $html += "<tr><td>$($subItem.Name)</td><td>$($subItem.SizeMB)MB</td></tr>`n"
+                    }
+                } else {
+                    $html += "<tr><td><strong>$($item.Name)</strong> ($($item.SizeGB)GB)</td><td colspan='2'>Empty</td></tr>`n"
+                }
+            }
+            $html += "</tbody>`n</table>`n"
+        }
+        return $html
+    }
+
     try {
-    Write-Log "Exporting disk report for $diskName on $serverName"
-        # Create temp directory if it doesn't exist
-    if (-not (Test-Path "C:\temp")) { 
-        New-Item -ItemType Directory -Path "C:\temp" | Out-Null
-    }
-
-    # Setup report path with timestamp
-    $timestamp = Get-Date -Format "ddMMyyyy-HHmm"
-    $reportPath = "C:\temp\LowFreeSpace-$diskName-$serverName-$timestamp.txt"
-
-    # Initialize report content
-    $reportContent = @"
--------------------------------------------------------------------------
-Server name: $serverName | Date: $(Get-Date -Format "dd/MM/yyyy HH:mm:ss")
-"@
-
-    # Add disk usage information
-    if ($diskName -eq "C" -and $beforeDiskInfo -and $diskInfo) {
-        # C: drive cleanup report
-        $spaceSaved = [math]::Round($diskInfo.FreeSpace - $beforeDiskInfo.FreeSpace, 2)
-        $reportContent += @"
-
-Disk usage before cleanup:
-Drive C: | Used GB: $($beforeDiskInfo.UsedSpace) | Free GB: $($beforeDiskInfo.FreeSpace) | Total GB: $($beforeDiskInfo.TotalSize) | Free Percentage: $($beforeDiskInfo.FreePercentage)%
-
-Disk usage after cleanup:
-Drive C: | Used GB: $($diskInfo.UsedSpace) | Free GB: $($diskInfo.FreeSpace) | Total GB: $($diskInfo.TotalSize) | Free Percentage: $($diskInfo.FreePercentage)%
-
-Space saved: $spaceSaved GB
-
-"@
-    } else {
-        # Data disk report
-        $reportContent += @"
-
-Disk usage:
-Drive $($diskName): | Used GB: $($diskInfo.UsedSpace) | Free GB: $($diskInfo.FreeSpace) | Total GB: $($diskInfo.TotalSize) | Free Percentage: $($diskInfo.FreePercentage)%
-
-"@
-    }
-
-    # Add detailed sections based on disk type
-    if ($diskName -eq "C") {
-        # C: drive cleanup details
-        $reportContent += @"
-#######################################################################
-$userCacheLog
-#######################################################################
-$systemCacheLog
-#######################################################################
-$iisLogCleanupLog
-"@
-
-        # Append top folders if available
-        if ($topUsers -and $topUsers.Count -gt 0) {
-            $reportContent += "`n#######################################################################"
-            $reportContent += "`nTop largest folders in C:\Users:`n"
-            $reportContent += ($topUsers | ForEach-Object { " - $($_.Name) ($($_.Type)): $($_.SizeGB)GB" }) -join "`n"
+        Write-Log "Exporting disk report for $diskName on $serverName"
+        if (-not (Test-Path "C:\temp")) { 
+            New-Item -ItemType Directory -Path "C:\temp" | Out-Null
         }
-        
-        if ($topRoot -and $topRoot.Count -gt 0) {
-            $reportContent += "`n`nTop largest folders in C:\ (excluding system folders):`n"
-            $reportContent += ($topRoot | ForEach-Object { " - $($_.Name) ($($_.Type)): $($_.SizeGB)GB" }) -join "`n"
-        }
-    } else {
-        # Data disk folder sizes
-        $reportContent += @"
-#######################################################################
-$folderSizes
+
+        $timestamp = Get-Date -Format "ddMMyyyy-HHmm"
+        $reportPath = "C:\temp\LowFreeSpace-$diskName-$serverName-$timestamp.html"
+
+        $html = @"
+<html>
+<head>
+    <title>Disk Report for $serverName - $diskName</title>
+    <style>
+        body { font-family: Arial, sans-serif; }
+        h1 { color: #333; }
+        h2 { color: #555; }
+        h3 { margin-top: 20px; }
+        .section { margin-bottom: 20px; }
+        table { border-collapse: collapse; width: 100%; margin-top: 10px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; font-weight: bold; }
+        td strong { color: #333; }
+        .top-users th, .top-users td { vertical-align: middle; }
+        .top-folders th, .top-folders td { vertical-align: top; }
+        .top-folders td[rowspan] { background-color: #f9f9f9; font-weight: bold; }
+        pre { background-color: #f9f9f9; padding: 10px; border: 1px solid #ddd; }
+    </style>
+</head>
+<body>
+    <h1>Disk Report for $serverName - $diskName</h1>
+    <p>Date: $(Get-Date -Format "dd/MM/yyyy HH:mm:ss")</p>
 "@
-    }
 
-    # Write report to file
-    $reportContent | Out-File -FilePath $reportPath -Force
+        # Disk Usage Section (unchanged)
+        if ($diskName -eq "C" -and $beforeDiskInfo) {
+            $spaceSaved = [math]::Round($diskInfo.FreeSpace - $beforeDiskInfo.FreeSpace, 2)
+            $html += @"
+    <h2>Disk Usage</h2>
+    <table>
+        <tr><th>State</th><th>Drive</th><th>Used GB</th><th>Free GB</th><th>Total GB</th><th>Free Percentage</th></tr>
+        <tr><td>Before Cleanup</td><td>$diskName</td><td>$($beforeDiskInfo.UsedSpace)</td><td>$($beforeDiskInfo.FreeSpace)</td><td>$($beforeDiskInfo.TotalSize)</td><td>$($beforeDiskInfo.FreePercentage)%</td></tr>
+        <tr><td>After Cleanup</td><td>$diskName</td><td>$($diskInfo.UsedSpace)</td><td>$($diskInfo.FreeSpace)</td><td>$($diskInfo.TotalSize)</td><td>$($diskInfo.FreePercentage)%</td></tr>
+    </table>
+    <p>Space saved: $spaceSaved GB</p>
+"@
+        } else {
+            $html += @"
+    <h2>Disk Usage</h2>
+    <table>
+        <tr><th>Drive</th><th>Used GB</th><th>Free GB</th><th>Total GB</th><th>Free Percentage</th></tr>
+        <tr><td>$diskName</td><td>$($diskInfo.UsedSpace)</td><td>$($diskInfo.FreeSpace)</td><td>$($diskInfo.TotalSize)</td><td>$($diskInfo.FreePercentage)%</td></tr>
+    </table>
+"@
+        }
 
-    # Show message box based on success/failure
-    if (Test-Path -Path $reportPath) {
-        Write-Log "Disk report exported successfully to $reportPath"
-        [System.Windows.Forms.MessageBox]::Show(
-            "The report has been exported to $reportPath.", 
-            "Information", 
-            [System.Windows.Forms.MessageBoxButtons]::OK, 
-            [System.Windows.Forms.MessageBoxIcon]::Information
-        )
-    } else {
-        Write-Log "Failed to export disk report to $reportPath" "Error"
-        [System.Windows.Forms.MessageBox]::Show(
-            "Failed to export the report. Please check the log file for details.", 
-            "Error", 
-            [System.Windows.Forms.MessageBoxButtons]::OK, 
-            [System.Windows.Forms.MessageBoxIcon]::Error
-        )
-    }
-    }
-    catch {
+        # Cleanup Logs for C drive (unchanged)
+        if ($diskName -eq "C") {
+            $html += @"
+    <h2>Cleanup Logs</h2>
+    <h3>User Cache Cleaning</h3>
+    <pre>$userCacheLog</pre>
+    <h3>System Cache Cleaning</h3>
+    <pre>$systemCacheLog</pre>
+    <h3>IIS Log Compression</h3>
+    <pre>$iisLogCleanupLog</pre>
+"@
+        }
+
+        # Top Folders Section
+        if ($diskName -eq "C" -and ($topUsers -or $topRoot)) {
+            $html += "<div class='section'><h2>Top Folders (Space Still Low)</h2>`n"
+            if ($topUsers) {
+                $html += "<h3>Top Users in C:\Users</h3>`n"
+                $html += Format-TopItemsHtml -items $topUsers -type "Users"
+            }
+            if ($topRoot) {
+                $html += "<h3>Top Root Folders in C:\ (excluding system folders)</h3>`n"
+                $html += Format-TopItemsHtml -items $topRoot -type "Root"
+            }
+            $html += "</div>`n"
+        } elseif ($topItems) {
+            $html += "<div class='section'><h2>Top Folders on $diskName</h2>`n"
+            $html += Format-TopItemsHtml -items $topItems -type "Root"
+            $html += "</div>`n"
+        }
+
+        $html += "</body></html>"
+
+        $html | Out-File -FilePath $reportPath -Force
+
+        if (Test-Path -Path $reportPath) {
+            Write-Log "Disk report exported successfully to $reportPath"
+            [System.Windows.Forms.MessageBox]::Show(
+                "The report has been exported to $reportPath.", 
+                "Information", 
+                [System.Windows.Forms.MessageBoxButtons]::OK, 
+                [System.Windows.Forms.MessageBoxIcon]::Information
+            )
+        } else {
+            Write-Log "Failed to export disk report to $reportPath" "Error"
+            [System.Windows.Forms.MessageBox]::Show(
+                "Failed to export the report. Please check the log file for details.", 
+                "Error", 
+                [System.Windows.Forms.MessageBoxButtons]::OK, 
+                [System.Windows.Forms.MessageBoxIcon]::Error
+            )
+        }
+    } catch {
         Write-Log "Error exporting disk report: $_" "Error"
     }
 }
@@ -733,6 +697,28 @@ function Update-StatusLabel {
     $statusLabel_width = $statusLabel.PreferredWidth
     $label_x = ($main_form.ClientSize.Width - $statusLabel_width) / 2
     $statusLabel.Location = New-Object System.Drawing.Point($label_x, $statusLabel.Location.Y)
+}
+
+# Function to clean up session
+function Remove-Session {
+    try {
+        # Check if session exists and is still open before removing it
+        if ($session -and $session.State -eq "Open") {
+            Remove-PSSession -Session $session
+            Write-Log "Session closed successfully"
+        }
+        else {
+            Write-Log "No session to close or session already closed" "Info"
+        }
+    } catch {
+        Write-Log "Failed to close session: $_" "Error"
+    }
+
+    # Optionally, clean up form resources to free memory
+    if ($main_form) {
+        $main_form.Dispose()
+        Write-Log "Form disposed and cleaned up"
+    }
 }
 
 # Create Form
@@ -822,174 +808,126 @@ $okButton.Text = "OK"
 $okButton.Add_Click({
     try {
         $diskName = $diskTextBox.Text.ToUpper()
-    $serverName = $textBoxServerName.Text
+        $serverName = $textBoxServerName.Text
     
-    # Validate disk name
-    if ([string]::IsNullOrEmpty($diskName) -or [string]::IsNullOrEmpty($serverName))  {
-        [System.Windows.Forms.MessageBox]::Show(
-        "Please enter server name and disk name.", 
-        "Warning", 
-        [System.Windows.Forms.MessageBoxButtons]::OK, 
-        [System.Windows.Forms.MessageBoxIcon]::Warning
-)
-        return
-    }
+        # Validate disk name
+        if ([string]::IsNullOrEmpty($diskName) -or [string]::IsNullOrEmpty($serverName))  {
+            [System.Windows.Forms.MessageBox]::Show(
+                "Please enter server name and disk name.", 
+                "Warning", 
+                [System.Windows.Forms.MessageBoxButtons]::OK, 
+                [System.Windows.Forms.MessageBoxIcon]::Warning
+            )
+            return
+        }
     
-    if (-not (Test-ServerAvailability -serverName $serverName)) {
-        [System.Windows.Forms.MessageBox]::Show(
+        if (-not (Test-ServerAvailability -serverName $serverName)) {
+            [System.Windows.Forms.MessageBox]::Show(
                 "Server '$serverName' is not reachable.", 
                 "Error", 
                 [System.Windows.Forms.MessageBoxButtons]::OK, 
                 [System.Windows.Forms.MessageBoxIcon]::Error
             )
-        return
-    }
+            return
+        }
 
-    # Create session
-    $session = Get-Session -serverName $serverName
-    if ($null -eq $session) {
-        [System.Windows.Forms.MessageBox]::Show(
+        # Create session
+        $session = Get-Session -serverName $serverName
+        if ($null -eq $session) {
+            [System.Windows.Forms.MessageBox]::Show(
                 "Session creation canceled or retry limit reached.", 
                 "Error", 
                 [System.Windows.Forms.MessageBoxButtons]::OK, 
                 [System.Windows.Forms.MessageBoxIcon]::Error
             )
-        return
-    }
+            return
+        }
 
-    # Connect to server
-    if (-not (Test-DiskAvailability -session $session -diskName $diskName)) {
-        [System.Windows.Forms.MessageBox]::Show(
+        if (-not (Test-DiskAvailability -session $session -diskName $diskName)) {
+            [System.Windows.Forms.MessageBox]::Show(
                 "Disk '$diskName' is not available on server '$serverName'.", 
                 "Error", 
                 [System.Windows.Forms.MessageBoxButtons]::OK, 
                 [System.Windows.Forms.MessageBoxIcon]::Error
-        )
-        return
-    }
+            )
+            return
+        }
 
-    if (-not (Test-LogFileCreation)) {
-        [System.Windows.Forms.MessageBox]::Show(
+        if (-not (Test-ReportFileCreation)) {
+            [System.Windows.Forms.MessageBox]::Show(
                 "Cannot proceed - local log file creation failed", 
                 "Error", 
                 [System.Windows.Forms.MessageBoxButtons]::OK, 
                 [System.Windows.Forms.MessageBoxIcon]::Error
             )
-        return
-    }
+            return
+        }
 
-    try {
-        if ($diskName -eq "C") {
-            # Show status
-            Update-StatusLabel -text "Cleaning C disk. Please wait..."
+        try {
+            if ($diskName -eq "C") {
+                Update-StatusLabel -text "Cleaning C disk. Please wait..."
+                $Before = Get-DiskSpaceDetails -session $session -diskName $diskName
 
-            # Get disk space before cleanup
-            $Before = Get-DiskSpaceDetails -session $session -diskName $diskName
+                Update-StatusLabel -text "Cleaning system cache..."
+                $clearSystemCache = Clear-SystemCache -session $session -Verbose *>&1 | ForEach-Object {
+                    "$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss'): $_"
+                } | Out-String
 
-            Update-StatusLabel -text "Cleaning system cache..."
-            # Clear system cache
-            $clearSystemCache = Clear-SystemCache -session $session -Verbose *>&1 | ForEach-Object {
-                "$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss'): $_"
-            } | Out-String
+                Update-StatusLabel -text "Compressing IIS logs..."
+                $clearIISLogs = Compress-IISLogs -session $session -Verbose *>&1 | ForEach-Object {
+                    "$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss'): $_"
+                } | Out-String
 
-            Update-StatusLabel -text "Compressing IIS logs..."
-            # Compress IIS logs
-            $clearIISLogs = Compress-IISLogs -session $session -Verbose *>&1 | ForEach-Object {
-                "$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss'): $_"
-            } | Out-String
+                $After = Get-DiskSpaceDetails -session $session -diskName $diskName
+                $freePercentageDisk = $After.FreePercentage
+                $topRoot = $null
+                $topUsers = $null
 
-
-            # Get disk space after cleanup
-            $After = Get-DiskSpaceDetails -session $session -diskName $diskName
-            
-            $freePercentageDisk = $After.FreePercentage
-            $topItems = $null  # Initialize to avoid passing unintended data
-            $topUsers = $null
-
-            # After cleanup, if free space is still low
-            if ($After.FreePercentage -lt 50) {
-                Update-StatusLabel -text "Free space still low. Identifying top items..."
-                $topItems = Get-TopItems -session $session -path "$($diskName):\" -exclude @("Windows", "Program Files", "Program Files (x86)", "ProgramData","Users") -topN 10
-                $topUsers = Get-TopItems -session $session -path "$($diskName):\Users" -topN 10
-            }
-
-            # Format output for the report
-            $formattedOutput = "`nTop 10 largest items on $($diskName):`n"
-            foreach ($item in $topItems) {
-                $formattedOutput += "- $($item.Name) ($($item.Type)): $($item.SizeGB)GB`n"
-                if ($item.SubItems) {
-                    foreach ($subItem in $item.SubItems) {
-                        $formattedOutput += "  $($subItem.Name) ($($subItem.Type)): $($subItem.SizeMB)MB`n"
-                    }
+                if ($After.FreePercentage -lt 50) {
+                    Update-StatusLabel -text "Free space still low. Identifying top items..."
+                    $topRoot = Get-TopItems -session $session -path "$($diskName):\" -exclude @("Windows", "Program Files", "Program Files (x86)", "ProgramData","Users") -topN 10
+                    $topUsers = Get-TopItems -session $session -path "$($diskName):\Users" -topN 10
                 }
-            }                    
 
-            [System.Windows.Forms.MessageBox]::Show(
-                "Drive $($diskName). Free space is $($freePercentageDisk)%.`nPlease check report for details.", 
-                "Information", 
-                [System.Windows.Forms.MessageBoxButtons]::OK, 
-                [System.Windows.Forms.MessageBoxIcon]::Information
-            )
-            
-            Export-DiskReport -serverName $serverName -diskName $diskName `
-                -diskInfo $After -beforeDiskInfo $Before `
-                -userCacheLog $clearUserCache -systemCacheLog $clearSystemCache `
-                -iisLogCleanupLog $clearIISLogs -folderSizes $formattedOutput `
-                -topUsers $topUsers -topRoot $topItems
-        }
-        else {
-            # Show status
-            Update-StatusLabel -text "Getting disk information and top items..."
-            $diskInfo = Get-DiskSpaceDetails -session $session -diskName $diskName
-            $topItems = Get-TopItems -session $session -path "$($diskName):\" -topN 10
+                [System.Windows.Forms.MessageBox]::Show(
+                    "Drive $($diskName). Free space is $($freePercentageDisk)%.`nPlease check report for details.", 
+                    "Information", 
+                    [System.Windows.Forms.MessageBoxButtons]::OK, 
+                    [System.Windows.Forms.MessageBoxIcon]::Information
+                )
 
-            $formattedOutput = "`nTop 10 largest items on $($diskName):"
-            foreach ($item in $topItems) {
-                $formattedOutput += "`n- $($item.Name) ($($item.Type)): $($item.SizeGB)GB`n"
-                if ($item.SubItems) {
-                    foreach ($subItem in $item.SubItems) {
-                        $formattedOutput += "  $($subItem.Name) ($($subItem.Type)): $($subItem.SizeMB)MB`n"
-                    }
+                Export-DiskReport -serverName $serverName -diskName $diskName `
+                    -diskInfo $After -beforeDiskInfo $Before `
+                    -userCacheLog $clearUserCache -systemCacheLog $clearSystemCache `
+                    -iisLogCleanupLog $clearIISLogs `
+                    -topUsers $topUsers -topRoot $topRoot
+            }   else {
+                    Update-StatusLabel -text "Getting disk information and top items..."
+                    $diskInfo = Get-DiskSpaceDetails -session $session -diskName $diskName
+                    $topItems = Get-TopItems -session $session -path "$($diskName):\" -topN 10
+
+                    $freePercentageDisk = $diskInfo.FreePercentage
+
+                    [System.Windows.Forms.MessageBox]::Show(
+                        "Drive $($diskName). Free space is $($freePercentageDisk)%.`nPlease check report for details.", 
+                        "Information", 
+                        [System.Windows.Forms.MessageBoxButtons]::OK, 
+                        [System.Windows.Forms.MessageBoxIcon]::Information
+                    )
+
+                    Export-DiskReport -serverName $serverName -diskName $diskName `
+                        -diskInfo $diskInfo -topItems $topItems
                 }
+            $main_form.Close()
+            Remove-Session
+        }   catch {
+                [System.Windows.Forms.MessageBox]::Show($_.Exception.Message, "Error")
+                Write-Log "Error in OK button click event: $_" "Error"
             }
-
-            $freePercentageDisk = $diskInfo.FreePercentage
-
-            [System.Windows.Forms.MessageBox]::Show(
-                "Drive $($diskName). Free space is $($freePercentageDisk)%.`nPlease check report for details.", 
-                "Information", 
-                [System.Windows.Forms.MessageBoxButtons]::OK, 
-                [System.Windows.Forms.MessageBoxIcon]::Information
-            )
-                            
-            # Export report
-            Export-DiskReport -serverName $serverName -diskName $diskName `
-                -diskInfo $diskInfo -folderSizes $formattedOutput
-
+    }   finally {
+            # Always clean up the session after the logic is done
+            Remove-Session
         }
-        # Close session
-        Remove-PSSession -Session $session
-        if ($session.State -eq "Closed") {
-            Write-Log "Session closed successfully"
-        } else {
-            Write-Log "Failed to close session" "Error"
-        }
-        $main_form.Close()        
-    } catch {
-        [System.Windows.Forms.MessageBox]::Show($_.Exception.Message, "Error")
-    }
-    }
-    finally {
-        # Cleanup session if it exists
-        if ($session) { 
-            Remove-PSSession -Session $session 
-            if ($session.State -eq "Closed") {
-                Write-Log "Session closed successfully"
-            } else {
-                Write-Log "Failed to close session" "Error"
-            }
-        }
-    }
 })
 
 # Exit Button
@@ -1000,6 +938,7 @@ $cancelButton.Text = "Cancel"
 $cancelButton.BackColor = [System.Drawing.Color]::LightCoral
 $cancelButton.Add_Click({
     $main_form.Close()
+    Remove-Session
 }
 )
 

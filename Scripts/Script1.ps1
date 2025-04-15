@@ -50,15 +50,6 @@
 # Load module
 #. "$PSScriptRoot/../modules/module.ps1"
 
-# Load Windows Forms Assembly
-try {
-    Add-Type -AssemblyName System.Windows.Forms
-    Add-Type -AssemblyName System.Drawing
-} catch {
-    Write-Error "Failed to load Windows Forms assemblies: $_"
-    exit 1
-}
-
 function Write-Log {
     param (
         [string]$Message,
@@ -112,15 +103,11 @@ function Get-Session {
         do {
             Write-Log "Attempting to create session for $serverName (Attempt $($retryCount + 1) of $maxRetries)"
             $retryCount++
-            # Only call Get-Credential if no credential was provided
-            #if ($null -eq $Credential) {
-                $Credential = Get-Credential -Message "Enter credentials for $ServerName (Attempt $($retryCount) of $MaxRetries)"
-            #}
+            $Credential = Get-Credential -Message "Enter credentials for $ServerName (Attempt $($retryCount) of $MaxRetries)"
             if ($null -eq $Credential -or $retryCount -ge $maxRetries) {
                 Write-Log "Session creation canceled or retry limit reached for $serverName" "Error"
                 return $null
             }
-    
             try {
                 Set-Item WSMan:\localhost\Client\TrustedHosts -Value "$serverName" -Concatenate -Force #In a non-domain (workgroup) environment, the remote computer’s name or IP must be added to the local computer’s TrustedHosts list
                 $session = New-PSSession -ComputerName $serverName -Credential $credential -ErrorAction Stop
@@ -174,8 +161,7 @@ function Test-DiskAvailability {
     }
 }
 
-#Test-LogFileCreation
-function Test-LogFileCreation {
+function Test-ReportFileCreation {
     [CmdletBinding()]
     param()
     
@@ -183,7 +169,7 @@ function Test-LogFileCreation {
         Write-Log "Testing log file creation"
         # Define paths
         $logPath = "C:\Temp"
-        $testFile = Join-Path $logPath "test_$(Get-Date -Format 'yyyyMMdd_HHmmss').log"
+        $testFile = Join-Path $logPath "test_$(Get-Date -Format 'ddMMyyyy_HHmmss').html"
 
         # Create directory if needed
         if (-not (Test-Path $logPath)) {
@@ -206,79 +192,6 @@ function Test-LogFileCreation {
         return $false
     }
 }
-
-<#
-# Function to clear user cache
-function Clear-UserCache {
-    [CmdletBinding()]
-    param (
-        [Parameter(Mandatory)]
-        [System.Management.Automation.Runspaces.PSSession]$session,
-        [string[]]$ExcludedProfiles = @("Administrator", "Public", "SVC_DailyChecks", "Duc")
-    )
-    Write-Host "Starting to clear User Cache"
-
-    $ScriptBlock = {
-        param($ExcludedProfiles)
-        
-        Write-Host "Excluded profiles: $($ExcludedProfiles -join ', ')"
-
-        try {
-            $ProfileFolders = Get-ChildItem -Directory -Path 'C:\Users' -ErrorAction SilentlyContinue | 
-                Where-Object { $_.Name -notin $ExcludedProfiles } |
-                Select-Object -ExpandProperty Name
-
-            Write-Host "Found profiles to process: $($ProfileFolders -join ', ')"
-
-        foreach ($Folder in $ProfileFolders) {
-            $PathsToClean = @(
-                "C:\Users\$Folder\AppData\Local\Microsoft\Windows\Temporary Internet Files\",
-                "C:\Users\$Folder\AppData\Local\Microsoft\Edge\User Data\Default\Cache\Cache_Data",
-                "C:\Users\$Folder\AppData\Local\Microsoft\Edge\User Data\Default\Service Worker\CacheStorage",
-                "C:\Users\$Folder\AppData\Local\Temp\",
-                "C:\Users\$Folder\AppData\Local\Microsoft\Terminal Server Client\Cache",
-                "C:\Users\$Folder\AppData\Local\Google\Chrome\User Data\Default\Cache",
-                "C:\Users\$Folder\AppData\Local\Microsoft\Teams",
-                "C:\Users\$Folder\AppData\Local\Microsoft\Edge\User Data\Default\Code Cache",
-                "C:\Users\$Folder\AppData\Roaming\Microsoft\Teams\Service Worker\CacheStorage",
-                "C:\Users\$Folder\AppData\Local\Microsoft\Windows\InetCache\IE",
-                "C:\Users\$Folder\AppData\Local\Microsoft\Windows\WebCache",
-                "C:\Users\$Folder\AppData\Local\Google\Chrome\User Data\Default\Code Cache",
-                "C:\Users\$Folder\AppData\Local\Google\Chrome\User Data\Default\Service Worker\CacheStorage"
-            )
-
-            foreach ($Path in $PathsToClean) {
-                if (Test-Path -Path $Path -ErrorAction SilentlyContinue) {
-                    try {
-                        # First find and display files to be deleted
-                        $filesToDelete = Get-ChildItem -Path $Path -Recurse -Force -ErrorAction SilentlyContinue |
-                            Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-0) }
-                        
-                        foreach ($file in $filesToDelete) {
-                            Write-Host "Deleting: $($file.FullName)"
-                        }
-        
-                        # Then delete the files
-                        $filesToDelete | Remove-Item -Force -Recurse -Verbose -ErrorAction SilentlyContinue
-                    }
-                    catch [System.UnauthorizedAccessException] {
-                        Write-Host "Access denied to $Path"
-                    }
-                    catch {
-                        Write-Host "Error cleaning $Path : $_"
-                    }
-                }
-            }
-        }
-    }
-    catch {
-        Write-Host "Failed to process profiles: $_"
-    }
-}
-
-Invoke-Command -Session $session -ScriptBlock $ScriptBlock -ArgumentList (,$ExcludedProfiles)
-}
-#>
 
 # Function to clear system cache
 function Clear-SystemCache {
@@ -786,6 +699,28 @@ function Update-StatusLabel {
     $statusLabel.Location = New-Object System.Drawing.Point($label_x, $statusLabel.Location.Y)
 }
 
+# Function to clean up session
+function Remove-Session {
+    try {
+        # Check if session exists and is still open before removing it
+        if ($session -and $session.State -eq "Open") {
+            Remove-PSSession -Session $session
+            Write-Log "Session closed successfully"
+        }
+        else {
+            Write-Log "No session to close or session already closed" "Info"
+        }
+    } catch {
+        Write-Log "Failed to close session: $_" "Error"
+    }
+
+    # Optionally, clean up form resources to free memory
+    if ($main_form) {
+        $main_form.Dispose()
+        Write-Log "Form disposed and cleaned up"
+    }
+}
+
 # Create Form
 $main_form = New-Object System.Windows.Forms.Form
 $main_form.Text = "Low Free Space"
@@ -873,142 +808,126 @@ $okButton.Text = "OK"
 $okButton.Add_Click({
     try {
         $diskName = $diskTextBox.Text.ToUpper()
-    $serverName = $textBoxServerName.Text
+        $serverName = $textBoxServerName.Text
     
-    # Validate disk name
-    if ([string]::IsNullOrEmpty($diskName) -or [string]::IsNullOrEmpty($serverName))  {
-        [System.Windows.Forms.MessageBox]::Show(
-        "Please enter server name and disk name.", 
-        "Warning", 
-        [System.Windows.Forms.MessageBoxButtons]::OK, 
-        [System.Windows.Forms.MessageBoxIcon]::Warning
-)
-        return
-    }
+        # Validate disk name
+        if ([string]::IsNullOrEmpty($diskName) -or [string]::IsNullOrEmpty($serverName))  {
+            [System.Windows.Forms.MessageBox]::Show(
+                "Please enter server name and disk name.", 
+                "Warning", 
+                [System.Windows.Forms.MessageBoxButtons]::OK, 
+                [System.Windows.Forms.MessageBoxIcon]::Warning
+            )
+            return
+        }
     
-    if (-not (Test-ServerAvailability -serverName $serverName)) {
-        [System.Windows.Forms.MessageBox]::Show(
+        if (-not (Test-ServerAvailability -serverName $serverName)) {
+            [System.Windows.Forms.MessageBox]::Show(
                 "Server '$serverName' is not reachable.", 
                 "Error", 
                 [System.Windows.Forms.MessageBoxButtons]::OK, 
                 [System.Windows.Forms.MessageBoxIcon]::Error
             )
-        return
-    }
+            return
+        }
 
-    # Create session
-    $session = Get-Session -serverName $serverName
-    if ($null -eq $session) {
-        [System.Windows.Forms.MessageBox]::Show(
+        # Create session
+        $session = Get-Session -serverName $serverName
+        if ($null -eq $session) {
+            [System.Windows.Forms.MessageBox]::Show(
                 "Session creation canceled or retry limit reached.", 
                 "Error", 
                 [System.Windows.Forms.MessageBoxButtons]::OK, 
                 [System.Windows.Forms.MessageBoxIcon]::Error
             )
-        return
-    }
+            return
+        }
 
-    # Connect to server
-    if (-not (Test-DiskAvailability -session $session -diskName $diskName)) {
-        [System.Windows.Forms.MessageBox]::Show(
+        if (-not (Test-DiskAvailability -session $session -diskName $diskName)) {
+            [System.Windows.Forms.MessageBox]::Show(
                 "Disk '$diskName' is not available on server '$serverName'.", 
                 "Error", 
                 [System.Windows.Forms.MessageBoxButtons]::OK, 
                 [System.Windows.Forms.MessageBoxIcon]::Error
-        )
-        return
-    }
+            )
+            return
+        }
 
-    if (-not (Test-LogFileCreation)) {
-        [System.Windows.Forms.MessageBox]::Show(
+        if (-not (Test-ReportFileCreation)) {
+            [System.Windows.Forms.MessageBox]::Show(
                 "Cannot proceed - local log file creation failed", 
                 "Error", 
                 [System.Windows.Forms.MessageBoxButtons]::OK, 
                 [System.Windows.Forms.MessageBoxIcon]::Error
             )
-        return
-    }
+            return
+        }
 
-    try {
-        if ($diskName -eq "C") {
-            Update-StatusLabel -text "Cleaning C disk. Please wait..."
-            $Before = Get-DiskSpaceDetails -session $session -diskName $diskName
+        try {
+            if ($diskName -eq "C") {
+                Update-StatusLabel -text "Cleaning C disk. Please wait..."
+                $Before = Get-DiskSpaceDetails -session $session -diskName $diskName
 
-            Update-StatusLabel -text "Cleaning system cache..."
-            $clearSystemCache = Clear-SystemCache -session $session -Verbose *>&1 | ForEach-Object {
-                "$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss'): $_"
-            } | Out-String
+                Update-StatusLabel -text "Cleaning system cache..."
+                $clearSystemCache = Clear-SystemCache -session $session -Verbose *>&1 | ForEach-Object {
+                    "$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss'): $_"
+                } | Out-String
 
-            Update-StatusLabel -text "Compressing IIS logs..."
-            $clearIISLogs = Compress-IISLogs -session $session -Verbose *>&1 | ForEach-Object {
-                "$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss'): $_"
-            } | Out-String
+                Update-StatusLabel -text "Compressing IIS logs..."
+                $clearIISLogs = Compress-IISLogs -session $session -Verbose *>&1 | ForEach-Object {
+                    "$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss'): $_"
+                } | Out-String
 
-            $After = Get-DiskSpaceDetails -session $session -diskName $diskName
-            $freePercentageDisk = $After.FreePercentage
-            $topRoot = $null
-            $topUsers = $null
+                $After = Get-DiskSpaceDetails -session $session -diskName $diskName
+                $freePercentageDisk = $After.FreePercentage
+                $topRoot = $null
+                $topUsers = $null
 
-            if ($After.FreePercentage -lt 50) {
-                Update-StatusLabel -text "Free space still low. Identifying top items..."
-                $topRoot = Get-TopItems -session $session -path "$($diskName):\" -exclude @("Windows", "Program Files", "Program Files (x86)", "ProgramData","Users") -topN 10
-                $topUsers = Get-TopItems -session $session -path "$($diskName):\Users" -topN 10
-            }
-
-            [System.Windows.Forms.MessageBox]::Show(
-                "Drive $($diskName). Free space is $($freePercentageDisk)%.`nPlease check report for details.", 
-                "Information", 
-                [System.Windows.Forms.MessageBoxButtons]::OK, 
-                [System.Windows.Forms.MessageBoxIcon]::Information
-            )
-
-            Export-DiskReport -serverName $serverName -diskName $diskName `
-                -diskInfo $After -beforeDiskInfo $Before `
-                -userCacheLog $clearUserCache -systemCacheLog $clearSystemCache `
-                -iisLogCleanupLog $clearIISLogs `
-                -topUsers $topUsers -topRoot $topRoot
+                if ($After.FreePercentage -lt 50) {
+                    Update-StatusLabel -text "Free space still low. Identifying top items..."
+                    $topRoot = Get-TopItems -session $session -path "$($diskName):\" -exclude @("Windows", "Program Files", "Program Files (x86)", "ProgramData","Users") -topN 10
+                    $topUsers = Get-TopItems -session $session -path "$($diskName):\Users" -topN 10
                 }
-                else {
+
+                [System.Windows.Forms.MessageBox]::Show(
+                    "Drive $($diskName). Free space is $($freePercentageDisk)%.`nPlease check report for details.", 
+                    "Information", 
+                    [System.Windows.Forms.MessageBoxButtons]::OK, 
+                    [System.Windows.Forms.MessageBoxIcon]::Information
+                )
+
+                Export-DiskReport -serverName $serverName -diskName $diskName `
+                    -diskInfo $After -beforeDiskInfo $Before `
+                    -userCacheLog $clearUserCache -systemCacheLog $clearSystemCache `
+                    -iisLogCleanupLog $clearIISLogs `
+                    -topUsers $topUsers -topRoot $topRoot
+            }   else {
                     Update-StatusLabel -text "Getting disk information and top items..."
-            $diskInfo = Get-DiskSpaceDetails -session $session -diskName $diskName
-            $topItems = Get-TopItems -session $session -path "$($diskName):\" -topN 10
+                    $diskInfo = Get-DiskSpaceDetails -session $session -diskName $diskName
+                    $topItems = Get-TopItems -session $session -path "$($diskName):\" -topN 10
 
-            $freePercentageDisk = $diskInfo.FreePercentage
+                    $freePercentageDisk = $diskInfo.FreePercentage
 
-            [System.Windows.Forms.MessageBox]::Show(
-                "Drive $($diskName). Free space is $($freePercentageDisk)%.`nPlease check report for details.", 
-                "Information", 
-                [System.Windows.Forms.MessageBoxButtons]::OK, 
-                [System.Windows.Forms.MessageBoxIcon]::Information
-            )
+                    [System.Windows.Forms.MessageBox]::Show(
+                        "Drive $($diskName). Free space is $($freePercentageDisk)%.`nPlease check report for details.", 
+                        "Information", 
+                        [System.Windows.Forms.MessageBoxButtons]::OK, 
+                        [System.Windows.Forms.MessageBoxIcon]::Information
+                    )
 
-            Export-DiskReport -serverName $serverName -diskName $diskName `
-                -diskInfo $diskInfo -topItems $topItems
-
+                    Export-DiskReport -serverName $serverName -diskName $diskName `
+                        -diskInfo $diskInfo -topItems $topItems
                 }
-                # Close session
-                Remove-PSSession -Session $session
-                if ($session.State -eq "Closed") {
-                    Write-Log "Session closed successfully"
-                } else {
-                    Write-Log "Failed to close session" "Error"
-                }
-                $main_form.Close()        
-            } catch {
+            $main_form.Close()
+            Remove-Session
+        }   catch {
                 [System.Windows.Forms.MessageBox]::Show($_.Exception.Message, "Error")
+                Write-Log "Error in OK button click event: $_" "Error"
             }
-            }
-            finally {
-                # Cleanup session if it exists
-                if ($session) { 
-                    Remove-PSSession -Session $session 
-                    if ($session.State -eq "Closed") {
-                        Write-Log "Session closed successfully"
-                    } else {
-                        Write-Log "Failed to close session" "Error"
-                    }
-                }
-            }
+    }   finally {
+            # Always clean up the session after the logic is done
+            Remove-Session
+        }
 })
 
 # Exit Button
@@ -1019,6 +938,7 @@ $cancelButton.Text = "Cancel"
 $cancelButton.BackColor = [System.Drawing.Color]::LightCoral
 $cancelButton.Add_Click({
     $main_form.Close()
+    Remove-Session
 }
 )
 

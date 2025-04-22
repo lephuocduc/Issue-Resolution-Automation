@@ -760,12 +760,20 @@ $main_form.Add_KeyDown({
     }
 })
 
+# Create ToolTip object
+$toolTip = New-Object System.Windows.Forms.ToolTip
+$toolTip.AutoPopDelay = 5000  # Time the tooltip remains visible (in milliseconds)
+$toolTip.InitialDelay = 500   # Time before the tooltip appears (in milliseconds)
+$toolTip.ReshowDelay = 500    # Time before tooltip reappears if mouse moves away and back
+$toolTip.ShowAlways = $true   # Show tooltip even if the form is not active
+
 # Server Name Label
 $labelServerName = New-Object System.Windows.Forms.Label
 $labelServerName.Location = New-Object System.Drawing.Point(20, 30)
 $labelServerName.Size = New-Object System.Drawing.Size(100, 30)
 $labelServerName.Text = "Server Name:"
 $labelServerName.Font = New-Object System.Drawing.Font("Arial", 11)
+$toolTip.SetToolTip($labelServerName, "Enter the hostname or IP address of the remote server to analyze or clean.")
 
 # Disk Name TextBox
 $textBoxServerName = New-Object System.Windows.Forms.TextBox
@@ -794,8 +802,9 @@ $textBoxServerName.Add_KeyDown({
 $diskLabel = New-Object System.Windows.Forms.Label
 $diskLabel.Location = New-Object System.Drawing.Point(20, 60)
 $diskLabel.Size = New-Object System.Drawing.Size(100, 30)
-$diskLabel.Text = "Disk Name:"
+$diskLabel.Text = "Drive Letter:"
 $diskLabel.Font = New-Object System.Drawing.Font("Arial", 11)
+$toolTip.SetToolTip($diskLabel, "Enter the drive letter to process (e.g., C or C: or C:\).")
 
 # Disk Name TextBox
 $diskTextBox = New-Object System.Windows.Forms.TextBox
@@ -827,9 +836,13 @@ $okButton.Size = New-Object System.Drawing.Size(80, 30)
 $okButton.Text = "OK"
 $okButton.Add_Click({
     try {
-        $diskName = $diskTextBox.Text.ToUpper()
-        $serverName = $textBoxServerName.Text
-    
+        # Normalize disk name input (e.g., C:, C:\, c -> C)
+        $rawDiskName = $diskTextBox.Text.Trim()
+        $diskName = $rawDiskName -replace '[:\\]', ''  # Remove : and \
+        $diskName = $diskName.ToUpper()               # Convert to uppercase
+        
+        $serverName = $textBoxServerName.Text.Trim()
+
         # Validate disk name
         if ([string]::IsNullOrEmpty($diskName) -or [string]::IsNullOrEmpty($serverName))  {
             [System.Windows.Forms.MessageBox]::Show(

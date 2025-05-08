@@ -33,7 +33,7 @@ else {
 
 $env:UNIT_TEST = "true"
 # Load the script to be tested
-. "$PSScriptRoot/../Scripts/LowFreeSpace.ps1"
+. "$PSScriptRoot/../../Scripts/LowFreeSpace/LowFreeSpace.ps1"
 
 Describe "Test Clear-SystemCache" {
     BeforeAll {
@@ -42,16 +42,15 @@ Describe "Test Clear-SystemCache" {
     }      
 
         Context "When session parameter is invalid" {
-            #Test case 3: It should throw an error for null session
+            #Test case 1: It should throw an error for null session, and not invoke Remove-Item
             It "Throws error for null session" {
-                Write-Host "Throws error for null session"
                 # Act & Assert
                 { Clear-SystemCache -session $null } | 
                 Should -Throw -ExpectedMessage "*Cannot bind argument to parameter 'session' because it is null.*"
             }
         }
 
-        Context "2 files older than 5 days exist, 1 file newer than 5 days exists" {
+        Context "Windows Update cache cleanup, 2 files older than 5 days exist, 1 file newer than 5 days exists" {
             BeforeAll {
                 Mock Invoke-Command { & $ScriptBlock }
                 $oldFiles = @(
@@ -74,47 +73,24 @@ Describe "Test Clear-SystemCache" {
                 Mock Clear-RecycleBin {}
             }
     
-            #Test case 4: It should delete old Windows Update cache files older than 5 days, ignore files newer than 5 days
+            #Test case 2: It should delete old Windows Update cache files older than 5 days, ignore files newer than 5 days
             It "Only deletes old Windows Update cache files older than 5 days" {
-                Write-Host "Only deletes old Windows Update cache files older than 5 days"
                 Clear-SystemCache -session $mockSession
                 Should -Invoke Remove-Item -Times 2 -Exactly
                 Should -Invoke Remove-Item -Times 1 -Exactly -ParameterFilter { $Path -eq "C:\Windows\SoftwareDistribution\Download\oldfile.txt" }
                 Should -Invoke Remove-Item -Times 1 -Exactly -ParameterFilter { $Path -eq "C:\Windows\SoftwareDistribution\Download\oldfile3.txt" }
                 Should -Not -Invoke Remove-Item -Times 1 -Exactly -ParameterFilter { $Path -eq "C:\Windows\SoftwareDistribution\Download\oldfile2.txt" }
             }
-        }
-    
-        Context "When no files older than 5 days exist" {
-            BeforeAll {
-                Mock Invoke-Command { & $ScriptBlock }
-                Mock Test-Path { return $true } -ParameterFilter { $Path -eq "C:\Windows\SoftwareDistribution\Download\" }
-
-                # Mock other paths to return no files
-                Mock Test-Path { return $false } -ParameterFilter { $Path -eq "C:\Windows\Installer\$PatchCache$\*" }
-                Mock Test-Path { return $false } -ParameterFilter { $Path -eq "C:\Windows\ccmcache\*" }
-                Mock Test-Path { return $false } -ParameterFilter { $Path -eq "C:\Windows\Temp\*" }
-                
-                Mock Get-ChildItem { return @() } -ParameterFilter { $Path -eq "C:\Windows\SoftwareDistribution\Download" }
-                Mock Remove-Item {}
-                Mock Write-Host {}
-            }
-    
-            #Test case 5: It should not delete any files if Windows Update cache files aren't found
-            It "Does not delete any files if Windows Update cache files aren't found" {
-                Write-Host "Does not delete any files if Windows Update cache files aren't found"
-                Clear-SystemCache -session $mockSession
-                Should -Not -Invoke Remove-Item
-            }
-        }
-        
+        }      
     
     Context "Windows Installer patch cache cleanup, 2 files older than 5 days exist, 1 file newer than 5 days exists" {
         BeforeAll {
             Mock Invoke-Command { & $ScriptBlock }
-            Mock Test-Path { return $true } -ParameterFilter {
-                $Path -eq "C:\Windows\Installer\$PatchCache$\*"
-            }
+            Mock Test-Path { return $true } -ParameterFilter { $Path -eq "C:\Windows\Installer\$PatchCache$\*" }
+
+            Mock Test-Path { return $false } -ParameterFilter { $Path -eq "C:\Windows\SoftwareDistribution\Download\" }
+            Mock Test-Path { return $false } -ParameterFilter { $Path -eq "C:\Windows\ccmcache\*" }
+            Mock Test-Path { return $false } -ParameterFilter { $Path -eq "C:\Windows\Temp\*" }
             $oldFiles = @(
                 [PSCustomObject]@{ FullName = "C:\Windows\Installer\$PatchCache$\patch.msp"; LastWriteTime = (Get-Date).AddDays(-10) };
                 [PSCustomObject]@{ FullName = "C:\Windows\Installer\$PatchCache$\patch2.msp"; LastWriteTime = (Get-Date).AddDays(-2) };
@@ -123,15 +99,74 @@ Describe "Test Clear-SystemCache" {
             Mock Get-ChildItem { return $oldFiles } -ParameterFilter { $Path -eq "C:\Windows\Installer\$PatchCache$\*" }
             Mock Remove-Item {}
             Mock Write-Host {}
+            Mock Clear-RecycleBin {}
         }
     
-        #Test case 6: It should only delete old Windows Installer patch cache files older than 5 days, ignore files newer than 5 days
+        #Test case 3: It should only delete old Windows Installer patch cache files older than 5 days, ignore files newer than 5 days
         It "Deletes old Windows Installer patch cache files older than 5 days" {
-            Write-Host "Deletes old Windows Installer patch cache files older than 5 days"
             Clear-SystemCache -session $mockSession
+            Should -Invoke Remove-Item -Times 2 -Exactly
             Should -Invoke Remove-Item -Times 1 -Exactly -ParameterFilter { $Path -eq "C:\Windows\Installer\$PatchCache$\patch.msp" }
             Should -Invoke Remove-Item -Times 1 -Exactly -ParameterFilter { $Path -eq "C:\Windows\Installer\$PatchCache$\patch3.msp" }
             Should -Not -Invoke Remove-Item -Times 1 -Exactly -ParameterFilter { $Path -eq "C:\Windows\Installer\$PatchCache$\patch2.msp" }
+        }
+    }
+
+    Context "Windows ccmcache cleanup, 2 files older than 5 days exist, 1 file newer than 5 days exists" {
+        BeforeAll {
+            Mock Invoke-Command { & $ScriptBlock }
+            Mock Test-Path { return $true } -ParameterFilter { $Path -eq "C:\Windows\ccmcache\*" }
+
+            Mock Test-Path { return $false } -ParameterFilter { $Path -eq "C:\Windows\Installer\$PatchCache$\*" }
+            Mock Test-Path { return $false } -ParameterFilter { $Path -eq "C:\Windows\SoftwareDistribution\Download\" }
+            Mock Test-Path { return $false } -ParameterFilter { $Path -eq "C:\Windows\Temp\*" }
+            $oldFiles = @(
+                [PSCustomObject]@{ FullName = "C:\Windows\ccmcache\KB1.cab"; LastWriteTime = (Get-Date).AddDays(-10) };
+                [PSCustomObject]@{ FullName = "C:\Windows\ccmcache\KB2.cab"; LastWriteTime = (Get-Date).AddDays(-2) };
+                [PSCustomObject]@{ FullName = "C:\Windows\ccmcache\KB3.cab"; LastWriteTime = (Get-Date).AddDays(-7) }
+            )
+            Mock Get-ChildItem { return $oldFiles } -ParameterFilter { $Path -eq "C:\Windows\ccmcache\*" }
+            Mock Remove-Item {}
+            Mock Write-Host {}
+            Mock Clear-RecycleBin {}
+        }
+    
+        #Test case 4: It should only delete old windows ccmcache files older than 5 days, ignore files newer than 5 days
+        It "Deletes old Windows ccmcache files older than 5 days" {
+            Clear-SystemCache -session $mockSession
+            Should -Invoke Remove-Item -Times 2 -Exactly
+            Should -Invoke Remove-Item -Times 1 -Exactly -ParameterFilter { $Path -eq "C:\Windows\ccmcache\KB1.cab" }
+            Should -Invoke Remove-Item -Times 1 -Exactly -ParameterFilter { $Path -eq "C:\Windows\ccmcache\KB3.cab" }
+            Should -Not -Invoke Remove-Item -Times 1 -Exactly -ParameterFilter { $Path -eq "C:\Windows\ccmcache\KB2.cab" }
+        }
+    }
+
+    Context "Windows Temp cleanup, 2 files older than 5 days exist, 1 file newer than 5 days exists" {
+        BeforeAll {
+            Mock Invoke-Command { & $ScriptBlock }
+            Mock Test-Path { return $true } -ParameterFilter { $Path -eq "C:\Windows\Temp\*" }
+
+            Mock Test-Path { return $false } -ParameterFilter { $Path -eq "C:\Windows\ccmcache\*" }
+            Mock Test-Path { return $false } -ParameterFilter { $Path -eq "C:\Windows\Installer\$PatchCache$\*" }
+            Mock Test-Path { return $false } -ParameterFilter { $Path -eq "C:\Windows\SoftwareDistribution\Download\" }
+            $oldFiles = @(
+                [PSCustomObject]@{ FullName = "C:\Windows\Temp\file1.txt"; LastWriteTime = (Get-Date).AddDays(-10) };
+                [PSCustomObject]@{ FullName = "C:\Windows\Temp\file2.txt"; LastWriteTime = (Get-Date).AddDays(-2) };
+                [PSCustomObject]@{ FullName = "C:\Windows\Temp\file3.txt"; LastWriteTime = (Get-Date).AddDays(-7) }
+            )
+            Mock Get-ChildItem { return $oldFiles } -ParameterFilter { $Path -eq "C:\Windows\Temp\*" }
+            Mock Remove-Item {}
+            Mock Write-Host {}
+            Mock Clear-RecycleBin {}
+        }
+    
+        #Test case 5: It should only delete old Windows Temp files older than 5 days, ignore files newer than 5 days
+        It "Deletes old Windows Temp files older than 5 days" {
+            Clear-SystemCache -session $mockSession
+            Should -Invoke Remove-Item -Times 2 -Exactly
+            Should -Invoke Remove-Item -Times 1 -Exactly -ParameterFilter { $Path -eq "C:\Windows\Temp\file1.txt" }
+            Should -Invoke Remove-Item -Times 1 -Exactly -ParameterFilter { $Path -eq "C:\Windows\Temp\file3.txt" }
+            Should -Not -Invoke Remove-Item -Times 1 -Exactly -ParameterFilter { $Path -eq "C:\Windows\Temp\file2.txt" }
         }
     }
     
@@ -139,6 +174,7 @@ Describe "Test Clear-SystemCache" {
         BeforeAll {
             Mock Invoke-Command { & $ScriptBlock }
             Mock Test-Path {return $false} -ParameterFilter { $Path -eq "C:\Windows\Temp\*" }
+            Mock Test-Path {return $false} -ParameterFilter { $Path -eq "C:\Windows\ccmcache\*" }
             Mock Test-Path {return $false} -ParameterFilter { $Path -eq "C:\Windows\Installer\$PatchCache$\*" }
             Mock Test-Path {return $false} -ParameterFilter { $Path -eq "C:\Windows\SoftwareDistribution\Download\" }
             Mock Write-Host {}
@@ -147,7 +183,6 @@ Describe "Test Clear-SystemCache" {
     
         #Test case 7: It should clear Recycle Bin with force
         It "Clears Recycle Bin with force" {
-            Write-Host "Clears Recycle Bin with force"
             Clear-SystemCache -session $mockSession
             Should -Invoke Clear-RecycleBin -Times 1 -Exactly
         }

@@ -1,4 +1,4 @@
-$scriptManagerPath = Join-Path $PSScriptRoot "..\ScriptManager.ps1"
+$scriptManagerPath = Join-Path $PSScriptRoot "ScriptManager.ps1"
 $scriptsPath = Join-Path $PSScriptRoot "..\Scripts"
 
 function Update-ScriptManagerContent {

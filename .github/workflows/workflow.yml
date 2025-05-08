@@ -74,7 +74,7 @@ jobs:
           if (Test-Path 'ScriptManager.exe') {
               git config --global user.name "GitHub Action"
               git config --global user.email "action@github.com"
-              Copy-Item -Path "ScriptManager.exe" -Destination ".ScriptManager\ScriptManager.exe"
+              Copy-Item -Path "ScriptManager.exe" -Destination "ScriptManager\ScriptManager.exe"
               git add ScriptManager\ScriptManager.exe
               git add ScriptManager\ScriptManager.ps1
               git commit -m "Add ScriptManager.exe"

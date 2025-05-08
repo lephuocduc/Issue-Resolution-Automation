@@ -48,7 +48,7 @@ $main_form.Controls.Add($label)
 $comboBox = New-Object System.Windows.Forms.ComboBox
 #$comboBox.Location = New-Object System.Drawing.Point(110, 50)  # Centered horizontally - REMOVE THIS LINE
 $comboBox.Size = New-Object System.Drawing.Size (200, 25) # set the size of combobox
-$comboBox.Items.AddRange(@('LowFreeSpace','Script1','Script2','Script3'))  # Add items to the dropdown
+$comboBox.Items.AddRange(@('Heartbeat','LowFreeSpace'))  # Add items to the dropdown
 $comboBox.DropDownStyle = 'DropDown' # Allow text editing in the ComboBox
 # Calculate the horizontal center for the ComboBox
 $combobox_width = $comboBox.Size.Width
@@ -104,17 +104,11 @@ $okButton.Add_Click({
             )
             return
         }
+        "Heartbeat" {
+            . (Join-Path $PSScriptRoot "..\Scripts\Heartbeat\Heartbeat.ps1")
+        }
         "LowFreeSpace" {
-            . (Join-Path $PSScriptRoot 'Scripts\LowFreeSpace.ps1')
-        }
-        "Script1" {
-            . (Join-Path $PSScriptRoot 'Scripts\Script1.ps1')
-        }
-        "Script2" {
-            . (Join-Path $PSScriptRoot 'Scripts\Script2.ps1')
-        }
-        "Script3" {
-            . (Join-Path $PSScriptRoot 'Scripts\Script3.ps1')
+            . (Join-Path $PSScriptRoot "..\Scripts\LowFreeSpace\LowFreeSpace.ps1")
         }
         default {
             [System.Windows.Forms.MessageBox]::Show(
@@ -152,6 +146,13 @@ $main_form.Controls.Add($cancelButton)
 
 # Show the form as a dialog
 $main_form.ShowDialog()
+
+
+
+
+
+
+
 
 
 

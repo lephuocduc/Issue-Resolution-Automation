@@ -1,20 +1,29 @@
 $scriptManagerPath = Join-Path $PSScriptRoot "ScriptManager.ps1"
-$scriptsPath = Join-Path $PSScriptRoot "..\Scripts"
+$scriptsRootPath = Join-Path $PSScriptRoot "..\Scripts"
 
 function Update-ScriptManagerContent {
     try {
-        # Get script names
-        $scriptNames = Get-ChildItem -Path $scriptsPath -Filter "*.ps1" |
-                      Select-Object -ExpandProperty BaseName
+        # Get script names from subfolders
+        $scriptNames = Get-ChildItem -Path $scriptsRootPath -Directory | ForEach-Object {
+            $folderName = $_.Name
+            Get-ChildItem -Path $_.FullName -Filter "*.ps1" | 
+            Select-Object @{
+                Name = 'Name'
+                Expression = { $_.BaseName }
+            }, @{
+                Name = 'Folder'
+                Expression = { $folderName }
+            }
+        }
         
-        Write-Host "Found scripts: $($scriptNames -join ', ')"
+        Write-Host "Found scripts: $($scriptNames.Name -join ', ')"
 
         # Read content
         $content = Get-Content $scriptManagerPath -Raw
 
         # Update ComboBox items
         $comboBoxPattern = '\$comboBox\.Items\.AddRange\(@\([^)]+\)\)'
-        $newComboBoxItems = "`$comboBox.Items.AddRange(@('" + ($scriptNames -join "','") + "'))"
+        $newComboBoxItems = "`$comboBox.Items.AddRange(@('" + ($scriptNames.Name -join "','") + "'))"
         $content = $content -replace $comboBoxPattern, $newComboBoxItems
 
         # Build switch cases with proper formatting
@@ -31,7 +40,12 @@ function Update-ScriptManagerContent {
 "@
 
         foreach ($script in $scriptNames) {
-            $switchCases += "`r`n        `"$script`" {`r`n            . (Join-Path `$PSScriptRoot 'Scripts\$script.ps1')`r`n        }"
+            $switchCases += @"
+
+        "$($script.Name)" {
+            . (Join-Path `$PSScriptRoot "..\Scripts\$($script.Folder)\$($script.Name).ps1")
+        }
+"@
         }
 
         $switchCases += @"
@@ -52,10 +66,10 @@ function Update-ScriptManagerContent {
         $content = $content -replace $switchPattern, $newSwitchBlock
 
         $content | Set-Content $scriptManagerPath -Force
-        Write-Host "ScriptManager2.ps1 updated successfully"
+        Write-Host "ScriptManager.ps1 updated successfully"
     }
     catch {
-        Write-Error "Error updating ScriptManager2.ps1: $_"
+        Write-Error "Error updating ScriptManager.ps1: $_"
     }
 }
 

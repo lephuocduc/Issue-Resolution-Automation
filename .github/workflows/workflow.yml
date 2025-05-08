@@ -6,12 +6,10 @@ on:
       - master
     paths:
       - 'Scripts/*'
-      - 'ScriptManager.ps1'
-      - 'modules/*'
+      - 'ScriptManager/ScriptManager.ps1'
       - 'UnitTests/*'
       - .github/workflows/workflow.yml
-      - 'package.psd1'
-      - 'icon.ico'
+      - 'ScriptManager/package.psd1'
 
 jobs:
   unittest:
@@ -41,7 +39,18 @@ jobs:
       - name: Run Unit Tests
         shell: pwsh
         run: |
-          Get-ChildItem -Path ".\UnitTests\" -Filter *.ps1 | ForEach-Object { . $_.FullName }
+          $config = New-PesterConfiguration
+          $config.TestResult.Enabled = $true
+          $config.TestResult.OutputFormat = 'NUnitXml'
+          $config.TestResult.OutputPath = 'testResults.xml'
+          $config.Output.Verbosity = 'Detailed'
+
+          $result = Invoke-Pester -Configuration $config -Path ".\UnitTests\" -PassThru
+          
+          if ($result.FailedCount -gt 0) {
+              Write-Error "Failed tests: $($result.FailedCount)"
+              exit 1
+          }
 
   build:
     runs-on: windows-latest
@@ -62,12 +71,12 @@ jobs:
       - name: Start Script Watcher
         shell: pwsh
         run: |
-          .\modules\Watch-ScriptsFolder.ps1
+          .\ScriptManager\Watch-ScriptsFolder.ps1
           
       - name: Build Executable
         shell: pwsh
         run: |
-          Copy-Item -Path "icon.ico" -Destination "C:\\icon.ico"
+          Copy-Item -Path "ScriptManager\icon.ico" -Destination "C:\\icon.ico"
           Merge-Script -ConfigFile 'package.psd1' -Verbose   
 
       - name: Commit and Push Executable
@@ -76,8 +85,8 @@ jobs:
           if (Test-Path 'ScriptManager.exe') {
               git config --global user.name "GitHub Action"
               git config --global user.email "action@github.com"
-              git add ScriptManager.exe
-              git add ScriptManager.ps1
+              git add ScriptManager\ScriptManager.exe
+              git add ScriptManager\ScriptManager.ps1
               git commit -m "Add ScriptManager.exe"
               git push || Write-Host "Failed to push changes"
           } else {

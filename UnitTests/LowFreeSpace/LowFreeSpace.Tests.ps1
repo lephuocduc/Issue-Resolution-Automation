@@ -1,10 +1,11 @@
 <#
 Test Cases in Test Clear-SystemCache:
 1. "Throws error for null session": Verifies that the function throws an error when the session parameter is null.
-2. "Only deletes old Windows Update cache files older than 5 days": Confirms that only files older than 5 days are deleted from the Windows Update cache.
-3. "Does not delete any files if Windows Update cache files aren't found": Ensures no files are deleted if no relevant files are found in the cache.
-4. "Deletes old Windows Installer patch cache files older than 5 days": Validates that only old files older than 5 days are deleted from the Windows Installer patch cache.
-5. "Clears Recycle Bin with force": Verifies that the function clears the Recycle Bin with force.
+2. "Only deletes old Windows Update cache files older than 5 days": Ensures that only files older than 5 days are deleted from the Windows Update cache.
+3. "Deletes old Windows Installer patch cache files older than 5 days": Ensures that only files older than 5 days are deleted from the Windows Installer patch cache.
+4. "Deletes old Windows ccmcache files older than 5 days": Ensures that only files older than 5 days are deleted from the Windows ccmcache.
+5. "Deletes old Windows Temp files older than 5 days": Ensures that only files older than 5 days are deleted from the Windows Temp directory.
+6. "Clears Recycle Bin with force": Verifies that the Recycle Bin is cleared with force.
 
 Test Cases in Test Compress-IISLogs:
 1. "Only compresses and deletes old IIS logs older than 6 months": Ensures that only IIS logs older than 6 months are compressed and deleted.
@@ -181,7 +182,7 @@ Describe "Test Clear-SystemCache" {
             Mock Clear-RecycleBin            
         }
     
-        #Test case 7: It should clear Recycle Bin with force
+        #Test case 6: It should clear Recycle Bin with force
         It "Clears Recycle Bin with force" {
             Clear-SystemCache -session $mockSession
             Should -Invoke Clear-RecycleBin -Times 1 -Exactly

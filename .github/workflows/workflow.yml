@@ -5,9 +5,9 @@ on:
     branches:
       - master
     paths:
-      - 'Scripts/*'
+      - 'Scripts/**/*.ps1'
       - 'ScriptManager/ScriptManager.ps1'
-      - 'UnitTests/*'
+      - 'UnitTests/**/*.ps1'
       - .github/workflows/workflow.yml
       - 'ScriptManager/package.psd1'
 

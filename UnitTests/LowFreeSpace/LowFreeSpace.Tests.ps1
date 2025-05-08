@@ -10,6 +10,7 @@ Test Cases in Test Clear-SystemCache:
 Test Cases in Test Compress-IISLogs:
 1. "Only compresses and deletes old IIS logs older than 6 months": Ensures that only IIS logs older than 6 months are compressed and deleted.
 2. "Does not compress or delete when IIS log path does not exist": Verifies that no compression or deletion occurs when the IIS log path does not exist.
+
 #>
 
 # Check for Pester 5.7.1 and exit if not available

@@ -70,6 +70,22 @@
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
+<#
+.SYNOPSIS
+ Write a log message to a specified log file with a timestamp and log level.
+.DESCRIPTION
+    This function writes a log message to a specified log file, creating the directory if it does not exist.
+    It includes a timestamp and allows specifying the log level (e.g., Info, Warning, Error).
+.PARAMETER Message
+    The message to log.
+.PARAMETER Level
+    The log level (default is "Info"). Other common levels include "Warning" and "Error".
+.PARAMETER LogPath
+    The path to the log file where the message will be written. Default is "C:\temp\LowFreeSpace-log.log".
+.EXAMPLE
+    Write-Log -Message "This is an informational message."
+    This will write an informational message to the default log file.
+#>
 function Write-Log {
     param (
         [string]$Message,
@@ -86,6 +102,18 @@ function Write-Log {
     "$timestamp [$Level] $Message" | Out-File -FilePath $LogPath -Append
 }
 
+<#
+.SYNOPSIS
+    Tests the availability of a server by pinging it.
+.DESCRIPTION
+    This function checks if a server is reachable by sending a ping request.
+    It returns true if the server is reachable, otherwise false.
+.PARAMETER serverName
+    The name or IP address of the server to test.
+.EXAMPLE
+    Test-ServerAvailability -serverName "Server01"
+    This will ping the server "Server01" and return true if it is reachable, otherwise false.
+#>
 function Test-ServerAvailability {
     param(
         [Parameter(Mandatory=$true)]
@@ -109,7 +137,21 @@ function Test-ServerAvailability {
 }
 
 
-# Function to attempt to create a session and handle credential failures
+<#
+.SYNOPSIS
+    Creates a PowerShell session to a remote server with retry logic for credential failures.
+.DESCRIPTION
+    This function attempts to create a PowerShell session to a specified server.
+    It prompts for credentials and retries up to a maximum number of attempts if the session creation fails.
+.PARAMETER serverName
+    The name or IP address of the server to connect to.
+.PARAMETER Credential
+    The credentials to use for the session. If not provided, it will prompt for credentials.
+.EXAMPLE
+    $session = Get-Session -serverName "Server01"
+    This will create a session to "Server01", prompting for credentials if necessary.
+    If the session creation fails, it will retry up to 3 times before giving up.
+#>
 function Get-Session {
     param(
         [Parameter(Mandatory = $true)]
@@ -147,7 +189,25 @@ function Get-Session {
     }
 }
 
-# Function to check if disk exists on the server
+<#
+.SYNOPSIS
+    Tests the availability of a specified disk on a remote server.
+.DESCRIPTION
+    This function checks if a specified disk exists on a remote server by querying the PowerShell drives.
+    It returns true if the disk is available, otherwise false.
+.PARAMETER session
+    The PowerShell session to the remote server.
+.PARAMETER diskName
+    The name of the disk to check (e.g., "C", "D").
+.EXAMPLE
+    $session = Get-Session -serverName "Server01"
+    $diskAvailable = Test-DiskAvailability -session $session -diskName "C"
+    if ($diskAvailable) {
+        Write-Log "Disk C is available on Server01"
+    } else {
+        Write-Log "Disk C is not available on Server01" "Error"
+    }
+#>
 function Test-DiskAvailability {
     param(
         [Parameter(Mandatory=$true)]
@@ -181,6 +241,25 @@ function Test-DiskAvailability {
     }
 }
 
+
+<#
+.SYNOPSIS
+    Tests the creation of a log file in a specified directory.
+.DESCRIPTION
+    This function attempts to create a log file in a specified directory and verifies its creation.
+    It returns true if the file is created successfully, otherwise false.
+.PARAMETER logPath
+    The path where the log file will be created. Default is "C:\Temp".
+.PARAMETER testFile
+    The name of the test log file to create. Default is "test_<timestamp>.html".
+.EXAMPLE
+    $logCreated = Test-ReportFileCreation -logPath "C:\Temp"
+    if ($logCreated) {
+        Write-Log "Log file created successfully."
+    } else {
+        Write-Log "Log file creation failed." "Error"
+    }
+#>
 function Test-ReportFileCreation {
     [CmdletBinding()]
     param()
@@ -213,7 +292,20 @@ function Test-ReportFileCreation {
     }
 }
 
-# Function to clear system cache
+<#
+.SYNOPSIS
+    Clears system cache on a remote server.
+.DESCRIPTION
+    This function removes cached files from various system locations on a remote server.
+    It targets Windows Update cache, Windows Installer patch cache, SCCM cache, Windows Temp files, and Recycle Bin.
+    Files older than 5 days are deleted to free up space.
+.PARAMETER session
+    The PowerShell session to the remote server where the cache will be cleared.
+.EXAMPLE
+    $session = Get-Session -serverName "Server01"
+    Clear-SystemCache -session $session
+    This will clear the system cache on Server01, removing old cached files and cleaning up temporary directories.
+#>
 function Clear-SystemCache {
     [CmdletBinding()]
     param (
@@ -335,7 +427,24 @@ function Clear-SystemCache {
 }
 
 
-# Function to compress IIS log files on a remote PC
+
+<#
+.SYNOPSIS
+    Compresses IIS log files older than 6 months and removes the original files.
+.DESCRIPTION
+    This function compresses IIS log files that are older than 6 months into ZIP archives.
+    It moves the compressed files to a specified archive directory and removes the original log files.
+.PARAMETER session
+    The PowerShell session to the remote server where IIS logs will be compressed.
+.PARAMETER IISLogPath
+    The path to the IIS log files. Default is "C:\inetpub\logs\LogFiles".
+.PARAMETER ArchivePath
+    The path where the compressed log files will be stored. Default is "C:\inetpub\logs\Archive".
+.EXAMPLE
+    $session = Get-Session -serverName "Server01"
+    Compress-IISLogs -session $session
+    This will compress IIS log files older than 6 months on Server01 and move them to the archive directory.
+#>
 function Compress-IISLogs {
     [CmdletBinding()]
     param (
@@ -400,7 +509,25 @@ function Compress-IISLogs {
     }
 }
 
-# Function to get disk space on a remote PC
+
+<#
+.SYNOPSIS
+    Gets disk space details for a specified disk on a remote server.
+.DESCRIPTION
+    This function retrieves disk space details such as used space, free space, total size, and free percentage for a specified disk on a remote server.
+.PARAMETER session
+    The PowerShell session to the remote server where the disk space details will be retrieved.
+.PARAMETER diskName
+    The name of the disk to check (e.g., "C", "D").
+.EXAMPLE
+    $session = Get-Session -serverName "Server01"
+    $diskDetails = Get-DiskSpaceDetails -session $session -diskName "C"
+    if ($diskDetails) {
+        Write-Log "Disk space details for C: Used $($diskDetails.UsedSpace)GB, Free $($diskDetails.FreeSpace)GB, Total $($diskDetails.TotalSize)GB, Free Percentage $($diskDetails.FreePercentage)%"
+    } else {
+        Write-Log "Failed to retrieve disk space details for C" "Error"
+    }
+#>
 function Get-DiskSpaceDetails {
     param(
         [Parameter(Mandatory=$true)]
@@ -438,7 +565,32 @@ function Get-DiskSpaceDetails {
     }
 }
 
-# Function to get top 10 largest folders and files
+
+<#
+.SYNOPSIS
+    Gets the top N largest items (files and folders) in a specified path on a remote server.
+.DESCRIPTION
+    This function retrieves the top N largest items in a specified path on a remote server.
+    It calculates the size of each item and returns a list of the largest items, including their sub-items if they are folders.
+.PARAMETER session
+    The PowerShell session to the remote server where the items will be analyzed.
+.PARAMETER path
+    The path to analyze for large items (e.g., "C:\Data").
+.PARAMETER exclude
+    An array of item names to exclude from the analysis (e.g., "System Volume Information", "pagefile.sys").
+.PARAMETER topN
+    The number of top items to retrieve (default is 10).
+.EXAMPLE
+    $session = Get-Session -serverName "Server01"
+    $topItems = Get-TopItems -session $session -path "C:\Data" -exclude @("System Volume Information", "pagefile.sys") -topN 10
+    if ($topItems) {
+        foreach ($item in $topItems) {
+            Write-Log "Top item: $($item.Name) - Size: $($item.SizeGB)GB"
+        }
+    } else {
+        Write-Log "No top items found or an error occurred." "Error"
+    }
+#>
 function Get-TopItems {
     param(
         [Parameter(Mandatory=$true)]
@@ -530,6 +682,41 @@ function Get-TopItems {
     }
 }
 
+
+<#
+.SYNOPSIS
+    Exports a disk report to an HTML file.
+.DESCRIPTION
+    This function generates an HTML report for a specified disk on a remote server.
+    It includes disk usage details, cleanup logs, and top users/folders based on disk space usage.
+.PARAMETER serverName
+    The name of the remote server where the disk report will be generated.
+.PARAMETER diskName
+    The name of the disk to report on (e.g., "C", "D").
+.PARAMETER diskInfo
+    A PSObject containing disk information such as used space, free space, total size, and free percentage.
+.PARAMETER beforeDiskInfo
+    A PSObject containing disk information before cleanup (optional, used for C: drive).
+.PARAMETER userCacheLog
+    A string containing the user cache cleanup log (optional).
+.PARAMETER systemCacheLog
+    A string containing the system cache cleanup log (optional).
+.PARAMETER iisLogCleanupLog
+    A string containing the IIS log cleanup log (optional).
+.PARAMETER topUsers
+    An array of PSObjects representing the top users consuming disk space (optional).
+.PARAMETER topRoot
+    An array of PSObjects representing the top root folders consuming disk space (optional).
+.PARAMETER topItems
+    An array of PSObjects representing the top items (files/folders) consuming disk space (optional).
+.EXAMPLE
+    $diskInfo = Get-DiskSpaceDetails -session $session -diskName "C"
+    Export-DiskReport -serverName "Server01" -diskName "C" -diskInfo $diskInfo -beforeDiskInfo $beforeDiskInfo `
+                      -userCacheLog $userCacheLog -systemCacheLog $systemCacheLog `
+                      -iisLogCleanupLog $iisLogCleanupLog -topUsers $topUsers `
+                      -topRoot $topRoot -topItems $topItems
+    This will generate an HTML report for the C: drive on Server01, including disk usage details and cleanup logs.
+#>
 function Export-DiskReport {
     param (
         [Parameter(Mandatory)]
@@ -554,6 +741,24 @@ function Export-DiskReport {
         [array]$topItems
     )
 
+<#
+.SYNOPSIS
+    Formats the top items (users or folders) into HTML for the disk report.
+.DESCRIPTION
+    This function generates HTML tables for the top users or folders based on disk space usage.
+    It creates a table with user names and their total size or folder names with their sub-items and sizes.
+.PARAMETER items
+    An array of PSObjects representing the top items (users or folders).
+.PARAMETER type
+    The type of items to format ("Users" for top users, "Folders" for top folders).
+.EXAMPLE
+    $topUsers = @(
+        [PSCustomObject]@{ Name = "User1"; SizeGB = 10 },
+        [PSCustomObject]@{ Name = "User2"; SizeGB = 5 }
+    )
+    $html = Format-TopItemsHtml -items $topUsers -type "Users"
+    This will generate an HTML table for the top users with their names and total sizes.
+#>
     function Format-TopItemsHtml {
         param(
             [Parameter(Mandatory=$true)]
@@ -706,7 +911,18 @@ function Export-DiskReport {
     }
 }
 
-# Function to update status label text and recenter it
+
+<#
+.SYNOPSIS
+    Updates the status label on the main form.
+.DESCRIPTION
+    This function updates the text of the status label on the main form and centers it horizontally.
+.PARAMETER text
+    The text to display in the status label.
+.EXAMPLE
+    Update-StatusLabel -text "Analyzing disk space..."
+    This will update the status label to display "Analyzing disk space..." and center it on the form.
+#>
 function Update-StatusLabel {
     param(
         [Parameter(Mandatory=$true)]
@@ -719,7 +935,19 @@ function Update-StatusLabel {
     $statusLabel.Location = New-Object System.Drawing.Point($label_x, $statusLabel.Location.Y)
 }
 
-# Function to clean up session
+
+<#
+.SYNOPSIS
+    Removes the PowerShell session and cleans up resources.
+.DESCRIPTION
+    This function closes the PowerShell session if it exists and is still open.
+    It also disposes of the main form to free up resources.
+.PARAMETER session
+    The PowerShell session to remove.
+.EXAMPLE
+    Remove-Session -session $session
+    This will close the PowerShell session and dispose of the main form if it exists.
+#>
 function Remove-Session {
     try {
         # Check if session exists and is still open before removing it
@@ -741,7 +969,19 @@ function Remove-Session {
     }
 }
 
-# Create Form
+
+<#
+.SYNOPSIS
+    Main form for the Low Free Space script.
+.DESCRIPTION
+    This script creates a Windows Forms application to analyze and clean low disk space on a remote server.
+    It allows the user to enter the server name and disk letter, and provides options to analyze or clean the disk.
+.PARAMETER None
+    This script does not take any parameters. It runs as a standalone application.
+.EXAMPLE
+    .\LowFreeSpace.ps1
+    This will launch the main form for the Low Free Space script, allowing the user to enter server and disk information.
+#>
 $main_form = New-Object System.Windows.Forms.Form
 $main_form.Text = "Low Free Space"
 $main_form.Size = New-Object System.Drawing.Size(410, 200)
@@ -760,6 +1000,17 @@ $main_form.Add_KeyDown({
     }
 })
 
+<#
+.SYNOPSIS
+    Creates a ToolTip for the main form.
+.DESCRIPTION
+    This script creates a ToolTip object for the main form to provide additional information about controls.
+    It sets properties such as AutoPopDelay, InitialDelay, ReshowDelay, and ShowAlways.
+.PARAMETER None
+    This script does not take any parameters. It runs as part of the main form creation.
+.EXAMPLE
+    This script is executed as part of the main form creation process, providing tooltips for various controls.
+#>
 # Create ToolTip object
 $toolTip = New-Object System.Windows.Forms.ToolTip
 $toolTip.AutoPopDelay = 5000  # Time the tooltip remains visible (in milliseconds)
@@ -775,6 +1026,17 @@ $labelServerName.Text = "Server Name:"
 $labelServerName.Font = New-Object System.Drawing.Font("Arial", 11)
 $toolTip.SetToolTip($labelServerName, "Enter the hostname or IP address of the remote server to analyze or clean.")
 
+<#
+.SYNOPSIS
+    Creates a TextBox for entering the server name.
+.DESCRIPTION
+    This script creates a TextBox control for the user to enter the server name or IP address.
+    It includes placeholder text, event handlers for Enter and Leave events, and key handling for Ctrl+A and Ctrl+C.
+.PARAMETER None
+    This script does not take any parameters. It runs as part of the main form creation.
+.EXAMPLE
+    This script is executed as part of the main form creation process, providing a TextBox for server name input.
+#>
 # Disk Name TextBox
 $textBoxServerName = New-Object System.Windows.Forms.TextBox
 $textBoxServerName.Location = New-Object System.Drawing.Point(120, 30)
@@ -823,6 +1085,18 @@ $diskLabel.Text = "Drive Letter:"
 $diskLabel.Font = New-Object System.Drawing.Font("Arial", 11)
 $toolTip.SetToolTip($diskLabel, "Enter the drive letter to process (e.g., C or C: or C:\).")
 
+
+<#
+.SYNOPSIS
+    Creates a TextBox for entering the disk name.
+.DESCRIPTION
+    This script creates a TextBox control for the user to enter the disk name (drive letter).
+    It includes placeholder text, event handlers for Enter and Leave events, and key handling for Ctrl+A and Ctrl+C.
+.PARAMETER None
+    This script does not take any parameters. It runs as part of the main form creation.
+.EXAMPLE
+    This script is executed as part of the main form creation process, providing a TextBox for disk name input.
+#>
 # Disk Name TextBox
 $diskTextBox = New-Object System.Windows.Forms.TextBox
 $diskTextBox.Location = New-Object System.Drawing.Point(120, 60)
@@ -862,6 +1136,7 @@ $diskTextBox.Add_KeyDown({
         $e.SuppressKeyPress = $true
     }
 })
+
 
 # OK Button
 $okButton = New-Object System.Windows.Forms.Button

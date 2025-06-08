@@ -972,7 +972,7 @@ function Remove-Session {
 
 $main_form = New-Object System.Windows.Forms.Form
 $main_form.Text = "Low Free Space"
-$main_form.Size = New-Object System.Drawing.Size(410, 200)
+$main_form.Size = New-Object System.Drawing.Size(410, 250)
 $main_form.StartPosition = "CenterScreen"
 $main_form.FormBorderStyle = 'FixedSingle'  # Or 'FixedDialog'
 $main_form.MaximizeBox = $false
@@ -1099,15 +1099,13 @@ $okButton.Size = New-Object System.Drawing.Size(80, 30)
 $okButton.Text = "OK"
 $okButton.Add_Click({
     try {
-        # Normalize disk name input (e.g., C:, C:\, c -> C)
+        # Normalize disk name input
         $rawDiskName = $diskTextBox.Text.Trim()
-        $diskName = $rawDiskName -replace '[:\\]', ''  # Remove : and \
-        $diskName = $diskName.ToUpper()               # Convert to uppercase
-        
+        $diskName = $rawDiskName -replace '[:\\]', ''
+        $diskName = $diskName.ToUpper()
         $serverName = $textBoxServerName.Text.Trim()
 
-        # Validate disk name
-        if ([string]::IsNullOrEmpty($diskName) -or [string]::IsNullOrEmpty($serverName))  {
+        if ([string]::IsNullOrEmpty($diskName) -or [string]::IsNullOrEmpty($serverName)) {
             [System.Windows.Forms.MessageBox]::Show(
                 "Please enter server name and disk name.", 
                 "Warning", 
@@ -1116,7 +1114,7 @@ $okButton.Add_Click({
             )
             return
         }
-    
+
         if (-not (Test-ServerAvailability -serverName $serverName)) {
             [System.Windows.Forms.MessageBox]::Show(
                 "Server '$serverName' is not reachable.", 
@@ -1127,7 +1125,6 @@ $okButton.Add_Click({
             return
         }
 
-        # Create session
         $session = Get-Session -serverName $serverName
         if ($null -eq $session) {
             [System.Windows.Forms.MessageBox]::Show(
@@ -1161,18 +1158,14 @@ $okButton.Add_Click({
 
         try {
             if ($diskName -eq "C") {
-                Update-StatusLabel -text "Cleaning C disk. Please wait..."
+                Update-StatusLabel -text "Cleaning C disk. Please wait..." -percentComplete 0
                 $Before = Get-DiskSpaceDetails -session $session -diskName $diskName
 
-                Update-StatusLabel -text "Cleaning system cache..."
-                $clearSystemCache = Clear-SystemCache -session $session -Verbose *>&1 | ForEach-Object {
-                    "$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss'): $_"
-                } | Out-String
+                Update-StatusLabel -text "Cleaning system cache..." -percentComplete 0
+                $clearSystemCache = Clear-SystemCache -session $session
 
-                Update-StatusLabel -text "Compressing IIS logs..."
-                $clearIISLogs = Compress-IISLogs -session $session -Verbose *>&1 | ForEach-Object {
-                    "$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss'): $_"
-                } | Out-String
+                Update-StatusLabel -text "Compressing IIS logs..." -percentComplete 0
+                $clearIISLogs = Compress-IISLogs -session $session | Out-String
 
                 $After = Get-DiskSpaceDetails -session $session -diskName $diskName
                 $freePercentageDisk = $After.FreePercentage
@@ -1180,7 +1173,7 @@ $okButton.Add_Click({
                 $topUsers = $null
 
                 if ($After.FreePercentage -lt 50) {
-                    Update-StatusLabel -text "Free space still low. Identifying top items..."
+                    Update-StatusLabel -text "Free space still low. Identifying top items..." -percentComplete 0
                     $topRoot = Get-TopItems -session $session -path "$($diskName):\" -exclude @("Windows", "Program Files", "Program Files (x86)", "ProgramData","Users") -topN 10
                     $topUsers = Get-TopItems -session $session -path "$($diskName):\Users" -topN 10
                 }
@@ -1197,33 +1190,32 @@ $okButton.Add_Click({
                     -systemCacheLog $clearSystemCache `
                     -iisLogCleanupLog $clearIISLogs `
                     -topUsers $topUsers -topRoot $topRoot
-            }   else {
-                    Update-StatusLabel -text "Getting disk information and top items..."
-                    $diskInfo = Get-DiskSpaceDetails -session $session -diskName $diskName
-                    $topItems = Get-TopItems -session $session -path "$($diskName):\" -topN 10
+            } else {
+                Update-StatusLabel -text "Getting disk information and top items..." -percentComplete 0
+                $diskInfo = Get-DiskSpaceDetails -session $session -diskName $diskName
+                $topItems = Get-TopItems -session $session -path "$($diskName):\" -topN 10
 
-                    $freePercentageDisk = $diskInfo.FreePercentage
+                $freePercentageDisk = $diskInfo.FreePercentage
 
-                    [System.Windows.Forms.MessageBox]::Show(
-                        "Drive $($diskName). Free space is $($freePercentageDisk)%.`nPlease check report for details.", 
-                        "Information", 
-                        [System.Windows.Forms.MessageBoxButtons]::OK, 
-                        [System.Windows.Forms.MessageBoxIcon]::Information
-                    )
+                [System.Windows.Forms.MessageBox]::Show(
+                    "Drive $($diskName). Free space is $($freePercentageDisk)%.`nPlease check report for details.", 
+                    "Information", 
+                    [System.Windows.Forms.MessageBoxButtons]::OK, 
+                    [System.Windows.Forms.MessageBoxIcon]::Information
+                )
 
-                    Export-DiskReport -serverName $serverName -diskName $diskName `
-                        -diskInfo $diskInfo -topItems $topItems
-                }
+                Export-DiskReport -serverName $serverName -diskName $diskName `
+                    -diskInfo $diskInfo -topItems $topItems
+            }
             $main_form.Close()
             Remove-Session
-        }   catch {
-                [System.Windows.Forms.MessageBox]::Show($_.Exception.Message, "Error")
-                Write-Log "Error in OK button click event: $_" "Error"
-            }
-    }   finally {
-            # Always clean up the session after the logic is done
-            Remove-Session
+        } catch {
+            [System.Windows.Forms.MessageBox]::Show($_.Exception.Message, "Error")
+            Write-Log "Error in OK button click event: $_" "Error"
         }
+    } finally {
+        Remove-Session
+    }
 })
 
 # Exit Button

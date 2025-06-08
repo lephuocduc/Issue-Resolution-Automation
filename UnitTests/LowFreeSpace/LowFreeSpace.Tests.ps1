@@ -54,20 +54,20 @@ Describe "Test Clear-SystemCache" {
 
         Context "Windows Update cache cleanup, 2 files older than 5 days exist, 1 file newer than 5 days exists" {
             BeforeAll {
-                Mock Invoke-Command { & $ScriptBlock }
-                $oldFiles = @(
-                    [PSCustomObject]@{ FullName = "C:\Windows\SoftwareDistribution\Download\oldfile.txt"; LastWriteTime = (Get-Date).AddDays(-6) }
-                    [PSCustomObject]@{ FullName = "C:\Windows\SoftwareDistribution\Download\oldfile2.txt"; LastWriteTime = (Get-Date).AddDays(-2) }
-                    [PSCustomObject]@{ FullName = "C:\Windows\SoftwareDistribution\Download\oldfile3.txt"; LastWriteTime = (Get-Date).AddDays(-7) }
-                )
-                Mock Test-Path { return $true } -ParameterFilter { $Path -eq "C:\Windows\SoftwareDistribution\Download\" }
+                Mock Invoke-Command { & $ScriptBlock }                
+                Mock Test-Path { return $true } -ParameterFilter { $Path -eq "C:\Windows\SoftwareDistribution\Download\*" }
 
                 # Mock other paths to return no files
                 Mock Test-Path { return $false } -ParameterFilter { $Path -eq "C:\Windows\Installer\$PatchCache$\*" }
                 Mock Test-Path { return $false } -ParameterFilter { $Path -eq "C:\Windows\ccmcache\*" }
                 Mock Test-Path { return $false } -ParameterFilter { $Path -eq "C:\Windows\Temp\*" }
+                $oldFiles = @(
+                    [PSCustomObject]@{ FullName = "C:\Windows\SoftwareDistribution\Download\oldfile.txt"; LastWriteTime = (Get-Date).AddDays(-6) }
+                    [PSCustomObject]@{ FullName = "C:\Windows\SoftwareDistribution\Download\oldfile2.txt"; LastWriteTime = (Get-Date).AddDays(-2) }
+                    [PSCustomObject]@{ FullName = "C:\Windows\SoftwareDistribution\Download\oldfile3.txt"; LastWriteTime = (Get-Date).AddDays(-7) }
+                )
 
-                Mock Get-ChildItem { return $oldFiles } -ParameterFilter { $Path -eq "C:\Windows\SoftwareDistribution\Download" }
+                Mock Get-ChildItem { return $oldFiles } -ParameterFilter { $Path -eq "C:\Windows\SoftwareDistribution\Download\*" }
                 Mock Remove-Item {}
                 Mock Write-Host {}
 
@@ -83,14 +83,14 @@ Describe "Test Clear-SystemCache" {
                 Should -Invoke Remove-Item -Times 1 -Exactly -ParameterFilter { $Path -eq "C:\Windows\SoftwareDistribution\Download\oldfile3.txt" }
                 Should -Not -Invoke Remove-Item -Times 1 -Exactly -ParameterFilter { $Path -eq "C:\Windows\SoftwareDistribution\Download\oldfile2.txt" }
             }
-        }      
-    
+        }
+
     Context "Windows Installer patch cache cleanup, 2 files older than 5 days exist, 1 file newer than 5 days exists" {
         BeforeAll {
             Mock Invoke-Command { & $ScriptBlock }
             Mock Test-Path { return $true } -ParameterFilter { $Path -eq "C:\Windows\Installer\$PatchCache$\*" }
 
-            Mock Test-Path { return $false } -ParameterFilter { $Path -eq "C:\Windows\SoftwareDistribution\Download\" }
+            Mock Test-Path { return $false } -ParameterFilter { $Path -eq "C:\Windows\SoftwareDistribution\Download\*" }
             Mock Test-Path { return $false } -ParameterFilter { $Path -eq "C:\Windows\ccmcache\*" }
             Mock Test-Path { return $false } -ParameterFilter { $Path -eq "C:\Windows\Temp\*" }
             $oldFiles = @(
@@ -120,7 +120,7 @@ Describe "Test Clear-SystemCache" {
             Mock Test-Path { return $true } -ParameterFilter { $Path -eq "C:\Windows\ccmcache\*" }
 
             Mock Test-Path { return $false } -ParameterFilter { $Path -eq "C:\Windows\Installer\$PatchCache$\*" }
-            Mock Test-Path { return $false } -ParameterFilter { $Path -eq "C:\Windows\SoftwareDistribution\Download\" }
+            Mock Test-Path { return $false } -ParameterFilter { $Path -eq "C:\Windows\SoftwareDistribution\Download\*" }
             Mock Test-Path { return $false } -ParameterFilter { $Path -eq "C:\Windows\Temp\*" }
             $oldFiles = @(
                 [PSCustomObject]@{ FullName = "C:\Windows\ccmcache\KB1.cab"; LastWriteTime = (Get-Date).AddDays(-10) };
@@ -150,7 +150,7 @@ Describe "Test Clear-SystemCache" {
 
             Mock Test-Path { return $false } -ParameterFilter { $Path -eq "C:\Windows\ccmcache\*" }
             Mock Test-Path { return $false } -ParameterFilter { $Path -eq "C:\Windows\Installer\$PatchCache$\*" }
-            Mock Test-Path { return $false } -ParameterFilter { $Path -eq "C:\Windows\SoftwareDistribution\Download\" }
+            Mock Test-Path { return $false } -ParameterFilter { $Path -eq "C:\Windows\SoftwareDistribution\Download\*" }
             $oldFiles = @(
                 [PSCustomObject]@{ FullName = "C:\Windows\Temp\file1.txt"; LastWriteTime = (Get-Date).AddDays(-10) };
                 [PSCustomObject]@{ FullName = "C:\Windows\Temp\file2.txt"; LastWriteTime = (Get-Date).AddDays(-2) };
@@ -178,7 +178,7 @@ Describe "Test Clear-SystemCache" {
             Mock Test-Path {return $false} -ParameterFilter { $Path -eq "C:\Windows\Temp\*" }
             Mock Test-Path {return $false} -ParameterFilter { $Path -eq "C:\Windows\ccmcache\*" }
             Mock Test-Path {return $false} -ParameterFilter { $Path -eq "C:\Windows\Installer\$PatchCache$\*" }
-            Mock Test-Path {return $false} -ParameterFilter { $Path -eq "C:\Windows\SoftwareDistribution\Download\" }
+            Mock Test-Path {return $false} -ParameterFilter { $Path -eq "C:\Windows\SoftwareDistribution\Download\*" }
             Mock Write-Host {}
             Mock Clear-RecycleBin            
         }

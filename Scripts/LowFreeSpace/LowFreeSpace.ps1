@@ -321,10 +321,10 @@ function Clear-SystemCache {
 
     try {
         Write-Log "Starting to clear system cache"
-        Update-StatusLabel -text "Starting system cache cleanup..."
+        Update-StatusLabel -text "Starting system cache cleanup..." -percentComplete 0
         $ScriptBlock = {
             param($ProgressPreference)
-            $ProgressPreference = 'SilentlyContinue' # Suppress local progress to avoid interference
+            $ProgressPreference = 'SilentlyContinue'
 
             $cachePaths = @(
                 @{ Path = "C:\Windows\SoftwareDistribution\Download"; Name = "Windows Update cache" },
@@ -334,7 +334,14 @@ function Clear-SystemCache {
             )
 
             $results = @()
+            $totalCaches = $cachePaths.Count + 1 # +1 for Recycle Bin
+            $processedCaches = 0
+
             foreach ($cache in $cachePaths) {
+                $processedCaches++
+                $percentComplete = [math]::Round(($processedCaches / $totalCaches) * 100, 2)
+                $results += "Starting cleanup of $($cache.Name) ($percentComplete% complete)"
+
                 try {
                     if (Test-Path -Path "$($cache.Path)\*") {
                         $filesToDelete = Get-ChildItem -Path "$($cache.Path)\*" -Recurse -Force |
@@ -342,13 +349,12 @@ function Clear-SystemCache {
                         $totalFiles = $filesToDelete.Count
                         $processedFiles = 0
 
-                        Write-Progress -Activity "Cleaning $($cache.Name)" -Status "Processing files..." -PercentComplete 0
-
                         if ($totalFiles -gt 0) {
                             foreach ($file in $filesToDelete) {
                                 $processedFiles++
-                                $percentComplete = [math]::Round(($processedFiles / $totalFiles) * 100, 2)
-                                Write-Progress -Activity "Cleaning $($cache.Name)" -Status "Processing file $processedFiles of $totalFiles" -PercentComplete $percentComplete
+                                $filePercent = [math]::Round(($processedFiles / $totalFiles) * 100, 2)
+                                $overallPercent = [math]::Round(($processedCaches - 1) / $totalCaches * 100 + ($filePercent / $totalCaches), 2)
+                                $results += "Processing $($cache.Name): File $processedFiles of $totalFiles ($overallPercent% complete)"
                                 try {
                                     Remove-Item -Path $file.FullName -Force -Recurse -ErrorAction SilentlyContinue
                                     if (-not (Test-Path -Path $file.FullName)) {
@@ -363,7 +369,6 @@ function Clear-SystemCache {
                         } else {
                             $results += "$($cache.Name) not found or no files older than 5 days"
                         }
-                        Write-Progress -Activity "Cleaning $($cache.Name)" -Completed
                     } else {
                         $results += "$($cache.Name) path not found: $($cache.Path)"
                     }
@@ -374,10 +379,11 @@ function Clear-SystemCache {
 
             # Recycle Bin
             try {
-                Write-Progress -Activity "Cleaning Recycle Bin" -Status "Processing..." -PercentComplete 0
+                $processedCaches++
+                $percentComplete = [math]::Round(($processedCaches / $totalCaches) * 100, 2)
+                $results += "Cleaning Recycle Bin ($percentComplete% complete)"
                 Clear-RecycleBin -Force -ErrorAction SilentlyContinue
                 $results += "Recycle Bin cleaned"
-                Write-Progress -Activity "Cleaning Recycle Bin" -Completed
             } catch {
                 $results += "Error cleaning Recycle Bin: $_"
             }
@@ -386,16 +392,22 @@ function Clear-SystemCache {
         }
 
         $clearSystemCache = Invoke-Command -Session $session -ScriptBlock $ScriptBlock -ArgumentList $ProgressPreference
-        Update-StatusLabel -text "System cache cleanup completed"
+        foreach ($line in $clearSystemCache) {
+            if ($line -match "\((\d+\.\d+)% complete\)") {
+                $percent = [math]::Round($Matches[1], 2)
+                Update-StatusLabel -text $line -percentComplete $percent
+            } else {
+                Update-StatusLabel -text $line
+            }
+        }
+        Update-StatusLabel -text "System cache cleanup completed" -percentComplete 100
         return $clearSystemCache | Out-String
     } catch {
         Write-Log "Error clearing system cache: $_" "Error"
-        Update-StatusLabel -text "Error during system cache cleanup"
+        Update-StatusLabel -text "Error during system cache cleanup" -percentComplete 0
         return "Error clearing system cache: $_"
     }
 }
-
-
 
 
 function Compress-IISLogs {
@@ -576,25 +588,24 @@ function Get-TopItems {
 
     try {
         Write-Log "Getting top $topN items in $path"
-        Update-StatusLabel -text "Analyzing top items in $path..."
+        Update-StatusLabel -text "Analyzing top items in $path..." -percentComplete 0
         $scriptBlock = {
             param($path, $exclude, $topN, $ProgressPreference)
             $ProgressPreference = 'SilentlyContinue'
 
             try {
-                # Get all items at the root level
+                $results = @()
                 $rootItems = Get-ChildItem -Path $path -ErrorAction SilentlyContinue | 
                              Where-Object { $_.Name -notin $exclude }
                 $totalItems = $rootItems.Count
                 $processedItems = 0
 
-                Write-Progress -Activity "Analyzing items in $path" -Status "Processing root items..." -PercentComplete 0
+                $results += "Analyzing $totalItems root items in $path (0% complete)"
 
                 $itemSizes = foreach ($item in $rootItems) {
                     $processedItems++
                     $percentComplete = [math]::Round(($processedItems / $totalItems) * 100, 2)
-                    Write-Progress -Activity "Analyzing items in $path" -Status "Processing item $processedItems of $totalItems" -PercentComplete $percentComplete
-
+                    $results += "Processing item $processedItems of $totalItems in $path ($percentComplete% complete)"
                     try {
                         $size = 0
                         if ($item.PSIsContainer) {
@@ -610,21 +621,17 @@ function Get-TopItems {
                             IsFolder = $item.PSIsContainer
                         }
                     } catch {
-                        Write-Warning "Error processing item $($item.FullName): $_"
+                        $results += "Error processing item $($item.FullName): $_"
                         continue
                     }
                 }
 
-                Write-Progress -Activity "Analyzing items in $path" -Completed
-
-                # Sort by size and get top N items
                 $topItems = $itemSizes | Sort-Object SizeGB -Descending | Select-Object -First $topN
                 $processedFolders = 0
                 $totalFolders = ($topItems | Where-Object { $_.IsFolder }).Count
 
-                Write-Progress -Activity "Analyzing sub-items" -Status "Processing folders..." -PercentComplete 0
+                $results += "Analyzing sub-items for $totalFolders folders (0% complete)"
 
-                # Process sub-items for folders
                 $detailedOutput = foreach ($topItem in $topItems) {
                     $output = [PSCustomObject]@{
                         Name = $topItem.Name
@@ -636,8 +643,7 @@ function Get-TopItems {
                     if ($topItem.IsFolder) {
                         $processedFolders++
                         $percentComplete = [math]::Round(($processedFolders / $totalFolders) * 100, 2)
-                        Write-Progress -Activity "Analyzing sub-items" -Status "Processing folder $processedFolders of $totalFolders" -PercentComplete $percentComplete
-
+                        $results += "Processing folder $processedFolders of $totalFolders ($percentComplete% complete)"
                         $subItems = Get-ChildItem -Path $topItem.FullPath -ErrorAction SilentlyContinue
                         $subItemSizes = foreach ($subItem in $subItems) {
                             $subSize = 0
@@ -658,20 +664,27 @@ function Get-TopItems {
                     $output
                 }
 
-                Write-Progress -Activity "Analyzing sub-items" -Completed
-                return $detailedOutput
+                return @{ Results = $results; Output = $detailedOutput }
             } catch {
-                Write-Warning "Error in Get-TopItems script block: $_"
-                return @()
+                $results += "Error in Get-TopItems script block: $_"
+                return @{ Results = $results; Output = @() }
             }
         }
 
         $result = Invoke-Command -Session $session -ScriptBlock $scriptBlock -ArgumentList $path, $exclude, $topN, $ProgressPreference
-        Update-StatusLabel -text "Top items analysis completed"
-        return $result
+        foreach ($line in $result.Results) {
+            if ($line -match "\((\d+\.\d+)% complete\)") {
+                $percent = [math]::Round($Matches[1], 2)
+                Update-StatusLabel -text $line -percentComplete $percent
+            } else {
+                Update-StatusLabel -text $line
+            }
+        }
+        Update-StatusLabel -text "Top items analysis completed" -percentComplete 100
+        return $result.Output
     } catch {
         Write-Log "Error getting top items: $_" "Error"
-        Update-StatusLabel -text "Error analyzing top items"
+        Update-StatusLabel -text "Error analyzing top items" -percentComplete 0
         return @()
     }
 }
@@ -903,26 +916,22 @@ function Export-DiskReport {
 
 
 function Update-StatusLabel {
-    <#
-    .SYNOPSIS
-        Updates the status label on the main form.
-    .DESCRIPTION
-        This function updates the text of the status label on the main form and centers it horizontally.
-    .PARAMETER text
-        The text to display in the status label.
-    .EXAMPLE
-        Update-StatusLabel -text "Analyzing disk space..."
-        This will update the status label to display "Analyzing disk space..." and center it on the form.
-    #>
     param(
         [Parameter(Mandatory=$true)]
-        [string]$text
+        [string]$text,
+        [Parameter(Mandatory=$false)]
+        [int]$percentComplete = -1
     )
     
     $statusLabel.Text = $text
     $statusLabel_width = $statusLabel.PreferredWidth
     $label_x = ($main_form.ClientSize.Width - $statusLabel_width) / 2
     $statusLabel.Location = New-Object System.Drawing.Point($label_x, $statusLabel.Location.Y)
+    
+    if ($percentComplete -ge 0 -and $percentComplete -le 100) {
+        $progressBar.Value = $percentComplete
+    }
+    $main_form.Refresh() # Ensure immediate update
 }
 
 
@@ -1248,6 +1257,16 @@ $label_y = 135  # Top padding
 $statusLabel.Location = New-Object System.Drawing.Point($label_x, $label_y)
 $main_form.Controls.Add($statusLabel)
 
+# ProgressBar
+$progressBar = New-Object System.Windows.Forms.ProgressBar
+$progressBar.Location = New-Object System.Drawing.Point(20, 135)
+$progressBar.Size = New-Object System.Drawing.Size(350, 20)
+$progressBar.Minimum = 0
+$progressBar.Maximum = 100
+$progressBar.Value = 0
+# Adjust Status Label position to avoid overlap
+$statusLabel.Location = New-Object System.Drawing.Point($label_x, 160) # Moved below progress bar
+
 # Add components to form
 $main_form.Controls.Add($labelServerName)
 $main_form.Controls.Add($textBoxServerName)
@@ -1255,6 +1274,7 @@ $main_form.Controls.Add($diskLabel)
 $main_form.Controls.Add($diskTextBox)
 $main_form.Controls.Add($okButton)
 $main_form.Controls.Add($cancelButton)
+$main_form.Controls.Add($progressBar)
 
 # Show form
 #$main_form.ShowDialog()

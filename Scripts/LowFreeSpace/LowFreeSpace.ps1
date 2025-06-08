@@ -1177,7 +1177,7 @@ $okButton.Add_Click({
                 $topRoot = $null
                 $topUsers = $null
 
-                if ($After.FreePercentage -lt 50) {
+                if ($After.FreePercentage -lt 10) {
                     Update-StatusLabel -text "Free space still low. Identifying top items..." -percentComplete 0
                     $topRoot = Get-TopItems -session $session -path "$($diskName):\" -exclude @("Windows", "Program Files", "Program Files (x86)", "ProgramData","Users") -topN 10
                     $topUsers = Get-TopItems -session $session -path "$($diskName):\Users" -topN 10

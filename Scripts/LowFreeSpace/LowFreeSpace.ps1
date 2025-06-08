@@ -11,7 +11,7 @@
 # - System cache cleanup: Removes temporary files, Windows Update caches, SCCM caches, Windows Installer patches, and Recycle Bin contents older than 5 days
 # - IIS log management: Compresses and archives IIS log files older than 6 months to save space
 # - Disk usage analysis: Generates detailed reports on disk space, including free space, used space, and total capacity
-# - Large item identification: Detects the top space-consuming folders and files when disk space remains low (<50% free)
+# - Large item identification: Detects the top space-consuming folders and files when disk space remains low (<10% free)
 # - Remote execution: Supports running cleanup and analysis on remote servers via PowerShell sessions
 # - Reporting: Produces HTML reports with before/after cleanup metrics and folder/file size breakdowns
 
@@ -52,7 +52,7 @@
 # 1. System Drive Cleanup:
 #    - Input: Server name (e.g., "Server01") and DiskName "C"
 #    - Actions: Cleans system caches, compresses IIS logs, generates a report comparing before/after stats
-#    - Output: Report with cleanup details and top folders/users if free space remains below 50%
+#    - Output: Report with cleanup details and top folders/users if free space remains below 10%
 #    - Use Case: Free up space on a system drive with low disk space warnings
 #
 # 2. Data Drive Analysis:
@@ -107,38 +107,62 @@ function Write-Log {
 function Test-ServerAvailability {
     <#
     .SYNOPSIS
-        Tests the availability of a server by pinging it.
+        Tests the availability of a server for PowerShell remoting and network reachability.
     .DESCRIPTION
-        This function checks if a server is reachable by sending a ping request.
-        It returns true if the server is reachable, otherwise false.
+        This function checks if a server is reachable via PowerShell remoting (WinRM) and optionally via ICMP ping.
+        It returns a PSObject with remoting and ping results, plus error details if applicable.
     .PARAMETER serverName
         The name or IP address of the server to test.
     .EXAMPLE
-        Test-ServerAvailability -serverName "Server01"
-        This will ping the server "Server01" and return true if it is reachable, otherwise false.
+        $result = Test-ServerAvailability -serverName "Server01"
+        if ($result.RemotingAvailable) {
+            Write-Log "Server01 is ready for remoting"
+        } else {
+            Write-Log "Server01 unavailable: $($result.ErrorDetails)"
+        }
     #>
     param(
         [Parameter(Mandatory=$true)]
         [string]$serverName
     )
+
+    $result = [PSCustomObject]@{
+        RemotingAvailable = $false
+        PingReachable = $false
+        ErrorDetails = $null
+    }
+
     try {
-        Write-Log "Testing server availability for $serverName"
-        $result = Test-Connection -ComputerName $serverName -Count 1 -Quiet
-        if ($result) {
-            Write-Log "Server $serverName is reachable"
-            return $true
-        } else {
-            Write-Log "Server $serverName is not reachable" "Error"
-            return $false
+        Write-Log "Testing WinRM availability for $serverName"
+        $wsmanResult = Test-WSMan -ComputerName $serverName -ErrorAction Stop
+        if ($wsmanResult) {
+            $result.RemotingAvailable = $true
+            Write-Log "WinRM service is available on $serverName"
+        }
+    } catch {
+        $result.ErrorDetails = "WinRM test failed: $_"
+        Write-Log $result.ErrorDetails "Warning"
+    }
+
+    # Fallback to ping if WinRM fails
+    if (-not $result.RemotingAvailable) {
+        try {
+            Write-Log "Testing ping for $serverName"
+            $pingResult = Test-Connection -ComputerName $serverName -Count 2 -Quiet -ErrorAction Stop
+            $result.PingReachable = $pingResult
+            if ($pingResult) {
+                Write-Log "Server $serverName is ping reachable but WinRM is unavailable"
+            } else {
+                Write-Log "Server $serverName is not ping reachable" "Warning"
+            }
+        } catch {
+            $result.ErrorDetails += "; Ping test failed: $_"
+            Write-Log "Ping test failed for '$serverName': $_" "Warning"
         }
     }
-    catch {
-        Write-Log "Error testing server availability: $_" "Error"
-        return $false
-    }
+
+    return $result
 }
-
-
 
 function Get-Session {
     <#

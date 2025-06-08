@@ -320,115 +320,78 @@ function Clear-SystemCache {
     )
 
     try {
-        Write-Host "Starting to clear system cache"
+        Write-Log "Starting to clear system cache"
+        Update-StatusLabel -text "Starting system cache cleanup..."
         $ScriptBlock = {
-            # Windows Update cache (older than 5 days)
-            try {
-                if (Test-Path -Path "C:\Windows\SoftwareDistribution\Download\") {
-                    $filesToDelete = Get-ChildItem -Path "C:\Windows\SoftwareDistribution\Download" -Recurse -Force |
-                        Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-5) }
-                    
-                    if ($filesToDelete.Count -gt 0) {
-                        Write-Host "Starting to clean Windows Update cache"
-                        foreach ($file in $filesToDelete) {
-                            Remove-Item -Path $file.FullName -Force -Recurse -Verbose -ErrorAction SilentlyContinue
-                            if ((Test-Path -Path $file.FullName)) {
-                                Write-Host "Error deleting Windows Update cache file: $($file.FullName)"
-                            }else {
-                                Write-Host "Deleted: $($file.FullName)"
+            param($ProgressPreference)
+            $ProgressPreference = 'SilentlyContinue' # Suppress local progress to avoid interference
+
+            $cachePaths = @(
+                @{ Path = "C:\Windows\SoftwareDistribution\Download"; Name = "Windows Update cache" },
+                @{ Path = "C:\Windows\Installer\$PatchCache$"; Name = "Windows Installer patch cache" },
+                @{ Path = "C:\Windows\ccmcache"; Name = "SCCM cache" },
+                @{ Path = "C:\Windows\Temp"; Name = "Windows Temp files" }
+            )
+
+            $results = @()
+            foreach ($cache in $cachePaths) {
+                try {
+                    if (Test-Path -Path "$($cache.Path)\*") {
+                        $filesToDelete = Get-ChildItem -Path "$($cache.Path)\*" -Recurse -Force |
+                            Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-5) }
+                        $totalFiles = $filesToDelete.Count
+                        $processedFiles = 0
+
+                        Write-Progress -Activity "Cleaning $($cache.Name)" -Status "Processing files..." -PercentComplete 0
+
+                        if ($totalFiles -gt 0) {
+                            foreach ($file in $filesToDelete) {
+                                $processedFiles++
+                                $percentComplete = [math]::Round(($processedFiles / $totalFiles) * 100, 2)
+                                Write-Progress -Activity "Cleaning $($cache.Name)" -Status "Processing file $processedFiles of $totalFiles" -PercentComplete $percentComplete
+                                try {
+                                    Remove-Item -Path $file.FullName -Force -Recurse -ErrorAction SilentlyContinue
+                                    if (-not (Test-Path -Path $file.FullName)) {
+                                        $results += "Deleted: $($file.FullName)"
+                                    } else {
+                                        $results += "Error deleting $($file.FullName): File may be in use"
+                                    }
+                                } catch {
+                                    $results += "Error deleting $($file.FullName): $_"
+                                }
                             }
+                        } else {
+                            $results += "$($cache.Name) not found or no files older than 5 days"
                         }
-                    }else {
-                        Write-Host "Windows Update cache not found"
-                    }   
-                }
-            } catch {
-                Write-Host "Error cleaning Windows Update cache: $_"
-            }
-    
-    
-            # Windows Installer patch cache (older than 5 days)
-            try {
-                if (Test-Path -Path "C:\Windows\Installer\$PatchCache$\*") {
-                    $filesToDelete = Get-ChildItem -Path "C:\Windows\Installer\$PatchCache$\*" -Recurse -Force |
-                        Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-5) }
-                    
-                    if ($filesToDelete.Count -gt 0) {
-                        Write-Host "Starting to clean Windows Installer patch cache"
-                        foreach ($file in $filesToDelete) {
-                            Remove-Item -Path $file.FullName -Force -Recurse -Verbose -ErrorAction SilentlyContinue
-                            if ((Test-Path -Path $file.FullName)) {
-                                Write-Host "Error deleting Windows Installer patch cache file: $($file.FullName)"
-                            }else {
-                                Write-Host "Deleted: $($file.FullName)"
-                            }
-                        }
-                    }else {
-                        Write-Host "Windows Installer patch cache not found"
-                    }                
-                }
-            } catch {
-                Write-Host "Error cleaning Windows Installer patch cache: $_"
-            }
-    
-            # SCCM cache (older than 5 days)
-            try {
-                if (Test-Path -Path "C:\Windows\ccmcache\*") {
-                    $filesToDelete = Get-ChildItem -Path "C:\Windows\ccmcache\*" -Recurse -Force |
-                        Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-5) }
-                    if ($filesToDelete.Count -gt 0) {
-                        Write-Host "Starting to clean SCCM cache"
-                        foreach ($file in $filesToDelete) {
-                            Remove-Item -Path $file.FullName -Force -Recurse -Verbose -ErrorAction SilentlyContinue
-                            if ((Test-Path -Path $file.FullName)) {
-                                Write-Host "Error deleting SCCM cache file: $($file.FullName)"
-                            }else {
-                                Write-Host "Deleted: $($file.FullName)"
-                            }
-                        }
-                    }else {
-                        Write-Host "SCCM cache not found"
-                    }
-                }
-            } catch {
-                Write-Host "Error cleaning SCCM cache: $_"
-            }
-    
-            # Windows Temp files (older than 5 days)
-            try {
-                if (Test-Path -Path "C:\Windows\Temp\*") {
-                    $filesToDelete = Get-ChildItem -Path "C:\Windows\Temp\*" -Recurse -Force |
-                        Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-5) }
-                    if ($filesToDelete.Count -gt 0) {
-                        Write-Host "Starting to clean Windows Temp files"
-                        foreach ($file in $filesToDelete) {
-                            Remove-Item -Path $file.FullName -Force -Recurse -Verbose -ErrorAction SilentlyContinue
-                            if ((Test-Path -Path $file.FullName)) {
-                                Write-Host "Error deleting Windows Temp file: $($file.FullName)"
-                            }else {
-                                Write-Host "Deleted: $($file.FullName)"
-                            }
-                        }
+                        Write-Progress -Activity "Cleaning $($cache.Name)" -Completed
                     } else {
-                        Write-Host "Windows Temp not found"
+                        $results += "$($cache.Name) path not found: $($cache.Path)"
                     }
+                } catch {
+                    $results += "Error cleaning $($cache.Name): $_"
                 }
-            } catch {
-                Write-Host "Error cleaning Windows Temp files: $_"
             }
-    
+
             # Recycle Bin
             try {
+                Write-Progress -Activity "Cleaning Recycle Bin" -Status "Processing..." -PercentComplete 0
                 Clear-RecycleBin -Force -ErrorAction SilentlyContinue
-                Write-Host "Recycle Bin cleaned"
+                $results += "Recycle Bin cleaned"
+                Write-Progress -Activity "Cleaning Recycle Bin" -Completed
             } catch {
-                Write-Host "Error cleaning Recycle Bin: $_"
+                $results += "Error cleaning Recycle Bin: $_"
             }
+
+            return $results
         }
-        Invoke-Command -Session $session -ScriptBlock $ScriptBlock
-    }
-    catch {
-        Write-Host "Error clearing system cache: $_" "Error"
+
+        $clearSystemCache = Invoke-Command -Session $session -ScriptBlock $ScriptBlock -ArgumentList $ProgressPreference
+        Update-StatusLabel -text "System cache cleanup completed"
+        return $clearSystemCache | Out-String
+    } catch {
+        Write-Log "Error clearing system cache: $_" "Error"
+        Update-StatusLabel -text "Error during system cache cleanup"
+        return "Error clearing system cache: $_"
     }
 }
 

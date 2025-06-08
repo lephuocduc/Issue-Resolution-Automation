@@ -132,6 +132,13 @@ function Test-ServerAvailability {
         ErrorDetails = $null
     }
 
+    # Validate server name (basic check for non-empty and valid format)
+    if ([string]::IsNullOrWhiteSpace($serverName) -or $serverName -notmatch '^[a-zA-Z0-9\.\-]+$') {
+        $result.ErrorDetails = "Invalid server name: '$serverName'"
+        Write-Log $result.ErrorDetails "Error"
+        return $result
+    }
+
     try {
         Write-Log "Testing WinRM availability for $serverName"
         $wsmanResult = Test-WSMan -ComputerName $serverName -ErrorAction Stop
@@ -157,7 +164,7 @@ function Test-ServerAvailability {
             }
         } catch {
             $result.ErrorDetails += "; Ping test failed: $_"
-            Write-Log "Ping test failed for '$serverName': $_" "Warning"
+            Write-Log "Ping test failed for $serverName': $_" "Warning"
         }
     }
 
@@ -1129,6 +1136,12 @@ $okButton.Text = "OK"
 $okButton.Add_Click({
     try {
         # Normalize disk name input
+        if ($diskTextBox.Text -eq $diskTextBox.Tag) {
+            $diskTextBox.Text = ""
+        }
+        if ($textBoxServerName.Text -eq $textBoxServerName.Tag) {
+            $textBoxServerName.Text = ""
+        }
         $rawDiskName = $diskTextBox.Text.Trim()
         $diskName = $rawDiskName -replace '[:\\]', ''
         $diskName = $diskName.ToUpper()
@@ -1144,11 +1157,12 @@ $okButton.Add_Click({
             return
         }
 
-        if (-not (Test-ServerAvailability -serverName $serverName)) {
+        $result = Test-ServerAvailability -serverName $serverName
+        if (-not $result.RemotingAvailable) {
             [System.Windows.Forms.MessageBox]::Show(
-                "Server '$serverName' is not reachable.", 
-                "Error", 
-                [System.Windows.Forms.MessageBoxButtons]::OK, 
+                "Server '$serverName' is not available for remoting. Details: $($result.ErrorDetails)",
+                "Error",
+                [System.Windows.Forms.MessageBoxButtons]::OK,
                 [System.Windows.Forms.MessageBoxIcon]::Error
             )
             return

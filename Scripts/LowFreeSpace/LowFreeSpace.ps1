@@ -708,8 +708,6 @@ function Export-DiskReport {
         A PSObject containing disk information such as used space, free space, total size, and free percentage.
     .PARAMETER beforeDiskInfo
         A PSObject containing disk information before cleanup (optional, used for C: drive).
-    .PARAMETER userCacheLog
-        A string containing the user cache cleanup log (optional).
     .PARAMETER systemCacheLog
         A string containing the system cache cleanup log (optional).
     .PARAMETER iisLogCleanupLog
@@ -723,7 +721,7 @@ function Export-DiskReport {
     .EXAMPLE
         $diskInfo = Get-DiskSpaceDetails -session $session -diskName "C"
         Export-DiskReport -serverName "Server01" -diskName "C" -diskInfo $diskInfo -beforeDiskInfo $beforeDiskInfo `
-                        -userCacheLog $userCacheLog -systemCacheLog $systemCacheLog `
+                        -systemCacheLog $systemCacheLog `
                         -iisLogCleanupLog $iisLogCleanupLog -topUsers $topUsers `
                         -topRoot $topRoot -topItems $topItems
         This will generate an HTML report for the C: drive on Server01, including disk usage details and cleanup logs.
@@ -737,8 +735,6 @@ function Export-DiskReport {
         [PSObject]$diskInfo,
         [Parameter(Mandatory = $false)]
         [PSObject]$beforeDiskInfo,
-        [Parameter(Mandatory = $false)]
-        [string]$userCacheLog,
         [Parameter(Mandatory = $false)]
         [string]$systemCacheLog,
         [Parameter(Mandatory = $false)]
@@ -868,8 +864,6 @@ function Export-DiskReport {
         if ($diskName -eq "C") {
             $html += @"
     <h2>Cleanup Logs</h2>
-    <h3>User Cache Cleaning</h3>
-    <pre>$userCacheLog</pre>
     <h3>System Cache Cleaning</h3>
     <pre>$systemCacheLog</pre>
     <h3>IIS Log Compression</h3>
@@ -1206,7 +1200,7 @@ $okButton.Add_Click({
 
                 Export-DiskReport -serverName $serverName -diskName $diskName `
                     -diskInfo $After -beforeDiskInfo $Before `
-                    -userCacheLog $clearUserCache -systemCacheLog $clearSystemCache `
+                    -systemCacheLog $clearSystemCache `
                     -iisLogCleanupLog $clearIISLogs `
                     -topUsers $topUsers -topRoot $topRoot
             }   else {

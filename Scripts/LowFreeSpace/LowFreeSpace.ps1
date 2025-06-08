@@ -1044,23 +1044,6 @@ $textBoxServerName = New-Object System.Windows.Forms.TextBox
 $textBoxServerName.Location = New-Object System.Drawing.Point(120, 30)
 $textBoxServerName.Size = New-Object System.Drawing.Size(250, 30)
 $textBoxServerName.Font = New-Object System.Drawing.Font("Arial", 11)
-$textBoxServerName.ForeColor = [System.Drawing.Color]::LightGray
-$textBoxServerName.Text = "Enter server hostname or IP"
-$textBoxServerName.Tag = "Enter server hostname or IP"  # Store placeholder text in Tag
-$textBoxServerName.Add_Enter({
-    if ($textBoxServerName.Text -eq $textBoxServerName.Tag) {
-        $textBoxServerName.Text = ""
-        $textBoxServerName.ForeColor = [System.Drawing.Color]::Black
-        $textBoxServerName.Font = New-Object System.Drawing.Font("Arial", 11, [System.Drawing.FontStyle]::Regular)
-    }
-})
-$textBoxServerName.Add_Leave({
-    if ([string]::IsNullOrWhiteSpace($textBoxServerName.Text)) {
-        $textBoxServerName.Text = $textBoxServerName.Tag
-        $textBoxServerName.ForeColor = [System.Drawing.Color]::LightGray
-        $textBoxServerName.Font = New-Object System.Drawing.Font("Arial", 11, [System.Drawing.FontStyle]::Italic)
-    }
-})
 $textBoxServerName.Add_KeyDown({
     param($sender, $e)
     if ($e.Control -and $e.KeyCode -eq [System.Windows.Forms.Keys]::A) {
@@ -1092,23 +1075,6 @@ $diskTextBox = New-Object System.Windows.Forms.TextBox
 $diskTextBox.Location = New-Object System.Drawing.Point(120, 60)
 $diskTextBox.Size = New-Object System.Drawing.Size(250, 30)
 $diskTextBox.Font = New-Object System.Drawing.Font("Arial", 11)
-$diskTextBox.ForeColor = [System.Drawing.Color]::LightGray
-$diskTextBox.Text = "Enter drive letter (e.g., C or C: or C:\)"
-$diskTextBox.Tag = "Enter drive letter (e.g., C or C: or C:\)"  # Store placeholder text in Tag
-$diskTextBox.Add_Enter({
-    if ($diskTextBox.Text -eq $diskTextBox.Tag) {
-        $diskTextBox.Text = ""
-        $diskTextBox.ForeColor = [System.Drawing.Color]::Black
-        $diskTextBox.Font = New-Object System.Drawing.Font("Arial", 11, [System.Drawing.FontStyle]::Regular)
-    }
-})
-$diskTextBox.Add_Leave({
-    if ([string]::IsNullOrWhiteSpace($diskTextBox.Text)) {
-        $diskTextBox.Text = $diskTextBox.Tag
-        $diskTextBox.ForeColor = [System.Drawing.Color]::LightGray
-        $diskTextBox.Font = New-Object System.Drawing.Font("Arial", 11, [System.Drawing.FontStyle]::Italic)
-    }
-})
 $diskTextBox.Add_KeyDown({
     param($sender, $e)
     if ($e.Control -and $e.KeyCode -eq [System.Windows.Forms.Keys]::A) {
@@ -1256,7 +1222,9 @@ $okButton.Add_Click({
             [System.Windows.Forms.MessageBox]::Show($_.Exception.Message, "Error")
             Write-Log "Error in OK button click event: $_" "Error"
         }
-    } finally {
+    } catch {
+        [System.Windows.Forms.MessageBox]::Show($_.Exception.Message, "Error")
+        Write-Log "Error in OK button click event: $_" "Error"
         Remove-Session
     }
 })

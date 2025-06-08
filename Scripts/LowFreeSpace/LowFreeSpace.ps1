@@ -601,6 +601,7 @@ function Get-TopItems {
             Write-Log "No top items found or an error occurred." "Error"
         }
     #>
+    [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true)]
         [System.Management.Automation.Runspaces.PSSession]$session,
@@ -612,22 +613,31 @@ function Get-TopItems {
 
     try {
         Write-Log "Getting top $topN items in $path"
+        Update-StatusLabel -text "Analyzing top items in $path..."
         $scriptBlock = {
-            param($path, $exclude, $topN)
+            param($path, $exclude, $topN, $ProgressPreference)
+            $ProgressPreference = 'SilentlyContinue'
+
             try {
-                # Get all items (files and folders) at the root level
+                # Get all items at the root level
                 $rootItems = Get-ChildItem -Path $path -ErrorAction SilentlyContinue | 
                              Where-Object { $_.Name -notin $exclude }
-    
+                $totalItems = $rootItems.Count
+                $processedItems = 0
+
+                Write-Progress -Activity "Analyzing items in $path" -Status "Processing root items..." -PercentComplete 0
+
                 $itemSizes = foreach ($item in $rootItems) {
+                    $processedItems++
+                    $percentComplete = [math]::Round(($processedItems / $totalItems) * 100, 2)
+                    Write-Progress -Activity "Analyzing items in $path" -Status "Processing item $processedItems of $totalItems" -PercentComplete $percentComplete
+
                     try {
                         $size = 0
                         if ($item.PSIsContainer) {
-                            # Calculate total size of folder contents
                             $size = (Get-ChildItem -Path $item.FullName -Recurse -File -ErrorAction SilentlyContinue | 
                                     Measure-Object -Property Length -Sum -ErrorAction SilentlyContinue).Sum
                         } else {
-                            # File size directly
                             $size = $item.Length
                         }
                         [PSCustomObject]@{
@@ -641,11 +651,17 @@ function Get-TopItems {
                         continue
                     }
                 }
-    
+
+                Write-Progress -Activity "Analyzing items in $path" -Completed
+
                 # Sort by size and get top N items
                 $topItems = $itemSizes | Sort-Object SizeGB -Descending | Select-Object -First $topN
-    
-                # For each folder in the top items, get its largest sub-items
+                $processedFolders = 0
+                $totalFolders = ($topItems | Where-Object { $_.IsFolder }).Count
+
+                Write-Progress -Activity "Analyzing sub-items" -Status "Processing folders..." -PercentComplete 0
+
+                # Process sub-items for folders
                 $detailedOutput = foreach ($topItem in $topItems) {
                     $output = [PSCustomObject]@{
                         Name = $topItem.Name
@@ -653,8 +669,12 @@ function Get-TopItems {
                         Type = if ($topItem.IsFolder) { "Folder" } else { "File" }
                         SubItems = $null
                     }
-    
+
                     if ($topItem.IsFolder) {
+                        $processedFolders++
+                        $percentComplete = [math]::Round(($processedFolders / $totalFolders) * 100, 2)
+                        Write-Progress -Activity "Analyzing sub-items" -Status "Processing folder $processedFolders of $totalFolders" -PercentComplete $percentComplete
+
                         $subItems = Get-ChildItem -Path $topItem.FullPath -ErrorAction SilentlyContinue
                         $subItemSizes = foreach ($subItem in $subItems) {
                             $subSize = 0
@@ -674,19 +694,21 @@ function Get-TopItems {
                     }
                     $output
                 }
-    
+
+                Write-Progress -Activity "Analyzing sub-items" -Completed
                 return $detailedOutput
             } catch {
                 Write-Warning "Error in Get-TopItems script block: $_"
                 return @()
             }
         }
-    
-        $result = Invoke-Command -Session $session -ScriptBlock $scriptBlock -ArgumentList $path, $exclude, $topN
+
+        $result = Invoke-Command -Session $session -ScriptBlock $scriptBlock -ArgumentList $path, $exclude, $topN, $ProgressPreference
+        Update-StatusLabel -text "Top items analysis completed"
         return $result
-    }
-    catch {
+    } catch {
         Write-Log "Error getting top items: $_" "Error"
+        Update-StatusLabel -text "Error analyzing top items"
         return @()
     }
 }

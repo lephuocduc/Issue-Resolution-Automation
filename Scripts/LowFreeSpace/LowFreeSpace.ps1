@@ -396,11 +396,14 @@ function Clear-SystemCache {
             if ($line -match "\((\d+\.\d+)% complete\)") {
                 $percent = [math]::Round($Matches[1], 2)
                 Update-StatusLabel -text $line -percentComplete $percent
+                Write-Log $line "Info"
             } else {
                 Update-StatusLabel -text $line
+                Write-Log $line "Info"
             }
         }
         Update-StatusLabel -text "System cache cleanup completed" -percentComplete 100
+        Write-Log "System cache cleanup completed successfully"
         return $clearSystemCache | Out-String
     } catch {
         Write-Log "Error clearing system cache: $_" "Error"
@@ -440,7 +443,6 @@ function Compress-IISLogs {
         $ScriptBlock = {
             param($IISLogPath, $ArchivePath)
     
-            #Write-Host "Remote execution started for Compress-IISLogs"
     
             # Ensure the archive directory exists
             try {
@@ -676,11 +678,14 @@ function Get-TopItems {
             if ($line -match "\((\d+\.\d+)% complete\)") {
                 $percent = [math]::Round($Matches[1], 2)
                 Update-StatusLabel -text $line -percentComplete $percent
+                Write-Log $line "Info"
             } else {
                 Update-StatusLabel -text $line
+                Write-Log $line "Info"
             }
         }
         Update-StatusLabel -text "Top items analysis completed" -percentComplete 100
+        write-Log "Top items analysis completed successfully for $path"
         return $result.Output
     } catch {
         Write-Log "Error getting top items: $_" "Error"

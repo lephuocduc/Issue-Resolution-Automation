@@ -213,6 +213,9 @@ function Get-Session {
                 if ($retryCount -ge $maxRetries) {
                     Write-Log "Failed to create session for $serverName after $maxRetries attempts: $_" "Error"
                     return $null
+                }else {
+                    $errorDetails = "Exception: $($_.Exception.GetType().FullName)`nMessage: $($_.Exception.Message)`nStackTrace: $($_.ScriptStackTrace)"
+                    Write-Log "Failed to create session for $ServerName on attempt $retryCount. Error: $errorDetails" "Error"
                 }
             }
         } while ($true)

@@ -202,26 +202,32 @@ function Get-Session {
             $Credential = Get-Credential -Message "Enter credentials for $ServerName (Attempt $($retryCount) of $MaxRetries)"
             if ($null -eq $Credential -or $retryCount -ge $maxRetries) {
                 Write-Log "Session creation canceled or retry limit reached for $serverName" "Error"
+                Update-StatusLabel -text "Session creation canceled or retry limit reached for $serverName" -percentComplete 0
                 return $null
             }
             try {
                 Set-Item WSMan:\localhost\Client\TrustedHosts -Value "$serverName" -Concatenate -Force #In a non-domain (workgroup) environment, the remote computer’s name or IP must be added to the local computer’s TrustedHosts list
                 $session = New-PSSession -ComputerName $serverName -Credential $credential -ErrorAction Stop
                 Write-Log "Session created successfully for $serverName"
+                Update-StatusLabel -text "Session created successfully for $serverName" -percentComplete 100
                 return $session
             } catch {
                 if ($retryCount -ge $maxRetries) {
                     Write-Log "Failed to create session for $serverName after $maxRetries attempts: $_" "Error"
+                    Update-StatusLabel -text "Failed to create session for $serverName after $maxRetries attempts." -percentComplete 0
                     return $null
                 }else {
                     $errorDetails = "Exception: $($_.Exception.GetType().FullName)`nMessage: $($_.Exception.Message)`nStackTrace: $($_.ScriptStackTrace)"
                     Write-Log "Failed to create session for $ServerName on attempt $retryCount. Error: $errorDetails" "Error"
+                    Update-StatusLabel -text "Failed to create session for $serverName." -percentComplete 0
                 }
             }
         } while ($true)
     }
     catch {
-        write-Log "Error creating session: $_" "Error"
+        $errorDetails = "Exception: $($_.Exception.GetType().FullName)`nMessage: $($_.Exception.Message)`nStackTrace: $($_.ScriptStackTrace)"
+        Write-Log "Error creating session for $serverName': $errorDetails" "Error"
+        Update-StatusLabel -text "Error creating session for $serverName" -percentComplete 0
         return $null
     }
 }
@@ -274,7 +280,9 @@ function Test-DiskAvailability {
         return $diskExists
     }
     catch {
-        Write-Log "Error checking disk availability: $_" "Error"
+        $errorDetails = "Exception: $($_.Exception.GetType().FullName)`nMessage: $($_.Exception.Message)`nStackTrace: $($_.ScriptStackTrace)"
+        Write-Log "Error checking disk availability for $diskName': $errorDetails" "Error"
+        Update-StatusLabel -text "Error checking disk availability for $diskName" -percentComplete 0
         return $false
     }
 }
@@ -326,7 +334,8 @@ function Test-ReportFileCreation {
         }
     }
     catch {
-        Write-Log "Log file creation failed: $_" "Error"
+        $errorDetails = "Exception: $($_.Exception.GetType().FullName)`nMessage: $($_.Exception.Message)`nStackTrace: $($_.ScriptStackTrace)"
+        Write-Log "Error creating test log file: $errorDetails" "Error"
         return $false
     }
 }
@@ -440,7 +449,8 @@ function Clear-SystemCache {
         Write-Log "System cache cleanup completed successfully"
         return $clearSystemCache | Out-String
     } catch {
-        Write-Log "Error clearing system cache: $_" "Error"
+        $errorDetails = "Exception: $($_.Exception.GetType().FullName)`nMessage: $($_.Exception.Message)`nStackTrace: $($_.ScriptStackTrace)"
+        Write-Log "Error clearing system cache: $errorDetails" "Error"
         Update-StatusLabel -text "Error during system cache cleanup" -percentComplete 0
         return "Error clearing system cache: $_"
     }
@@ -523,8 +533,9 @@ function Compress-IISLogs {
         Invoke-Command -Session $session -ScriptBlock $ScriptBlock -ArgumentList $IISLogPath, $ArchivePath
     }
     catch {
-        Write-Log "Error compressing IIS or removing log files: $_" "Error"
-    }
+        $errorDetails = "Exception: $($_.Exception.GetType().FullName)`nMessage: $($_.Exception.Message)`nStackTrace: $($_.ScriptStackTrace)"
+        Write-Log "Error compressing IIS logs: $errorDetails" "Error"
+        Update-StatusLabel -text "Error compressing IIS logs" -percentComplete 0}
 }
 
 
@@ -579,7 +590,9 @@ function Get-DiskSpaceDetails {
         return $diskDetails
     }
     catch {
-        Write-Log "Error getting disk space details: $_" "Error"
+        $errorDetails = "Exception: $($_.Exception.GetType().FullName)`nMessage: $($_.Exception.Message)`nStackTrace: $($_.ScriptStackTrace)"
+        Write-Log "Error getting disk space details for $diskName': $errorDetails" "Error"
+        Update-StatusLabel -text "Error getting disk space details for $diskName" -percentComplete 0
         return $null
     }
 }
@@ -722,7 +735,8 @@ function Get-TopItems {
         write-Log "Top items analysis completed successfully for $path"
         return $result.Output
     } catch {
-        Write-Log "Error getting top items: $_" "Error"
+        $errorDetails = "Exception: $($_.Exception.GetType().FullName)`nMessage: $($_.Exception.Message)`nStackTrace: $($_.ScriptStackTrace)"
+        Write-Log "Error getting top items for $path': $errorDetails" "Error"
         Update-StatusLabel -text "Error analyzing top items" -percentComplete 0
         return @()
     }
@@ -939,7 +953,8 @@ function Export-DiskReport {
                 [System.Windows.Forms.MessageBoxIcon]::Information
             )
         } else {
-            Write-Log "Failed to export disk report to $reportPath" "Error"
+            $errorDetails = "Exception: $($_.Exception.GetType().FullName)`nMessage: $($_.Exception.Message)`nStackTrace: $($_.ScriptStackTrace)"
+            Write-Log "Failed to export disk report: $errorDetails" "Error"
             [System.Windows.Forms.MessageBox]::Show(
                 "Failed to export the report. Please check the log file for details.", 
                 "Error", 
@@ -948,7 +963,8 @@ function Export-DiskReport {
             )
         }
     } catch {
-        Write-Log "Error exporting disk report: $_" "Error"
+        $errorDetails = "Exception: $($_.Exception.GetType().FullName)`nMessage: $($_.Exception.Message)`nStackTrace: $($_.ScriptStackTrace)"
+        Write-Log "Error exporting disk report for $diskName on $serverName': $errorDetails" "Error"
     }
 }
 
@@ -998,7 +1014,8 @@ function Remove-Session {
             Write-Log "No session to close or session already closed" "Info"
         }
     } catch {
-        Write-Log "Failed to close session: $_" "Error"
+        $errorDetails = "Exception: $($_.Exception.GetType().FullName)`nMessage: $($_.Exception.Message)`nStackTrace: $($_.ScriptStackTrace)"
+        Write-Log "Error closing session: $errorDetails" "Error"
     }
 
     # Optionally, clean up form resources to free memory

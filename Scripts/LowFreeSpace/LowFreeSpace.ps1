@@ -351,7 +351,7 @@ function Clear-SystemCache {
     .DESCRIPTION
         This function removes cached files from various system locations on a remote server.
         It targets Windows Update cache, Windows Installer patch cache, SCCM cache, Windows Temp files, and Recycle Bin.
-        Files older than 5 days are deleted to free up space. Status updates are throttled to every 1 second to reduce CPU usage.
+        Files older than 5 days are deleted to free up space. Status updates are throttled to every 1% progress to reduce CPU usage.
     .PARAMETER session
         The PowerShell session to the remote server where the cache will be cleared.
     .EXAMPLE
@@ -436,26 +436,23 @@ function Clear-SystemCache {
             return $results
         }
 
-        $lastUpdateTime = [datetime]::MinValue
+        $lastPercentComplete = -1  # Initialize to -1 to ensure first update
         $lastStatusText = ""
-        $lastPercentComplete = 0
 
         $clearSystemCache = Invoke-Command -Session $session -ScriptBlock $ScriptBlock -ArgumentList $ProgressPreference
         foreach ($line in $clearSystemCache) {
+            $currentPercentComplete = $lastPercentComplete
             if ($line -match "\((\d+\.\d+)% complete\)") {
-                $percent = [math]::Round($Matches[1], 2)
+                $currentPercentComplete = [math]::Round($Matches[1], 2)
                 $lastStatusText = $line
-                $lastPercentComplete = $percent
             } else {
                 $lastStatusText = $line
-                $lastPercentComplete = $lastPercentComplete # Retain last known percent
             }
 
-            # Update status label only if 1 second has elapsed
-            $currentTime = Get-Date
-            if ($lastUpdateTime -eq [datetime]::MinValue -or ($currentTime - $lastUpdateTime).TotalSeconds -ge 1) {
-                Update-StatusLabel -text $lastStatusText -percentComplete $lastPercentComplete
-                $lastUpdateTime = $currentTime
+            # Update status label only if percent complete has increased by at least 1%
+            if ($currentPercentComplete -ge $lastPercentComplete + 1 -or $lastPercentComplete -eq -1) {
+                Update-StatusLabel -text $lastStatusText -percentComplete $currentPercentComplete
+                $lastPercentComplete = $currentPercentComplete
             }
             Write-Log $line "Info"
         }

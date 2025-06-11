@@ -76,31 +76,35 @@ function Write-Log {
     .SYNOPSIS
     Write a log message to a specified log file with a timestamp and log level.
     .DESCRIPTION
-        This function writes a log message to a specified log file, creating the directory if it does not exist.
-        It includes a timestamp and allows specifying the log level (e.g., Info, Warning, Error).
+        This function writes a log message to a dynamically named log file (including date),
+        creating the directory if it does not exist. It includes a timestamp and allows specifying the log level.
     .PARAMETER Message
         The message to log.
     .PARAMETER Level
-        The log level (default is "Info"). Other common levels include "Warning" and "Error".
-    .PARAMETER LogPath
-        The path to the log file where the message will be written. Default is "C:\temp\LowFreeSpace-log.log".
+        The log level (default is "Info"). Other levels include "Warning" and "Error".
+    .PARAMETER LogDirectory
+        The directory where the log file will be saved. Default is "C:\temp".
     .EXAMPLE
-        Write-Log -Message "This is an informational message."
-        This will write an informational message to the default log file.
+        Write-Log -Message "Disk space check completed."
     #>
     param (
         [string]$Message,
         [string]$Level = "Info",
-        [string]$LogPath = "C:\temp\LowFreeSpace-log.log"
+        [string]$LogDirectory = "C:\temp"
     )
 
-    # Create log directory if it doesn't exist
-    if (-not (Test-Path -Path (Split-Path $LogPath))) {
-        New-Item -Path (Split-Path $LogPath) -ItemType Directory -Force | Out-Null
+    # Ensure log directory exists
+    if (-not (Test-Path -Path $LogDirectory)) {
+        New-Item -Path $LogDirectory -ItemType Directory -Force | Out-Null
     }
 
+    # Construct log file path with current date
+    $datePart = Get-Date -Format "dd-MM-yyyy"
+    $LogPath = Join-Path -Path $LogDirectory -ChildPath ("LowFreeSpace-log-$datePart.log")
+
+    # Create timestamp for log entry
     $timestamp = Get-Date -Format "dd-MM-yyyy HH:mm:ss"
-    "$timestamp [$Level] $Message" | Out-File -FilePath $LogPath -Append
+    "$timestamp [$Level] $Message" | Out-File -FilePath $LogPath -Append -Encoding UTF8
 }
 
 
@@ -340,7 +344,6 @@ function Test-ReportFileCreation {
     }
 }
 
-
 function Clear-SystemCache {
     <#
     .SYNOPSIS
@@ -348,7 +351,7 @@ function Clear-SystemCache {
     .DESCRIPTION
         This function removes cached files from various system locations on a remote server.
         It targets Windows Update cache, Windows Installer patch cache, SCCM cache, Windows Temp files, and Recycle Bin.
-        Files older than 5 days are deleted to free up space.
+        Files older than 5 days are deleted to free up space. Status updates are throttled to every 1 second to reduce CPU usage.
     .PARAMETER session
         The PowerShell session to the remote server where the cache will be cleared.
     .EXAMPLE
@@ -397,11 +400,10 @@ function Clear-SystemCache {
                                 $processedFiles++
                                 $filePercent = [math]::Round(($processedFiles / $totalFiles) * 100, 2)
                                 $overallPercent = [math]::Round(($processedCaches - 1) / $totalCaches * 100 + ($filePercent / $totalCaches), 2)
-                                $results += "Processing $($cache.Name): File $processedFiles of $totalFiles ($overallPercent% complete)"
                                 try {
                                     Remove-Item -Path $file.FullName -Force -Recurse -ErrorAction SilentlyContinue
                                     if (-not (Test-Path -Path $file.FullName)) {
-                                        $results += "Deleted: $($file.FullName)"
+                                        $results += "Deleted: $($file.FullName). Overall progress: $overallPercent% complete"
                                     } else {
                                         $results += "Error deleting $($file.FullName): File may be in use"
                                     }
@@ -434,16 +436,28 @@ function Clear-SystemCache {
             return $results
         }
 
+        $lastUpdateTime = [datetime]::MinValue
+        $lastStatusText = ""
+        $lastPercentComplete = 0
+
         $clearSystemCache = Invoke-Command -Session $session -ScriptBlock $ScriptBlock -ArgumentList $ProgressPreference
         foreach ($line in $clearSystemCache) {
             if ($line -match "\((\d+\.\d+)% complete\)") {
                 $percent = [math]::Round($Matches[1], 2)
-                Update-StatusLabel -text $line -percentComplete $percent
-                Write-Log $line "Info"
+                $lastStatusText = $line
+                $lastPercentComplete = $percent
             } else {
-                Update-StatusLabel -text $line
-                Write-Log $line "Info"
+                $lastStatusText = $line
+                $lastPercentComplete = $lastPercentComplete # Retain last known percent
             }
+
+            # Update status label only if 1 second has elapsed
+            $currentTime = Get-Date
+            if ($lastUpdateTime -eq [datetime]::MinValue -or ($currentTime - $lastUpdateTime).TotalSeconds -ge 1) {
+                Update-StatusLabel -text $lastStatusText -percentComplete $lastPercentComplete
+                $lastUpdateTime = $currentTime
+            }
+            Write-Log $line "Info"
         }
         Update-StatusLabel -text "System cache cleanup completed" -percentComplete 100
         Write-Log "System cache cleanup completed successfully"
@@ -597,34 +611,7 @@ function Get-DiskSpaceDetails {
     }
 }
 
-
-
 function Get-TopItems {
-    <#
-    .SYNOPSIS
-        Gets the top N largest items (files and folders) in a specified path on a remote server.
-    .DESCRIPTION
-        This function retrieves the top N largest items in a specified path on a remote server.
-        It calculates the size of each item and returns a list of the largest items, including their sub-items if they are folders.
-    .PARAMETER session
-        The PowerShell session to the remote server where the items will be analyzed.
-    .PARAMETER path
-        The path to analyze for large items (e.g., "C:\Data").
-    .PARAMETER exclude
-        An array of item names to exclude from the analysis (e.g., "System Volume Information", "pagefile.sys").
-    .PARAMETER topN
-        The number of top items to retrieve (default is 10).
-    .EXAMPLE
-        $session = Get-Session -serverName "Server01"
-        $topItems = Get-TopItems -session $session -path "C:\Data" -exclude @("System Volume Information", "pagefile.sys") -topN 10
-        if ($topItems) {
-            foreach ($item in $topItems) {
-                Write-Log "Top item: $($item.Name) - Size: $($item.SizeGB)GB"
-            }
-        } else {
-            Write-Log "No top items found or an error occurred." "Error"
-        }
-    #>
     [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true)]
@@ -636,32 +623,61 @@ function Get-TopItems {
     )
 
     try {
-        Write-Log "Getting top $topN items in $path"
+        Write-Log "Starting top $topN items analysis for $path"
         Update-StatusLabel -text "Analyzing top items in $path..." -percentComplete 0
         $scriptBlock = {
-            param($path, $exclude, $topN, $ProgressPreference)
+            param($path, $exclude, $topN)
             $ProgressPreference = 'SilentlyContinue'
+            $results = @()
 
             try {
-                $results = @()
-                $rootItems = Get-ChildItem -Path $path -ErrorAction SilentlyContinue | 
+                # Validate path
+                if (-not (Test-Path $path)) {
+                    $results += "Path $path does not exist."
+                    Write-Host "Path $path does not exist."
+                    return @{ Results = $results; Output = @() }
+                }
+
+                # Cache for folder sizes
+                $folderSizeCache = @{}
+                $results += "Starting size calculation for items in $path"
+
+                # Get immediate children of the path
+                $rootItems = Get-ChildItem -Path $path -ErrorAction SilentlyContinue |
                              Where-Object { $_.Name -notin $exclude }
                 $totalItems = $rootItems.Count
+                if ($totalItems -eq 0) {
+                    $results += "No items found in $path after applying exclusions: $($exclude -join ', ')"
+                    Write-Host "No items found in $path after applying exclusions: $($exclude -join ', ')"
+                    return @{ Results = $results; Output = @() }
+                }
+
+                $results += "Found $totalItems items in $path"
                 $processedItems = 0
+                $updateInterval = [math]::Max(1, [math]::Ceiling($totalItems / 10)) # Update every ~10% of items
 
-                $results += "Analyzing $totalItems root items in $path (0% complete)"
-
+                # Calculate sizes for root items
                 $itemSizes = foreach ($item in $rootItems) {
                     $processedItems++
-                    $percentComplete = [math]::Round(($processedItems / $totalItems) * 100, 2)
-                    $results += "Processing item $processedItems of $totalItems in $path ($percentComplete% complete)"
+                    if ($processedItems % $updateInterval -eq 0 -or $processedItems -eq $totalItems) {
+                        $percentComplete = [math]::Round(($processedItems / $totalItems) * 100, 2)
+                        $results += "Processed $processedItems of $totalItems items in $path ($percentComplete% complete)"
+                    }
                     try {
-                        $size = 0
-                        if ($item.PSIsContainer) {
-                            $size = (Get-ChildItem -Path $item.FullName -Recurse -File -ErrorAction SilentlyContinue | 
-                                    Measure-Object -Property Length -Sum -ErrorAction SilentlyContinue).Sum
+                        $size = if ($item.PSIsContainer) {
+                            try {
+                                $sizeBytes = (Get-ChildItem -Path $item.FullName -Recurse -File -ErrorAction SilentlyContinue |
+                                             Where-Object { $_.Name -notin $exclude } |
+                                             Measure-Object -Property Length -Sum -ErrorAction SilentlyContinue).Sum
+                                $folderSizeCache[$item.FullName] = $sizeBytes
+                                $sizeBytes
+                            } catch {
+                                $results += "Error calculating size for folder $($item.FullName): $_"
+                                Write-Host "Error calculating size for folder $($item.FullName): $_"
+                                0
+                            }
                         } else {
-                            $size = $item.Length
+                            $item.Length
                         }
                         [PSCustomObject]@{
                             Name = $item.Name
@@ -671,44 +687,70 @@ function Get-TopItems {
                         }
                     } catch {
                         $results += "Error processing item $($item.FullName): $_"
+                        Write-Host "Error processing item $($item.FullName): $_"
                         continue
                     }
+                }
+
+                if (-not $itemSizes) {
+                    $results += "No valid items found after processing in $path"
+                    Write-Host "No valid items found after processing in $path"
+                    return @{ Results = $results; Output = @() }
                 }
 
                 $topItems = $itemSizes | Sort-Object SizeGB -Descending | Select-Object -First $topN
                 $processedFolders = 0
                 $totalFolders = ($topItems | Where-Object { $_.IsFolder }).Count
-
-                $results += "Analyzing sub-items for $totalFolders folders (0% complete)"
+                $results += "Analyzing sub-items for $totalFolders folders"
 
                 $detailedOutput = foreach ($topItem in $topItems) {
                     $output = [PSCustomObject]@{
                         Name = $topItem.Name
                         SizeGB = $topItem.SizeGB
                         Type = if ($topItem.IsFolder) { "Folder" } else { "File" }
-                        SubItems = $null
+                        SubItems = @()
                     }
 
                     if ($topItem.IsFolder) {
                         $processedFolders++
-                        $percentComplete = [math]::Round(($processedFolders / $totalFolders) * 100, 2)
-                        $results += "Processing folder $processedFolders of $totalFolders ($percentComplete% complete)"
-                        $subItems = Get-ChildItem -Path $topItem.FullPath -ErrorAction SilentlyContinue
-                        $subItemSizes = foreach ($subItem in $subItems) {
-                            $subSize = 0
-                            if ($subItem.PSIsContainer) {
-                                $subSize = (Get-ChildItem -Path $subItem.FullName -Recurse -File -ErrorAction SilentlyContinue | 
-                                           Measure-Object -Property Length -Sum -ErrorAction SilentlyContinue).Sum
-                            } else {
-                                $subSize = $subItem.Length
-                            }
-                            [PSCustomObject]@{
-                                Name = "$($subItem.Name)"
-                                SizeMB = [math]::Round($subSize / 1MB, 2)
-                                Type = if ($subItem.PSIsContainer) { "Folder" } else { "File" }
-                            }
+                        $percentComplete = if ($totalFolders -gt 0) {
+                            [math]::Round(($processedFolders / $totalFolders) * 100, 2)
+                        } else {
+                            100
                         }
-                        $output.SubItems = $subItemSizes | Sort-Object SizeMB -Descending | Select-Object -First 10
+                        $results += "Processing folder $processedFolders of $totalFolders in $($topItem.FullName) ($percentComplete% complete)"
+                        try {
+                            $subItems = Get-ChildItem -Path $topItem.FullPath -ErrorAction SilentlyContinue |
+                                       Where-Object { $_.Name -notin $exclude }
+                            $subItemSizes = foreach ($subItem in $subItems) {
+                                try {
+                                    $subSize = if ($subItem.PSIsContainer) {
+                                        if ($folderSizeCache.ContainsKey($subItem.FullName)) {
+                                            $folderSizeCache[$subItem.FullName]
+                                        } else {
+                                            (Get-ChildItem -Path $subItem.FullName -Recurse -File -ErrorAction SilentlyContinue |
+                                             Where-Object { $_.Name -notin $exclude } |
+                                             Measure-Object -Property Length -Sum -ErrorAction SilentlyContinue).Sum
+                                        }
+                                    } else {
+                                        $subItem.Length
+                                    }
+                                    [PSCustomObject]@{
+                                        Name = $subItem.Name
+                                        SizeMB = [math]::Round($subSize / 1MB, 2)
+                                        Type = if ($subItem.PSIsContainer) { "Folder" } else { "File" }
+                                    }
+                                } catch {
+                                    $results += "Error processing sub-item $($subItem.FullName): $_"
+                                    Write-Host "Error processing sub-item $($subItem.FullName): $_"
+                                    continue
+                                }
+                            }
+                            $output.SubItems = $subItemSizes | Sort-Object SizeMB -Descending | Select-Object -First 10
+                        } catch {
+                            $results += "Error processing sub-items for $($topItem.FullName): $_"
+                            Write-Host "Error processing sub-items for $($topItem.FullName): $_"
+                        }
                     }
                     $output
                 }
@@ -716,11 +758,12 @@ function Get-TopItems {
                 return @{ Results = $results; Output = $detailedOutput }
             } catch {
                 $results += "Error in Get-TopItems script block: $_"
+                Write-Host "Error in Get-TopItems script block: $_"
                 return @{ Results = $results; Output = @() }
             }
         }
 
-        $result = Invoke-Command -Session $session -ScriptBlock $scriptBlock -ArgumentList $path, $exclude, $topN, $ProgressPreference
+        $result = Invoke-Command -Session $session -ScriptBlock $scriptBlock -ArgumentList $path, $exclude, $topN
         foreach ($line in $result.Results) {
             if ($line -match "\((\d+\.\d+)% complete\)") {
                 $percent = [math]::Round($Matches[1], 2)
@@ -731,18 +774,21 @@ function Get-TopItems {
                 Write-Log $line "Info"
             }
         }
-        Update-StatusLabel -text "Top items analysis completed" -percentComplete 100
-        write-Log "Top items analysis completed successfully for $path"
+        if (-not $result.Output) {
+            Write-Log "No output returned from Get-TopItems for $path" "Warning"
+            Update-StatusLabel -text "No items found for $path" -percentComplete 0
+        } else {
+            Update-StatusLabel -text "Top items analysis completed for $path" -percentComplete 100
+            Write-Log "Top items analysis completed successfully for $path"
+        }
         return $result.Output
     } catch {
         $errorDetails = "Exception: $($_.Exception.GetType().FullName)`nMessage: $($_.Exception.Message)`nStackTrace: $($_.ScriptStackTrace)"
         Write-Log "Error getting top items for $path': $errorDetails" "Error"
-        Update-StatusLabel -text "Error analyzing top items" -percentComplete 0
+        Update-StatusLabel -text "Error analyzing top items for $path" -percentComplete 0
         return @()
     }
 }
-
-
 
 function Export-DiskReport {
     <#
@@ -988,9 +1034,6 @@ function Update-StatusLabel {
     }
     $main_form.Refresh() # Ensure immediate update
 }
-
-
-
 function Remove-Session {
     <#
     .SYNOPSIS
@@ -1201,7 +1244,7 @@ $okButton.Add_Click({
                 $topRoot = $null
                 $topUsers = $null
 
-                if ($After.FreePercentage -lt 10) {
+                if ($After.FreePercentage -lt 50) {
                     Update-StatusLabel -text "Free space still low. Identifying top items..." -percentComplete 0
                     $topRoot = Get-TopItems -session $session -path "$($diskName):\" -exclude @("Windows", "Program Files", "Program Files (x86)", "ProgramData","Users") -topN 10
                     $topUsers = Get-TopItems -session $session -path "$($diskName):\Users" -topN 10

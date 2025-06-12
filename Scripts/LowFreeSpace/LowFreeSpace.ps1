@@ -206,24 +206,24 @@ function Get-Session {
             $Credential = Get-Credential -Message "Enter credentials for $ServerName (Attempt $($retryCount) of $MaxRetries)"
             if ($null -eq $Credential -or $retryCount -ge $maxRetries) {
                 Write-Log "Session creation canceled or retry limit reached for $serverName" "Error"
-                Update-StatusLabel -text "Session creation canceled or retry limit reached for $serverName" -percentComplete 0
+                Update-StatusLabel -text "Session creation canceled or retry limit reached for $serverName"
                 return $null
             }
             try {
                 Set-Item WSMan:\localhost\Client\TrustedHosts -Value "$serverName" -Concatenate -Force #In a non-domain (workgroup) environment, the remote computer’s name or IP must be added to the local computer’s TrustedHosts list
                 $session = New-PSSession -ComputerName $serverName -Credential $credential -ErrorAction Stop
                 Write-Log "Session created successfully for $serverName"
-                Update-StatusLabel -text "Session created successfully for $serverName" -percentComplete 100
+                Update-StatusLabel -text "Session created successfully for $serverName"
                 return $session
             } catch {
                 if ($retryCount -ge $maxRetries) {
                     Write-Log "Failed to create session for $serverName after $maxRetries attempts: $_" "Error"
-                    Update-StatusLabel -text "Failed to create session for $serverName after $maxRetries attempts." -percentComplete 0
+                    Update-StatusLabel -text "Failed to create session for $serverName after $maxRetries attempts."
                     return $null
                 }else {
                     $errorDetails = "Exception: $($_.Exception.GetType().FullName)`nMessage: $($_.Exception.Message)`nStackTrace: $($_.ScriptStackTrace)"
                     Write-Log "Failed to create session for $ServerName on attempt $retryCount. Error: $errorDetails" "Error"
-                    Update-StatusLabel -text "Failed to create session for $serverName." -percentComplete 0
+                    Update-StatusLabel -text "Failed to create session for $serverName."
                 }
             }
         } while ($true)
@@ -231,7 +231,7 @@ function Get-Session {
     catch {
         $errorDetails = "Exception: $($_.Exception.GetType().FullName)`nMessage: $($_.Exception.Message)`nStackTrace: $($_.ScriptStackTrace)"
         Write-Log "Error creating session for $serverName': $errorDetails" "Error"
-        Update-StatusLabel -text "Error creating session for $serverName" -percentComplete 0
+        Update-StatusLabel -text "Error creating session for $serverName"
         return $null
     }
 }
@@ -286,7 +286,7 @@ function Test-DiskAvailability {
     catch {
         $errorDetails = "Exception: $($_.Exception.GetType().FullName)`nMessage: $($_.Exception.Message)`nStackTrace: $($_.ScriptStackTrace)"
         Write-Log "Error checking disk availability for $diskName': $errorDetails" "Error"
-        Update-StatusLabel -text "Error checking disk availability for $diskName" -percentComplete 0
+        Update-StatusLabel -text "Error checking disk availability for $diskName"
         return $false
     }
 }
@@ -294,26 +294,11 @@ function Test-DiskAvailability {
 
 
 function Test-ReportFileCreation {
-    <#
-    .SYNOPSIS
-        Tests the creation of a log file in a specified directory.
-    .DESCRIPTION
-        This function attempts to create a log file in a specified directory and verifies its creation.
-        It returns true if the file is created successfully, otherwise false.
-    .PARAMETER logPath
-        The path where the log file will be created. Default is "C:\Temp".
-    .PARAMETER testFile
-        The name of the test log file to create. Default is "test_<timestamp>.html".
-    .EXAMPLE
-        $logCreated = Test-ReportFileCreation -logPath "C:\Temp"
-        if ($logCreated) {
-            Write-Log "Log file created successfully."
-        } else {
-            Write-Log "Log file creation failed." "Error"
-        }
-    #>
     [CmdletBinding()]
-    param()
+    param(
+    [string]$logPath = "C:\Temp",
+    [string]$testFile = "test_$(Get-Date -Format 'ddMMyyyy_HHmmss').html"
+    )
     
     try {
         Write-Log "Testing log file creation"
@@ -344,21 +329,8 @@ function Test-ReportFileCreation {
     }
 }
 
+# Function to clear system cacheMore actions
 function Clear-SystemCache {
-    <#
-    .SYNOPSIS
-        Clears system cache on a remote server.
-    .DESCRIPTION
-        This function removes cached files from various system locations on a remote server.
-        It targets Windows Update cache, Windows Installer patch cache, SCCM cache, Windows Temp files, and Recycle Bin.
-        Files older than 5 days are deleted to free up space. Status updates are throttled to every 1% progress to reduce CPU usage.
-    .PARAMETER session
-        The PowerShell session to the remote server where the cache will be cleared.
-    .EXAMPLE
-        $session = Get-Session -serverName "Server01"
-        Clear-SystemCache -session $session
-        This will clear the system cache on Server01, removing old cached files and cleaning up temporary directories.
-    #>
     [CmdletBinding()]
     param (
         [Parameter(Mandatory)]
@@ -366,126 +338,121 @@ function Clear-SystemCache {
     )
 
     try {
-        Write-Log "Starting to clear system cache"
-        Update-StatusLabel -text "Starting system cache cleanup..." -percentComplete 0
+        Write-Host "Starting to clear system cache"
         $ScriptBlock = {
-            param($ProgressPreference)
-            $ProgressPreference = 'SilentlyContinue'
+            # Windows Update cache (older than 5 days)
+            try {
+                if (Test-Path -Path "C:\Windows\SoftwareDistribution\Download\") {
+                    $filesToDelete = Get-ChildItem -Path "C:\Windows\SoftwareDistribution\Download" -Recurse -Force |
+                        Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-5) }
 
-            $cachePaths = @(
-                @{ Path = "C:\Windows\SoftwareDistribution\Download"; Name = "Windows Update cache" },
-                @{ Path = "C:\Windows\Installer\$PatchCache$"; Name = "Windows Installer patch cache" },
-                @{ Path = "C:\Windows\ccmcache"; Name = "SCCM cache" },
-                @{ Path = "C:\Windows\Temp"; Name = "Windows Temp files" }
-            )
-
-            $results = @()
-            $totalCaches = $cachePaths.Count + 1 # +1 for Recycle Bin
-            $processedCaches = 0
-
-            foreach ($cache in $cachePaths) {
-                $processedCaches++
-                $percentComplete = [math]::Round(($processedCaches / $totalCaches) * 100, 2)
-                $results += "Starting cleanup of $($cache.Name) ($percentComplete% complete)"
-
-                try {
-                    if (Test-Path -Path "$($cache.Path)\*") {
-                        $filesToDelete = Get-ChildItem -Path "$($cache.Path)\*" -Recurse -Force |
-                            Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-5) }
-                        $totalFiles = $filesToDelete.Count
-                        $processedFiles = 0
-
-                        if ($totalFiles -gt 0) {
-                            foreach ($file in $filesToDelete) {
-                                $processedFiles++
-                                $filePercent = [math]::Round(($processedFiles / $totalFiles) * 100, 2)
-                                $overallPercent = [math]::Round(($processedCaches - 1) / $totalCaches * 100 + ($filePercent / $totalCaches), 2)
-                                try {
-                                    Remove-Item -Path $file.FullName -Force -Recurse -ErrorAction SilentlyContinue
-                                    if (-not (Test-Path -Path $file.FullName)) {
-                                        $results += "Deleted: $($file.FullName). Overall progress: $overallPercent% complete"
-                                    } else {
-                                        $results += "Error deleting $($file.FullName): File may be in use"
-                                    }
-                                } catch {
-                                    $results += "Error deleting $($file.FullName): $_"
-                                }
+                    if ($filesToDelete.Count -gt 0) {
+                        Write-Host "Starting to clean Windows Update cache"
+                        foreach ($file in $filesToDelete) {
+                            Remove-Item -Path $file.FullName -Force -Recurse -Verbose -ErrorAction SilentlyContinue
+                            if ((Test-Path -Path $file.FullName)) {
+                                Write-Host "Error deleting Windows Update cache file: $($file.FullName)"
+                            }else {
+                                Write-Host "Deleted: $($file.FullName)"
                             }
-                        } else {
-                            $results += "$($cache.Name) not found or no files older than 5 days"
+                        }
+                    }else {
+                        Write-Host "Windows Update cache not found"
+                    }   
+                }
+            } catch {
+                Write-Host "Error cleaning Windows Update cache: $_"
+            }
+
+
+            # Windows Installer patch cache (older than 5 days)
+            try {
+                if (Test-Path -Path "C:\Windows\Installer\$PatchCache$\*") {
+                    $filesToDelete = Get-ChildItem -Path "C:\Windows\Installer\$PatchCache$\*" -Recurse -Force |
+                        Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-5) }
+
+                    if ($filesToDelete.Count -gt 0) {
+                        Write-Host "Starting to clean Windows Installer patch cache"
+                        foreach ($file in $filesToDelete) {
+                            Remove-Item -Path $file.FullName -Force -Recurse -Verbose -ErrorAction SilentlyContinue
+                            if ((Test-Path -Path $file.FullName)) {
+                                Write-Host "Error deleting Windows Installer patch cache file: $($file.FullName)"
+                            }else {
+                                Write-Host "Deleted: $($file.FullName)"
+                            }
+                        }
+                    }else {
+                        Write-Host "Windows Installer patch cache not found"
+                    }                
+                }
+            } catch {
+                Write-Host "Error cleaning Windows Installer patch cache: $_"
+            }
+
+            # SCCM cache (older than 5 days)
+            try {
+                if (Test-Path -Path "C:\Windows\ccmcache\*") {
+                    $filesToDelete = Get-ChildItem -Path "C:\Windows\ccmcache\*" -Recurse -Force |
+                        Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-5) }
+                    if ($filesToDelete.Count -gt 0) {
+                        Write-Host "Starting to clean SCCM cache"
+                        foreach ($file in $filesToDelete) {
+                            Remove-Item -Path $file.FullName -Force -Recurse -Verbose -ErrorAction SilentlyContinue
+                            if ((Test-Path -Path $file.FullName)) {
+                                Write-Host "Error deleting SCCM cache file: $($file.FullName)"
+                            }else {
+                                Write-Host "Deleted: $($file.FullName)"
+                            }
+                        }
+                    }else {
+                        Write-Host "SCCM cache not found"
+                    }
+                }
+            } catch {
+                Write-Host "Error cleaning SCCM cache: $_"
+            }
+
+            # Windows Temp files (older than 5 days)
+            try {
+                if (Test-Path -Path "C:\Windows\Temp\*") {
+                    $filesToDelete = Get-ChildItem -Path "C:\Windows\Temp\*" -Recurse -Force |
+                        Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-5) }
+                    if ($filesToDelete.Count -gt 0) {
+                        Write-Host "Starting to clean Windows Temp files"
+                        foreach ($file in $filesToDelete) {
+                            Remove-Item -Path $file.FullName -Force -Recurse -Verbose -ErrorAction SilentlyContinue
+                            if ((Test-Path -Path $file.FullName)) {
+                                Write-Host "Error deleting Windows Temp file: $($file.FullName)"
+                            }else {
+                                Write-Host "Deleted: $($file.FullName)"
+                            }
                         }
                     } else {
-                        $results += "$($cache.Name) path not found: $($cache.Path)"
+                        Write-Host "Windows Temp not found"
                     }
-                } catch {
-                    $results += "Error cleaning $($cache.Name): $_"
                 }
+            } catch {
+                Write-Host "Error cleaning Windows Temp files: $_"
             }
 
             # Recycle Bin
             try {
-                $processedCaches++
-                $percentComplete = [math]::Round(($processedCaches / $totalCaches) * 100, 2)
-                $results += "Cleaning Recycle Bin ($percentComplete% complete)"
                 Clear-RecycleBin -Force -ErrorAction SilentlyContinue
-                $results += "Recycle Bin cleaned"
+                Write-Host "Recycle Bin cleaned"
             } catch {
-                $results += "Error cleaning Recycle Bin: $_"
+                Write-Host "Error cleaning Recycle Bin: $_"
             }
-
-            return $results
         }
-
-        $lastPercentComplete = -1  # Initialize to -1 to ensure first update
-        $lastStatusText = ""
-
-        $clearSystemCache = Invoke-Command -Session $session -ScriptBlock $ScriptBlock -ArgumentList $ProgressPreference
-        foreach ($line in $clearSystemCache) {
-            $currentPercentComplete = $lastPercentComplete
-            if ($line -match "\((\d+\.\d+)% complete\)") {
-                $currentPercentComplete = [math]::Round($Matches[1], 2)
-                $lastStatusText = $line
-            } else {
-                $lastStatusText = $line
-            }
-
-            # Update status label only if percent complete has increased by at least 1%
-            if ($currentPercentComplete -ge $lastPercentComplete + 1 -or $lastPercentComplete -eq -1) {
-                Update-StatusLabel -text $lastStatusText -percentComplete $currentPercentComplete
-                $lastPercentComplete = $currentPercentComplete
-            }
-            Write-Log $line "Info"
-        }
-        Update-StatusLabel -text "System cache cleanup completed" -percentComplete 100
-        Write-Log "System cache cleanup completed successfully"
-        return $clearSystemCache | Out-String
-    } catch {
-        $errorDetails = "Exception: $($_.Exception.GetType().FullName)`nMessage: $($_.Exception.Message)`nStackTrace: $($_.ScriptStackTrace)"
-        Write-Log "Error clearing system cache: $errorDetails" "Error"
-        Update-StatusLabel -text "Error during system cache cleanup" -percentComplete 0
-        return "Error clearing system cache: $_"
+        Invoke-Command -Session $session -ScriptBlock $ScriptBlock
+    }
+    catch {
+        Write-Host "Error clearing system cache: $_" "Error"
     }
 }
 
 
+# Function to compress IIS log files on a remote PC
 function Compress-IISLogs {
-    <#
-    .SYNOPSIS
-        Compresses IIS log files older than 6 months and removes the original files.
-    .DESCRIPTION
-        This function compresses IIS log files that are older than 6 months into ZIP archives.
-        It moves the compressed files to a specified archive directory and removes the original log files.
-    .PARAMETER session
-        The PowerShell session to the remote server where IIS logs will be compressed.
-    .PARAMETER IISLogPath
-        The path to the IIS log files. Default is "C:\inetpub\logs\LogFiles".
-    .PARAMETER ArchivePath
-        The path where the compressed log files will be stored. Default is "C:\inetpub\logs\Archive".
-    .EXAMPLE
-        $session = Get-Session -serverName "Server01"
-        Compress-IISLogs -session $session
-        This will compress IIS log files older than 6 months on Server01 and move them to the archive directory.
-    #>
     [CmdletBinding()]
     param (
         [Parameter(Mandatory)]
@@ -497,8 +464,9 @@ function Compress-IISLogs {
     try {
         $ScriptBlock = {
             param($IISLogPath, $ArchivePath)
-    
-    
+
+            #Write-Host "Remote execution started for Compress-IISLogs"
+
             # Ensure the archive directory exists
             try {
                 if (Test-Path -Path $IISLogPath) {
@@ -512,9 +480,9 @@ function Compress-IISLogs {
                     }
                     $OldLogs = Get-ChildItem -Path "$IISLogPath\*" -Recurse -Force |
                         Where-Object { $_.LastWriteTime -lt (Get-Date).AddMonths(-6) }
-    
+
                     Write-Host "Found $($OldLogs.Count) old log(s) to process"
-    
+
                     # Then process the files
                     foreach ($Log in $OldLogs) {                    
                         try {
@@ -540,16 +508,13 @@ function Compress-IISLogs {
                 Write-Host "Error processing IIS logs: $_"
             }
         }
-        
+
         Invoke-Command -Session $session -ScriptBlock $ScriptBlock -ArgumentList $IISLogPath, $ArchivePath
     }
     catch {
-        $errorDetails = "Exception: $($_.Exception.GetType().FullName)`nMessage: $($_.Exception.Message)`nStackTrace: $($_.ScriptStackTrace)"
-        Write-Log "Error compressing IIS logs: $errorDetails" "Error"
-        Update-StatusLabel -text "Error compressing IIS logs" -percentComplete 0}
+        Write-Log "Error compressing IIS or removing log files: $_" "Error"
+    }
 }
-
-
 
 function Get-DiskSpaceDetails {
     <#
@@ -603,7 +568,7 @@ function Get-DiskSpaceDetails {
     catch {
         $errorDetails = "Exception: $($_.Exception.GetType().FullName)`nMessage: $($_.Exception.Message)`nStackTrace: $($_.ScriptStackTrace)"
         Write-Log "Error getting disk space details for $diskName': $errorDetails" "Error"
-        Update-StatusLabel -text "Error getting disk space details for $diskName" -percentComplete 0
+        Update-StatusLabel -text "Error getting disk space details for $diskName"
         return $null
     }
 }
@@ -621,47 +586,30 @@ function Get-TopItems {
 
     try {
         Write-Log "Starting top $topN items analysis for $path"
-        Update-StatusLabel -text "Analyzing top items in $path..." -percentComplete 0
+        Update-StatusLabel -text "Analyzing top $topN items in $path..."
         $scriptBlock = {
             param($path, $exclude, $topN)
             $ProgressPreference = 'SilentlyContinue'
-            $results = @()
+            $detailedOutput = @()
 
             try {
-                # Validate path
-                if (-not (Test-Path $path)) {
-                    $results += "Path $path does not exist."
-                    Write-Host "Path $path does not exist."
-                    return @{ Results = $results; Output = @() }
-                }
-
                 # Cache for folder sizes
                 $folderSizeCache = @{}
-                $results += "Starting size calculation for items in $path"
 
-                # Get immediate children of the path
+                # Get immediate children of the path. Example: C:\, D:\, etc.
                 $rootItems = Get-ChildItem -Path $path -ErrorAction SilentlyContinue |
                              Where-Object { $_.Name -notin $exclude }
-                $totalItems = $rootItems.Count
-                if ($totalItems -eq 0) {
-                    $results += "No items found in $path after applying exclusions: $($exclude -join ', ')"
-                    Write-Host "No items found in $path after applying exclusions: $($exclude -join ', ')"
-                    return @{ Results = $results; Output = @() }
+                
+                if (-not $rootItems) {
+                    Write-Host "No items found in $path after excluding specified items."
+                    return @()
                 }
 
-                $results += "Found $totalItems items in $path"
-                $processedItems = 0
-                $updateInterval = [math]::Max(1, [math]::Ceiling($totalItems / 10)) # Update every ~10% of items
-
-                # Calculate sizes for root items
+                # Calculate sizes for root items and output to a custom object
                 $itemSizes = foreach ($item in $rootItems) {
-                    $processedItems++
-                    if ($processedItems % $updateInterval -eq 0 -or $processedItems -eq $totalItems) {
-                        $percentComplete = [math]::Round(($processedItems / $totalItems) * 100, 2)
-                        $results += "Processed $processedItems of $totalItems items in $path ($percentComplete% complete)"
-                    }
                     try {
-                        $size = if ($item.PSIsContainer) {
+                        # Calculate size for each item
+                        $size = if ($item.PSIsContainer) { # If it's a folder, calculate the size of all files within it
                             try {
                                 $sizeBytes = (Get-ChildItem -Path $item.FullName -Recurse -File -ErrorAction SilentlyContinue |
                                              Where-Object { $_.Name -notin $exclude } |
@@ -669,13 +617,13 @@ function Get-TopItems {
                                 $folderSizeCache[$item.FullName] = $sizeBytes
                                 $sizeBytes
                             } catch {
-                                $results += "Error calculating size for folder $($item.FullName): $_"
                                 Write-Host "Error calculating size for folder $($item.FullName): $_"
                                 0
                             }
                         } else {
-                            $item.Length
+                            $item.Length # If it's a file, just get its length
                         }
+                        # Create a custom object with the item name, full path, size in GB, and whether it's a folder
                         [PSCustomObject]@{
                             Name = $item.Name
                             FullPath = $item.FullName
@@ -683,23 +631,22 @@ function Get-TopItems {
                             IsFolder = $item.PSIsContainer
                         }
                     } catch {
-                        $results += "Error processing item $($item.FullName): $_"
                         Write-Host "Error processing item $($item.FullName): $_"
                         continue
                     }
                 }
 
+                # Filter out items with size 0 GB
                 if (-not $itemSizes) {
-                    $results += "No valid items found after processing in $path"
                     Write-Host "No valid items found after processing in $path"
                     return @{ Results = $results; Output = @() }
                 }
 
-                $topItems = $itemSizes | Sort-Object SizeGB -Descending | Select-Object -First $topN
+                # Sort and select top items
+                $topItems = $itemSizes | Sort-Object SizeGB -Descending | Select-Object -First $topN # Select the top N items based on size
                 $processedFolders = 0
-                $totalFolders = ($topItems | Where-Object { $_.IsFolder }).Count
-                $results += "Analyzing sub-items for $totalFolders folders"
 
+                # Prepare the output for each top item
                 $detailedOutput = foreach ($topItem in $topItems) {
                     $output = [PSCustomObject]@{
                         Name = $topItem.Name
@@ -710,12 +657,6 @@ function Get-TopItems {
 
                     if ($topItem.IsFolder) {
                         $processedFolders++
-                        $percentComplete = if ($totalFolders -gt 0) {
-                            [math]::Round(($processedFolders / $totalFolders) * 100, 2)
-                        } else {
-                            100
-                        }
-                        $results += "Processing folder $processedFolders of $totalFolders in $($topItem.FullName) ($percentComplete% complete)"
                         try {
                             $subItems = Get-ChildItem -Path $topItem.FullPath -ErrorAction SilentlyContinue |
                                        Where-Object { $_.Name -notin $exclude }
@@ -738,7 +679,6 @@ function Get-TopItems {
                                         Type = if ($subItem.PSIsContainer) { "Folder" } else { "File" }
                                     }
                                 } catch {
-                                    $results += "Error processing sub-item $($subItem.FullName): $_"
                                     Write-Host "Error processing sub-item $($subItem.FullName): $_"
                                     continue
                                 }
@@ -751,38 +691,19 @@ function Get-TopItems {
                     }
                     $output
                 }
-
-                return @{ Results = $results; Output = $detailedOutput }
+                return $detailedOutput
             } catch {
-                $results += "Error in Get-TopItems script block: $_"
                 Write-Host "Error in Get-TopItems script block: $_"
-                return @{ Results = $results; Output = @() }
+                return @()
             }
         }
-
+        # Execute the script block on the remote session
         $result = Invoke-Command -Session $session -ScriptBlock $scriptBlock -ArgumentList $path, $exclude, $topN
-        foreach ($line in $result.Results) {
-            if ($line -match "\((\d+\.\d+)% complete\)") {
-                $percent = [math]::Round($Matches[1], 2)
-                Update-StatusLabel -text $line -percentComplete $percent
-                Write-Log $line "Info"
-            } else {
-                Update-StatusLabel -text $line
-                Write-Log $line "Info"
-            }
-        }
-        if (-not $result.Output) {
-            Write-Log "No output returned from Get-TopItems for $path" "Warning"
-            Update-StatusLabel -text "No items found for $path" -percentComplete 0
-        } else {
-            Update-StatusLabel -text "Top items analysis completed for $path" -percentComplete 100
-            Write-Log "Top items analysis completed successfully for $path"
-        }
-        return $result.Output
+        return $result
     } catch {
         $errorDetails = "Exception: $($_.Exception.GetType().FullName)`nMessage: $($_.Exception.Message)`nStackTrace: $($_.ScriptStackTrace)"
         Write-Log "Error getting top items for $path': $errorDetails" "Error"
-        Update-StatusLabel -text "Error analyzing top items for $path" -percentComplete 0
+        Update-StatusLabel -text "Error analyzing top items for $path"
         return @()
     }
 }
@@ -1016,20 +937,15 @@ function Export-DiskReport {
 function Update-StatusLabel {
     param(
         [Parameter(Mandatory=$true)]
-        [string]$text,
-        [Parameter(Mandatory=$false)]
-        [int]$percentComplete = -1
+        [string]$text
     )
     
     $statusLabel.Text = $text
     $statusLabel_width = $statusLabel.PreferredWidth
     $label_x = ($main_form.ClientSize.Width - $statusLabel_width) / 2
     $statusLabel.Location = New-Object System.Drawing.Point($label_x, $statusLabel.Location.Y)
-    
-    if ($percentComplete -ge 0 -and $percentComplete -le 100) {
-        $progressBar.Value = $percentComplete
-    }
-    $main_form.Refresh() # Ensure immediate update
+    $statusLabel.Refresh()
+
 }
 function Remove-Session {
     <#
@@ -1227,14 +1143,18 @@ $okButton.Add_Click({
 
         try {
             if ($diskName -eq "C") {
-                Update-StatusLabel -text "Cleaning C disk. Please wait..." -percentComplete 0
+                Update-StatusLabel -text "Cleaning C disk. Please wait..."
                 $Before = Get-DiskSpaceDetails -session $session -diskName $diskName
 
-                Update-StatusLabel -text "Cleaning system cache..." -percentComplete 0
-                $clearSystemCache = Clear-SystemCache -session $session
+                Update-StatusLabel -text "Cleaning system cache..."
+                $clearSystemCache = Clear-SystemCache -session $session -Verbose *>&1 | ForEach-Object {
+                    "$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss'): $_"
+                } | Out-String
 
-                Update-StatusLabel -text "Compressing IIS logs..." -percentComplete 0
-                $clearIISLogs = Compress-IISLogs -session $session | Out-String
+                Update-StatusLabel -text "Compressing IIS logs..."
+                $clearIISLogs = Compress-IISLogs -session $session -Verbose *>&1 | ForEach-Object {
+                    "$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss'): $_"
+                } | Out-String
 
                 $After = Get-DiskSpaceDetails -session $session -diskName $diskName
                 $freePercentageDisk = $After.FreePercentage
@@ -1242,7 +1162,7 @@ $okButton.Add_Click({
                 $topUsers = $null
 
                 if ($After.FreePercentage -lt 50) {
-                    Update-StatusLabel -text "Free space still low. Identifying top items..." -percentComplete 0
+                    Update-StatusLabel -text "Free space still low. Identifying top items..."
                     $topRoot = Get-TopItems -session $session -path "$($diskName):\" -exclude @("Windows", "Program Files", "Program Files (x86)", "ProgramData","Users") -topN 10
                     $topUsers = Get-TopItems -session $session -path "$($diskName):\Users" -topN 10
                 }
@@ -1260,7 +1180,7 @@ $okButton.Add_Click({
                     -iisLogCleanupLog $clearIISLogs `
                     -topUsers $topUsers -topRoot $topRoot
             } else {
-                Update-StatusLabel -text "Getting disk information and top items..." -percentComplete 0
+                Update-StatusLabel -text "Getting disk information and top items..."
                 $diskInfo = Get-DiskSpaceDetails -session $session -diskName $diskName
                 $topItems = Get-TopItems -session $session -path "$($diskName):\" -topN 10
 
@@ -1320,15 +1240,6 @@ $label_y = 135  # Top padding
 $statusLabel.Location = New-Object System.Drawing.Point($label_x, $label_y)
 $main_form.Controls.Add($statusLabel)
 
-# ProgressBar
-$progressBar = New-Object System.Windows.Forms.ProgressBar
-$progressBar.Location = New-Object System.Drawing.Point(20, 135)
-$progressBar.Size = New-Object System.Drawing.Size(350, 20)
-$progressBar.Minimum = 0
-$progressBar.Maximum = 100
-$progressBar.Value = 0
-# Adjust Status Label position to avoid overlap
-$statusLabel.Location = New-Object System.Drawing.Point($label_x, 160) # Moved below progress bar
 
 # Add components to form
 $main_form.Controls.Add($labelServerName)
@@ -1337,7 +1248,6 @@ $main_form.Controls.Add($diskLabel)
 $main_form.Controls.Add($diskTextBox)
 $main_form.Controls.Add($okButton)
 $main_form.Controls.Add($cancelButton)
-$main_form.Controls.Add($progressBar)
 
 # Show form
 #$main_form.ShowDialog()

@@ -342,8 +342,8 @@ function Clear-SystemCache {
         $ScriptBlock = {
             # Windows Update cache (older than 5 days)
             try {
-                if (Test-Path -Path "C:\Windows\SoftwareDistribution\Download\") {
-                    $filesToDelete = Get-ChildItem -Path "C:\Windows\SoftwareDistribution\Download" -Recurse -Force |
+                if (Test-Path -Path "C:\Windows\SoftwareDistribution\Download\*") {
+                    $filesToDelete = Get-ChildItem -Path "C:\Windows\SoftwareDistribution\Download\*" -Recurse -Force |
                         Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-5) }
 
                     if ($filesToDelete.Count -gt 0) {

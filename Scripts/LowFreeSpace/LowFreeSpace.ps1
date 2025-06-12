@@ -572,6 +572,129 @@ function Get-DiskSpaceDetails {
         return $null
     }
 }
+<#
+function Get-TopItems {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory=$true)]
+        [System.Management.Automation.Runspaces.PSSession]$session,
+        [Parameter(Mandatory=$true)]
+        [string]$path,
+        [string[]]$exclude = @(),
+        [int]$topN = 10
+    )
+
+    try {
+        Write-Log "Starting top $topN items analysis for $path"
+        Update-StatusLabel -text "Analyzing top $topN items in $path..."
+
+        $scriptBlock = {
+            param($path, $exclude, $topN)
+
+            try {
+                # Initialize hashtable to store folder sizes
+                $folderSizes = @{}
+
+                # Get all files recursively, excluding specified items
+                $allFiles = Get-ChildItem -Path $path -Recurse -File -ErrorAction SilentlyContinue | 
+                            Where-Object { $_.Name -notin $exclude }
+
+                if (-not $allFiles) {
+                    Write-Host "No files found in $path after excluding specified items."
+                    return @()
+                }
+
+                # Accumulate file sizes up the directory tree
+                foreach ($file in $allFiles) {
+                    $size = $file.Length
+                    $dir = $file.Directory
+                    while ($dir -ne $null -and $dir.FullName -like "$path*") {
+                        if ($folderSizes.ContainsKey($dir.FullName)) {
+                            $folderSizes[$dir.FullName] += $size
+                        } else {
+                            $folderSizes[$dir.FullName] = $size
+                        }
+                        $dir = $dir.Parent
+                    }
+                }
+
+                # Get direct children of the path
+                $rootItems = Get-ChildItem -Path $path -ErrorAction SilentlyContinue | 
+                             Where-Object { $_.Name -notin $exclude }
+
+                # Build results for top N selection
+                $results = foreach ($item in $rootItems) {
+                    $sizeBytes = if ($item.PSIsContainer) {
+                        if ($folderSizes.ContainsKey($item.FullName)) {
+                            $folderSizes[$item.FullName]
+                        } else {
+                            0  # Empty folder
+                        }
+                    } else {
+                        $item.Length
+                    }
+                    [PSCustomObject]@{
+                        Name     = $item.Name
+                        FullPath = $item.FullName
+                        SizeGB   = [math]::Round($sizeBytes / 1GB, 2)
+                        IsFolder = $item.PSIsContainer
+                    }
+                }
+
+                # Select top N items by size
+                $topItems = $results | Sort-Object SizeGB -Descending | Select-Object -First $topN
+
+                # Process sub-items for top folders
+                $detailedOutput = foreach ($topItem in $topItems) {
+                    $output = [PSCustomObject]@{
+                        Name     = $topItem.Name
+                        SizeGB   = $topItem.SizeGB
+                        Type     = if ($topItem.IsFolder) { "Folder" } else { "File" }
+                        SubItems = @()
+                    }
+
+                    if ($topItem.IsFolder) {
+                        $subItems = Get-ChildItem -Path $topItem.FullPath -ErrorAction SilentlyContinue | 
+                                    Where-Object { $_.Name -notin $exclude }
+                        $subItemSizes = foreach ($subItem in $subItems) {
+                            $subSize = if ($subItem.PSIsContainer) {
+                                if ($folderSizes.ContainsKey($subItem.FullName)) {
+                                    $folderSizes[$subItem.FullName]
+                                } else {
+                                    0
+                                }
+                            } else {
+                                $subItem.Length
+                            }
+                            [PSCustomObject]@{
+                                Name   = $subItem.Name
+                                SizeMB = [math]::Round($subSize / 1MB, 2)
+                                Type   = if ($subItem.PSIsContainer) { "Folder" } else { "File" }
+                            }
+                        }
+                        $output.SubItems = $subItemSizes | Sort-Object SizeMB -Descending | Select-Object -First 10
+                    }
+                    $output
+                }
+
+                return $detailedOutput
+            } catch {
+                Write-Host "Error in Get-TopItems script block: $_"
+                return @()
+            }
+        }
+
+        # Execute on the remote session
+        $result = Invoke-Command -Session $session -ScriptBlock $scriptBlock -ArgumentList $path, $exclude, $topN
+        Write-Log "Completed top $topN items analysis for $path"
+        return $result
+    } catch {
+        $errorDetails = "Exception: $($_.Exception.GetType().FullName)`nMessage: $($_.Exception.Message)`nStackTrace: $($_.ScriptStackTrace)"
+        Write-Log "Error getting top items for $path': $errorDetails" "Error"
+        Update-StatusLabel -text "Error analyzing top items for $path"
+        return @()
+    }
+}#>
 
 function Get-TopItems {
     [CmdletBinding()]
@@ -587,118 +710,122 @@ function Get-TopItems {
     try {
         Write-Log "Starting top $topN items analysis for $path"
         Update-StatusLabel -text "Analyzing top $topN items in $path..."
+
         $scriptBlock = {
             param($path, $exclude, $topN)
-            $ProgressPreference = 'SilentlyContinue'
-            $detailedOutput = @()
-
+            
             try {
+                # Convert exclude list to HashSet for O(1) lookups
+                $excludeSet = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+                foreach ($item in $exclude) { [void]$excludeSet.Add($item) }
+
                 # Cache for folder sizes
                 $folderSizeCache = @{}
+                
+                # Recursive function to calculate folder sizes with caching
+                function Get-FolderSize {
+                    param($folderPath)
+                    
+                    # Return cached value if available
+                    if ($folderSizeCache.ContainsKey($folderPath)) {
+                        return $folderSizeCache[$folderPath]
+                    }
+                    
+                    $size = 0
+                    $childItems = $null
+                    try {
+                        $childItems = Get-ChildItem -LiteralPath $folderPath -ErrorAction Stop
+                    } catch {
+                        Write-Host "Access error in $folderPath': $_"
+                        $folderSizeCache[$folderPath] = 0
+                        return 0
+                    }
+                    
+                    foreach ($item in $childItems) {
+                        # Skip excluded items
+                        if ($excludeSet.Contains($item.Name)) { continue }
+                        
+                        if ($item.PSIsContainer) {
+                            $size += Get-FolderSize $item.FullName
+                        } else {
+                            $size += $item.Length
+                        }
+                    }
+                    
+                    # Update cache and return
+                    $folderSizeCache[$folderPath] = $size
+                    return $size
+                }
 
-                # Get immediate children of the path. Example: C:\, D:\, etc.
-                $rootItems = Get-ChildItem -Path $path -ErrorAction SilentlyContinue |
-                             Where-Object { $_.Name -notin $exclude }
+                # Process root items
+                $rootItems = Get-ChildItem -Path $path -ErrorAction SilentlyContinue | 
+                             Where-Object { -not $excludeSet.Contains($_.Name) }
                 
                 if (-not $rootItems) {
-                    Write-Host "No items found in $path after excluding specified items."
+                    Write-Host "No items found in $path after exclusions."
                     return @()
                 }
 
-                # Calculate sizes for root items and output to a custom object
-                $itemSizes = foreach ($item in $rootItems) {
-                    try {
-                        # Calculate size for each item
-                        $size = if ($item.PSIsContainer) { # If it's a folder, calculate the size of all files within it
-                            try {
-                                $sizeBytes = (Get-ChildItem -Path $item.FullName -Recurse -File -ErrorAction SilentlyContinue |
-                                             Where-Object { $_.Name -notin $exclude } |
-                                             Measure-Object -Property Length -Sum -ErrorAction SilentlyContinue).Sum
-                                $folderSizeCache[$item.FullName] = $sizeBytes
-                                $sizeBytes
-                            } catch {
-                                Write-Host "Error calculating size for folder $($item.FullName): $_"
-                                0
-                            }
-                        } else {
-                            $item.Length # If it's a file, just get its length
-                        }
-                        # Create a custom object with the item name, full path, size in GB, and whether it's a folder
-                        [PSCustomObject]@{
-                            Name = $item.Name
-                            FullPath = $item.FullName
-                            SizeGB = [math]::Round($size / 1GB, 2)
-                            IsFolder = $item.PSIsContainer
-                        }
-                    } catch {
-                        Write-Host "Error processing item $($item.FullName): $_"
-                        continue
+                $results = foreach ($item in $rootItems) {
+                    $sizeBytes = if ($item.PSIsContainer) {
+                        Get-FolderSize $item.FullName
+                    } else {
+                        $item.Length
+                    }
+                    
+                    [PSCustomObject]@{
+                        Name     = $item.Name
+                        FullPath = $item.FullName
+                        SizeGB   = [math]::Round($sizeBytes / 1GB, 2)
+                        IsFolder = $item.PSIsContainer
                     }
                 }
 
-                # Filter out items with size 0 GB
-                if (-not $itemSizes) {
-                    Write-Host "No valid items found after processing in $path"
-                    return @{ Results = $results; Output = @() }
-                }
+                # Get top N items
+                $topItems = $results | Sort-Object SizeGB -Descending | Select-Object -First $topN
 
-                # Sort and select top items
-                $topItems = $itemSizes | Sort-Object SizeGB -Descending | Select-Object -First $topN # Select the top N items based on size
-                $processedFolders = 0
-
-                # Prepare the output for each top item
-                $detailedOutput = foreach ($topItem in $topItems) {
+                # Process top items
+                $detailedOutput = foreach ($item in $topItems) {
                     $output = [PSCustomObject]@{
-                        Name = $topItem.Name
-                        SizeGB = $topItem.SizeGB
-                        Type = if ($topItem.IsFolder) { "Folder" } else { "File" }
+                        Name     = $item.Name
+                        SizeGB   = $item.SizeGB
+                        Type     = if ($item.IsFolder) { "Folder" } else { "File" }
                         SubItems = @()
                     }
 
-                    if ($topItem.IsFolder) {
-                        $processedFolders++
-                        try {
-                            $subItems = Get-ChildItem -Path $topItem.FullPath -ErrorAction SilentlyContinue |
-                                       Where-Object { $_.Name -notin $exclude }
-                            $subItemSizes = foreach ($subItem in $subItems) {
-                                try {
-                                    $subSize = if ($subItem.PSIsContainer) {
-                                        if ($folderSizeCache.ContainsKey($subItem.FullName)) {
-                                            $folderSizeCache[$subItem.FullName]
-                                        } else {
-                                            (Get-ChildItem -Path $subItem.FullName -Recurse -File -ErrorAction SilentlyContinue |
-                                             Where-Object { $_.Name -notin $exclude } |
-                                             Measure-Object -Property Length -Sum -ErrorAction SilentlyContinue).Sum
-                                        }
-                                    } else {
-                                        $subItem.Length
-                                    }
-                                    [PSCustomObject]@{
-                                        Name = $subItem.Name
-                                        SizeMB = [math]::Round($subSize / 1MB, 2)
-                                        Type = if ($subItem.PSIsContainer) { "Folder" } else { "File" }
-                                    }
-                                } catch {
-                                    Write-Host "Error processing sub-item $($subItem.FullName): $_"
-                                    continue
-                                }
+                    if ($item.IsFolder) {
+                        $childItems = Get-ChildItem -LiteralPath $item.FullPath -ErrorAction SilentlyContinue |
+                                      Where-Object { -not $excludeSet.Contains($_.Name) }
+                        
+                        $childObjects = foreach ($child in $childItems) {
+                            $childSizeBytes = if ($child.PSIsContainer) {
+                                $folderSizeCache[$child.FullName]
+                            } else {
+                                $child.Length
                             }
-                            $output.SubItems = $subItemSizes | Sort-Object SizeMB -Descending | Select-Object -First 10
-                        } catch {
-                            $results += "Error processing sub-items for $($topItem.FullName): $_"
-                            Write-Host "Error processing sub-items for $($topItem.FullName): $_"
+                            
+                            [PSCustomObject]@{
+                                Name   = $child.Name
+                                SizeMB = [math]::Round($childSizeBytes / 1MB, 2)
+                                Type   = if ($child.PSIsContainer) { "Folder" } else { "File" }
+                            }
                         }
+                        
+                        $output.SubItems = $childObjects | Sort-Object SizeMB -Descending | Select-Object -First 10
                     }
                     $output
                 }
+
                 return $detailedOutput
             } catch {
                 Write-Host "Error in Get-TopItems script block: $_"
                 return @()
             }
         }
+
         # Execute the script block on the remote session
         $result = Invoke-Command -Session $session -ScriptBlock $scriptBlock -ArgumentList $path, $exclude, $topN
+        Write-Log "Completed top $topN items analysis for $path"
         return $result
     } catch {
         $errorDetails = "Exception: $($_.Exception.GetType().FullName)`nMessage: $($_.Exception.Message)`nStackTrace: $($_.ScriptStackTrace)"

@@ -210,7 +210,7 @@ function Get-Session {
                 return $null
             }
             try {
-                Set-Item WSMan:\localhost\Client\TrustedHosts -Value "$serverName" -Concatenate -Force #In a non-domain (workgroup) environment, the remote computer’s name or IP must be added to the local computer’s TrustedHosts list
+                Set-Item WSMan:\localhost\Client\TrustedHosts -Value "$serverName" -Concatenate -Force #In a non-domain (workgroup) environment, the remote computerâ€™s name or IP must be added to the local computerâ€™s TrustedHosts list
                 $session = New-PSSession -ComputerName $serverName -Credential $credential -ErrorAction Stop
                 Write-Log "Session created successfully for $serverName"
                 Update-StatusLabel -text "Session created successfully for $serverName"
@@ -586,138 +586,67 @@ function Get-TopItems {
 
     try {
         Write-Log "Starting top $topN items analysis for $path"
-        Update-StatusLabel -text "Analyzing top items in $path..." -percentComplete 0
+        Update-StatusLabel -text "Analyzing top $topN items in $path..."
         $scriptBlock = {
             param($path, $exclude, $topN)
             $ProgressPreference = 'SilentlyContinue'
-            $results = @()
+            $detailedOutput = @()
 
             try {
-                # Validate path
-                if (-not (Test-Path $path)) {
-                    $results += "Path $path does not exist."
-                    return @{ Results = $results; Output = @() }
-                }
-
-                # Initialize cache and counters
+                # Cache for folder sizes
                 $folderSizeCache = @{}
-                $results += "Starting size calculation for items in $path"
 
-                # Helper function to check directory access
-                function Test-DirectoryAccess {
-                    param($dirPath)
-                    try {
-                        [System.IO.Directory]::GetAccessControl($dirPath) | Out-Null
-                        return $true
-                    } catch {
-                        return $false
-                    }
-                }
-
-                # Helper function to calculate folder size
-                function Get-FolderSize {
-                    param($folderPath, $exclude)
-                    try {
-                        if (-not (Test-DirectoryAccess $folderPath)) {
-                            return 0
-                        }
-                        $size = (Get-ChildItem -Path $folderPath -Recurse -File -ErrorAction SilentlyContinue |
-                                 Where-Object { $_.Name -notin $exclude } |
-                                 Measure-Object -Property Length -Sum -ErrorAction SilentlyContinue).Sum
-                        return [math]::Max(0, $size)
-                    } catch {
-                        return 0
-                    }
-                }
-
-                # Get immediate children of the path
+                # Get immediate children of the path. Example: C:\, D:\, etc.
                 $rootItems = Get-ChildItem -Path $path -ErrorAction SilentlyContinue |
-                             Where-Object { $_.Name -notin $exclude -and (Test-DirectoryAccess $_.FullName) }
-                $totalItems = $rootItems.Count
-                if ($totalItems -eq 0) {
-                    $results += "No accessible items found in $path after applying exclusions: $($exclude -join ', ')"
-                    return @{ Results = $results; Output = @() }
+                             Where-Object { $_.Name -notin $exclude }
+                
+                if (-not $rootItems) {
+                    Write-Host "No items found in $path after excluding specified items."
+                    return @()
                 }
 
-                $results += "Found $totalItems items in $path"
-                $processedItems = 0
-                $updateInterval = [math]::Max(1, [math]::Ceiling($totalItems / 20)) # Update every ~5%
-
-                # Use background jobs for large directories (>100 items)
-                $itemSizes = if ($totalItems -gt 100) {
-                    $jobs = @()
-                    foreach ($item in $rootItems) {
-                        $jobs += Start-Job -ScriptBlock {
-                            param($itemPath, $itemName, $isFolder, $exclude)
-                            $size = if ($isFolder) {
-                                $sizeBytes = (Get-ChildItem -Path $itemPath -Recurse -File -ErrorAction SilentlyContinue |
-                                              Where-Object { $_.Name -notin $exclude } |
-                                              Measure-Object -Property Length -Sum -ErrorAction SilentlyContinue).Sum
-                                [math]::Max(0, $sizeBytes)
-                            } else {
-                                (Get-Item -Path $itemPath -ErrorAction SilentlyContinue).Length
-                            }
-                            [PSCustomObject]@{
-                                Name = $itemName
-                                FullPath = $itemPath
-                                SizeBytes = $size
-                                IsFolder = $isFolder
-                            }
-                        } -ArgumentList $item.FullName, $item.Name, $item.PSIsContainer, $exclude
-                    }
-                    $jobs | Wait-Job | ForEach-Object {
-                        $result = Receive-Job -Job $_ -ErrorAction SilentlyContinue
-                        Remove-Job -Job $_
-                        $result
-                    } | Where-Object { $_.SizeBytes -ne $null }
-                } else {
-                    foreach ($item in $rootItems) {
-                        $processedItems++
-                        if ($processedItems % $updateInterval -eq 0 -or $processedItems -eq $totalItems) {
-                            $percentComplete = [math]::Round(($processedItems / $totalItems) * 50, 2) # 50% for root items
-                            $results += "Processed $processedItems of $totalItems items in $path ($percentComplete% complete)"
-                        }
-                        try {
-                            $size = if ($item.PSIsContainer) {
-                                $sizeBytes = Get-FolderSize -folderPath $item.FullName -exclude $exclude
+                # Calculate sizes for root items and output to a custom object
+                $itemSizes = foreach ($item in $rootItems) {
+                    try {
+                        # Calculate size for each item
+                        $size = if ($item.PSIsContainer) { # If it's a folder, calculate the size of all files within it
+                            try {
+                                $sizeBytes = (Get-ChildItem -Path $item.FullName -Recurse -File -ErrorAction SilentlyContinue |
+                                             Where-Object { $_.Name -notin $exclude } |
+                                             Measure-Object -Property Length -Sum -ErrorAction SilentlyContinue).Sum
                                 $folderSizeCache[$item.FullName] = $sizeBytes
                                 $sizeBytes
-                            } else {
-                                $item.Length
+                            } catch {
+                                Write-Host "Error calculating size for folder $($item.FullName): $_"
+                                0
                             }
-                            [PSCustomObject]@{
-                                Name = $item.Name
-                                FullPath = $item.FullName
-                                SizeBytes = $size
-                                IsFolder = $item.PSIsContainer
-                            }
-                        } catch {
-                            $results += "Error processing item $($item.FullName): $_"
-                            continue
+                        } else {
+                            $item.Length # If it's a file, just get its length
                         }
+                        # Create a custom object with the item name, full path, size in GB, and whether it's a folder
+                        [PSCustomObject]@{
+                            Name = $item.Name
+                            FullPath = $item.FullName
+                            SizeGB = [math]::Round($size / 1GB, 2)
+                            IsFolder = $item.PSIsContainer
+                        }
+                    } catch {
+                        Write-Host "Error processing item $($item.FullName): $_"
+                        continue
                     }
                 }
 
+                # Filter out items with size 0 GB
                 if (-not $itemSizes) {
-                    $results += "No valid items found after processing in $path"
+                    Write-Host "No valid items found after processing in $path"
                     return @{ Results = $results; Output = @() }
                 }
 
-                # Convert sizes to GB and select top N
-                $topItems = $itemSizes | Sort-Object SizeBytes -Descending | Select-Object -First $topN |
-                            ForEach-Object {
-                                [PSCustomObject]@{
-                                    Name = $_.Name
-                                    FullPath = $_.FullPath
-                                    SizeGB = [math]::Round($_.SizeBytes / 1GB, 2)
-                                    IsFolder = $_.IsFolder
-                                }
-                            }
+                # Sort and select top items
+                $topItems = $itemSizes | Sort-Object SizeGB -Descending | Select-Object -First $topN # Select the top N items based on size
                 $processedFolders = 0
-                $totalFolders = ($topItems | Where-Object { $_.IsFolder }).Count
-                $results += "Analyzing sub-items for $totalFolders folders"
 
-                # Process sub-items for top folders only
+                # Prepare the output for each top item
                 $detailedOutput = foreach ($topItem in $topItems) {
                     $output = [PSCustomObject]@{
                         Name = $topItem.Name
@@ -728,22 +657,18 @@ function Get-TopItems {
 
                     if ($topItem.IsFolder) {
                         $processedFolders++
-                        $percentComplete = if ($totalFolders -gt 0) {
-                            [math]::Round(50 + ($processedFolders / $totalFolders) * 50, 2) # 50% for sub-items
-                        } else {
-                            100
-                        }
-                        $results += "Processing folder $processedFolders of $totalFolders in $($topItem.FullPath) ($percentComplete% complete)"
                         try {
                             $subItems = Get-ChildItem -Path $topItem.FullPath -ErrorAction SilentlyContinue |
-                                        Where-Object { $_.Name -notin $exclude -and (Test-DirectoryAccess $_.FullName) }
+                                       Where-Object { $_.Name -notin $exclude }
                             $subItemSizes = foreach ($subItem in $subItems) {
                                 try {
                                     $subSize = if ($subItem.PSIsContainer) {
                                         if ($folderSizeCache.ContainsKey($subItem.FullName)) {
                                             $folderSizeCache[$subItem.FullName]
                                         } else {
-                                            Get-FolderSize -folderPath $subItem.FullName -exclude $exclude
+                                            (Get-ChildItem -Path $subItem.FullName -Recurse -File -ErrorAction SilentlyContinue |
+                                             Where-Object { $_.Name -notin $exclude } |
+                                             Measure-Object -Property Length -Sum -ErrorAction SilentlyContinue).Sum
                                         }
                                     } else {
                                         $subItem.Length
@@ -754,48 +679,31 @@ function Get-TopItems {
                                         Type = if ($subItem.PSIsContainer) { "Folder" } else { "File" }
                                     }
                                 } catch {
-                                    $results += "Error processing sub-item $($subItem.FullName): $_"
+                                    Write-Host "Error processing sub-item $($subItem.FullName): $_"
                                     continue
                                 }
                             }
                             $output.SubItems = $subItemSizes | Sort-Object SizeMB -Descending | Select-Object -First 10
                         } catch {
-                            $results += "Error processing sub-items for $($topItem.FullPath): $_"
+                            $results += "Error processing sub-items for $($topItem.FullName): $_"
+                            Write-Host "Error processing sub-items for $($topItem.FullName): $_"
                         }
                     }
                     $output
                 }
-
-                return @{ Results = $results; Output = $detailedOutput }
+                return $detailedOutput
             } catch {
-                $results += "Error in Get-TopItems script block: $_"
-                return @{ Results = $results; Output = @() }
+                Write-Host "Error in Get-TopItems script block: $_"
+                return @()
             }
         }
-
+        # Execute the script block on the remote session
         $result = Invoke-Command -Session $session -ScriptBlock $scriptBlock -ArgumentList $path, $exclude, $topN
-        foreach ($line in $result.Results) {
-            if ($line -match "\((\d+\.\d+)% complete\)") {
-                $percent = [math]::Round($Matches[1], 2)
-                Update-StatusLabel -text $line -percentComplete $percent
-                Write-Log $line "Info"
-            } else {
-                Update-StatusLabel -text $line
-                Write-Log $line "Info"
-            }
-        }
-        if (-not $result.Output) {
-            Write-Log "No output returned from Get-TopItems for $path" "Warning"
-            Update-StatusLabel -text "No items found for $path" -percentComplete 0
-        } else {
-            Update-StatusLabel -text "Top items analysis completed for $path" -percentComplete 100
-            Write-Log "Top items analysis completed successfully for $path"
-        }
-        return $result.Output
+        return $result
     } catch {
         $errorDetails = "Exception: $($_.Exception.GetType().FullName)`nMessage: $($_.Exception.Message)`nStackTrace: $($_.ScriptStackTrace)"
         Write-Log "Error getting top items for $path': $errorDetails" "Error"
-        Update-StatusLabel -text "Error analyzing top items for $path" -percentComplete 0
+        Update-StatusLabel -text "Error analyzing top items for $path"
         return @()
     }
 }

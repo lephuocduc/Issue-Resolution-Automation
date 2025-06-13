@@ -72,125 +72,79 @@ Add-Type -AssemblyName System.Drawing
 
 
 function Write-Log {
-    <#
-    .SYNOPSIS
-    Write a log message to a specified log file with a timestamp and log level.
-    .DESCRIPTION
-        This function writes a log message to a dynamically named log file (including date),
-        creating the directory if it does not exist. It includes a timestamp and allows specifying the log level.
-    .PARAMETER Message
-        The message to log.
-    .PARAMETER Level
-        The log level (default is "Info"). Other levels include "Warning" and "Error".
-    .PARAMETER LogDirectory
-        The directory where the log file will be saved. Default is "C:\temp".
-    .EXAMPLE
-        Write-Log -Message "Disk space check completed."
-    #>
     param (
         [string]$Message,
         [string]$Level = "Info",
         [string]$LogDirectory = "C:\temp"
     )
 
-    # Ensure log directory exists
-    if (-not (Test-Path -Path $LogDirectory)) {
-        New-Item -Path $LogDirectory -ItemType Directory -Force | Out-Null
+    # Create directory if needed (more efficient check)
+    if (-not [System.IO.Directory]::Exists($LogDirectory)) {
+        [System.IO.Directory]::CreateDirectory($LogDirectory) | Out-Null
     }
 
-    # Construct log file path with current date
-    $datePart = Get-Date -Format "dd-MM-yyyy"
-    $LogPath = Join-Path -Path $LogDirectory -ChildPath ("LowFreeSpace-log-$datePart.log")
+    # Generate all date strings in a single call
+    $currentDate = Get-Date
+    $datePart = $currentDate.ToString("dd-MM-yyyy")
+    $LogPath = Join-Path $LogDirectory "LowFreeSpace-log-$datePart.log"
+    $timestamp = $currentDate.ToString("dd-MM-yyyy HH:mm:ss")
 
-    # Create timestamp for log entry
-    $timestamp = Get-Date -Format "dd-MM-yyyy HH:mm:ss"
+    # Construct and write log entry
     "$timestamp [$Level] $Message" | Out-File -FilePath $LogPath -Append -Encoding UTF8
 }
 
 
 function Test-ServerAvailability {
-    <#
-    .SYNOPSIS
-        Tests the availability of a server for PowerShell remoting and network reachability.
-    .DESCRIPTION
-        This function checks if a server is reachable via PowerShell remoting (WinRM) and optionally via ICMP ping.
-        It returns a PSObject with remoting and ping results, plus error details if applicable.
-    .PARAMETER serverName
-        The name or IP address of the server to test.
-    .EXAMPLE
-        $result = Test-ServerAvailability -serverName "Server01"
-        if ($result.RemotingAvailable) {
-            Write-Log "Server01 is ready for remoting"
-        } else {
-            Write-Log "Server01 unavailable: $($result.ErrorDetails)"
-        }
-    #>
     param(
         [Parameter(Mandatory=$true)]
-        [string]$serverName
+        [ValidatePattern('^[a-zA-Z0-9\.\-]+$')]
+        [string]$ServerName
     )
 
     $result = [PSCustomObject]@{
         RemotingAvailable = $false
-        PingReachable = $false
-        ErrorDetails = $null
+        PingReachable    = $false
+        ErrorDetails     = $null
     }
 
-    # Validate server name (basic check for non-empty and valid format)
-    if ([string]::IsNullOrWhiteSpace($serverName) -or $serverName -notmatch '^[a-zA-Z0-9\.\-]+$') {
-        $result.ErrorDetails = "Invalid server name: '$serverName'"
-        Write-Log $result.ErrorDetails "Error"
-        return $result
-    }
-
+    # Test WinRM availability first
+    Update-StatusLabel -text "Testing WinRM availability for $ServerName"
     try {
-        Write-Log "Testing WinRM availability for $serverName"
-        $wsmanResult = Test-WSMan -ComputerName $serverName -ErrorAction Stop
-        if ($wsmanResult) {
-            $result.RemotingAvailable = $true
-            Write-Log "WinRM service is available on $serverName"
-        }
-    } catch {
-        $result.ErrorDetails = "WinRM test failed: $_"
+        $null = Test-WSMan -ComputerName $ServerName -ErrorAction Stop
+        $result.RemotingAvailable = $true
+        Write-Log "WinRM service is available on $ServerName"
+        return $result  # Exit early if successful
+    }
+    catch {
+        $result.ErrorDetails = "WinRM test failed: $($_.Exception.Message)"
         Write-Log $result.ErrorDetails "Warning"
     }
 
-    # Fallback to ping if WinRM fails
-    if (-not $result.RemotingAvailable) {
-        try {
-            Write-Log "Testing ping for $serverName"
-            $pingResult = Test-Connection -ComputerName $serverName -Count 2 -Quiet -ErrorAction Stop
-            $result.PingReachable = $pingResult
-            if ($pingResult) {
-                Write-Log "Server $serverName is ping reachable but WinRM is unavailable"
-            } else {
-                Write-Log "Server $serverName is not ping reachable" "Warning"
-            }
-        } catch {
-            $result.ErrorDetails += "; Ping test failed: $_"
-            Write-Log "Ping test failed for $serverName': $_" "Warning"
+    # If WinRM fails, test ping connectivity
+    Update-StatusLabel -text "Testing ping reachability for $ServerName"
+    try {
+        Write-Log "Testing ping for $ServerName"
+        $ping = [System.Net.NetworkInformation.Ping]::new()
+        $reply = $ping.Send($ServerName, 1000)  # 1 second timeout
+        
+        if ($reply.Status -eq 'Success') {
+            $result.PingReachable = $true
+            Write-Log "Server $ServerName is ping reachable but WinRM is unavailable"
         }
+        else {
+            $result.ErrorDetails += "; Ping failed ($($reply.Status))"
+            Write-Log "Server $ServerName is not ping reachable ($($reply.Status))" "Warning"
+        }
+    }
+    catch {
+        $result.ErrorDetails += "; Ping test failed: $($_.Exception.Message)"
+        Write-Log "Ping test failed for $ServerName': $($_.Exception.Message)" "Warning"
     }
 
     return $result
 }
 
 function Get-Session {
-    <#
-    .SYNOPSIS
-        Creates a PowerShell session to a remote server with retry logic for credential failures.
-    .DESCRIPTION
-        This function attempts to create a PowerShell session to a specified server.
-        It prompts for credentials and retries up to a maximum number of attempts if the session creation fails.
-    .PARAMETER serverName
-        The name or IP address of the server to connect to.
-    .PARAMETER Credential
-        The credentials to use for the session. If not provided, it will prompt for credentials.
-    .EXAMPLE
-        $session = Get-Session -serverName "Server01"
-        This will create a session to "Server01", prompting for credentials if necessary.
-        If the session creation fails, it will retry up to 3 times before giving up.
-    #>
     param(
         [Parameter(Mandatory = $true)]
         [string]$serverName,
@@ -236,100 +190,102 @@ function Get-Session {
     }
 }
 
-
 function Test-DiskAvailability {
-    <#
-    .SYNOPSIS
-        Tests the availability of a specified disk on a remote server.
-    .DESCRIPTION
-        This function checks if a specified disk exists on a remote server by querying the PowerShell drives.
-        It returns true if the disk is available, otherwise false.
-    .PARAMETER session
-        The PowerShell session to the remote server.
-    .PARAMETER diskName
-        The name of the disk to check (e.g., "C", "D").
-    .EXAMPLE
-        $session = Get-Session -serverName "Server01"
-        $diskAvailable = Test-DiskAvailability -session $session -diskName "C"
-        if ($diskAvailable) {
-            Write-Log "Disk C is available on Server01"
-        } else {
-            Write-Log "Disk C is not available on Server01" "Error"
-        }
-    #>
     param(
         [Parameter(Mandatory=$true)]
-        [System.Management.Automation.Runspaces.PSSession]$session,
+        [System.Management.Automation.Runspaces.PSSession]$Session,
+        
         [Parameter(Mandatory=$true)]
-        [string]$diskName
+        [ValidatePattern('^[a-zA-Z]$')]
+        [string]$DiskName
     )
+
     try {
-        Write-Log "Checking disk availability for disk $diskName"
-        $diskExists = Invoke-Command -Session $session -ScriptBlock {
-            param($diskName)
-            
-            $disk = Get-PSDrive -Name $diskName -ErrorAction SilentlyContinue
-            if ($null -eq $disk) {
+        Write-Log "Checking disk availability for disk $DiskName"
+        
+        # Optimized remote check using direct WMI access
+        $diskExists = Invoke-Command -Session $Session -ScriptBlock {
+            $driveLetter = $args[0] + ':'
+            try {
+                $drive = Get-CimInstance -ClassName Win32_LogicalDisk `
+                         -Filter "DeviceID = '$driveLetter'" `
+                         -ErrorAction Stop
+                return [bool]$drive
+            }
+            catch {
                 return $false
             }
-            else {
-                return $true
-            }
-        } -ArgumentList $diskName -ErrorAction SilentlyContinue
+        } -ArgumentList $DiskName -ErrorAction Stop
+
         if ($diskExists) {
-            Write-Log "Disk $diskName is available"
-        } else {
-            Write-Log "Disk $diskName is not available" "Error"
+            Write-Log "Disk $DiskName is available"
+            return $true
         }
-        return $diskExists
+
+        Write-Log "Disk $DiskName is not available" "Error"
+        return $false
     }
     catch {
-        $errorDetails = "Exception: $($_.Exception.GetType().FullName)`nMessage: $($_.Exception.Message)`nStackTrace: $($_.ScriptStackTrace)"
-        Write-Log "Error checking disk availability for $diskName': $errorDetails" "Error"
-        Update-StatusLabel -text "Error checking disk availability for $diskName"
+        $errorMsg = "Error checking disk $DiskName : $($_.Exception.Message)"
+        Write-Log $errorMsg "Error"
+        Update-StatusLabel -Text $errorMsg
         return $false
     }
 }
-
-
 
 function Test-ReportFileCreation {
     [CmdletBinding()]
     param(
-    [string]$logPath = "C:\Temp",
-    [string]$testFile = "test_$(Get-Date -Format 'ddMMyyyy_HHmmss').html"
+        [string]$LogPath = "C:\Temp",
+        [string]$TestFile = "test_$(Get-Date -Format 'ddMMyyyy_HHmmss').html"
     )
     
     try {
-        Write-Log "Testing log file creation"
-        # Define paths
-        $logPath = "C:\Temp"
-        $testFile = Join-Path $logPath "test_$(Get-Date -Format 'ddMMyyyy_HHmmss').html"
+        Write-Log "Testing log file creation in: $LogPath"
+        
+        # Resolve full path using .NET methods
+        $resolvedPath = [System.IO.Path]::GetFullPath($LogPath)
+        $testFilePath = [System.IO.Path]::Combine($resolvedPath, $TestFile)
 
-        # Create directory if needed
-        if (-not (Test-Path $logPath)) {
-            New-Item -Path $logPath -ItemType Directory -Force | Out-Null
+        # Create directory structure using .NET (faster and more reliable)
+        $testDir = [System.IO.Path]::GetDirectoryName($testFilePath)
+        if (-not [System.IO.Directory]::Exists($testDir)) {
+            [System.IO.Directory]::CreateDirectory($testDir) | Out-Null
         }
 
-        # Test file creation
-        $testContent = "Log creation test: $(Get-Date)"
-        Set-Content -Path $testFile -Value $testContent -ErrorAction Stop
+        # Generate content with UTC timestamp for consistency
+        $utcTimestamp = [System.DateTime]::UtcNow.ToString("o")
+        $testContent = "Log creation test: $utcTimestamp"
 
-        # Verify and cleanup
-        if (Test-Path $testFile) {
-            Remove-Item -Path $testFile -Force
-            Write-Log "Log file created and verified successfully: $testFile"
+        # Use FileStream for atomic write operation
+        try {
+            $stream = [System.IO.File]::OpenWrite($testFilePath)
+            $writer = [System.IO.StreamWriter]::new($stream)
+            $writer.Write($testContent)
+            $writer.Close()
+        }
+        finally {
+            if ($writer) { $writer.Dispose() }
+            if ($stream) { $stream.Dispose() }
+        }
+
+        # Verify file creation using file attributes (faster than Test-Path)
+        $fileInfo = [System.IO.File]::GetAttributes($testFilePath)
+        if (($fileInfo -band [System.IO.FileAttributes]::Archive) -eq [System.IO.FileAttributes]::Archive) {
+            [System.IO.File]::Delete($testFilePath)
+            Write-Log "Log file created and verified successfully: $TestFile"
             return $true
         }
+
+        throw "File verification failed after write operation"
     }
     catch {
-        $errorDetails = "Exception: $($_.Exception.GetType().FullName)`nMessage: $($_.Exception.Message)`nStackTrace: $($_.ScriptStackTrace)"
-        Write-Log "Error creating test log file: $errorDetails" "Error"
+        $errorMsg = "Error creating test file: $($_.Exception.Message)"
+        Write-Log $errorMsg "Error"
         return $false
     }
 }
 
-# Function to clear system cacheMore actions
 function Clear-SystemCache {
     [CmdletBinding()]
     param (
@@ -339,114 +295,89 @@ function Clear-SystemCache {
 
     try {
         Write-Host "Starting to clear system cache"
+        Write-Log "Starting to clear system cache on remote session"
         $ScriptBlock = {
-            # Windows Update cache (older than 5 days)
-            try {
-                if (Test-Path -Path "C:\Windows\SoftwareDistribution\Download\*") {
-                    $filesToDelete = Get-ChildItem -Path "C:\Windows\SoftwareDistribution\Download\*" -Recurse -Force |
-                        Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-5) }
-
-                    if ($filesToDelete.Count -gt 0) {
-                        Write-Host "Starting to clean Windows Update cache"
-                        foreach ($file in $filesToDelete) {
-                            Remove-Item -Path $file.FullName -Force -Recurse -Verbose -ErrorAction SilentlyContinue
-                            if ((Test-Path -Path $file.FullName)) {
-                                Write-Host "Error deleting Windows Update cache file: $($file.FullName)"
-                            }else {
-                                Write-Host "Deleted: $($file.FullName)"
-                            }
-                        }
-                    }else {
-                        Write-Host "Windows Update cache not found"
-                    }   
+            # Define cache locations and configurations
+            $cacheConfigs = @(
+                @{ 
+                    Name = 'Windows Update cache'
+                    Path = 'C:\Windows\SoftwareDistribution\Download\*'
+                },
+                @{ 
+                    Name = 'Windows Installer patch cache'
+                    Path = 'C:\Windows\Installer\$PatchCache$\*'
+                },
+                @{ 
+                    Name = 'SCCM cache'
+                    Path = 'C:\Windows\ccmcache\*' 
+                },
+                @{ 
+                    Name = 'Windows Temp files'
+                    Path = 'C:\Windows\Temp\*' 
                 }
-            } catch {
-                Write-Host "Error cleaning Windows Update cache: $_"
-            }
+            )
 
+            $daysOld = 5
+            $cutoffDate = (Get-Date).AddDays(-$daysOld)
 
-            # Windows Installer patch cache (older than 5 days)
-            try {
-                if (Test-Path -Path "C:\Windows\Installer\$PatchCache$\*") {
-                    $filesToDelete = Get-ChildItem -Path "C:\Windows\Installer\$PatchCache$\*" -Recurse -Force |
-                        Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-5) }
-
-                    if ($filesToDelete.Count -gt 0) {
-                        Write-Host "Starting to clean Windows Installer patch cache"
-                        foreach ($file in $filesToDelete) {
-                            Remove-Item -Path $file.FullName -Force -Recurse -Verbose -ErrorAction SilentlyContinue
-                            if ((Test-Path -Path $file.FullName)) {
-                                Write-Host "Error deleting Windows Installer patch cache file: $($file.FullName)"
-                            }else {
-                                Write-Host "Deleted: $($file.FullName)"
-                            }
-                        }
-                    }else {
-                        Write-Host "Windows Installer patch cache not found"
-                    }                
-                }
-            } catch {
-                Write-Host "Error cleaning Windows Installer patch cache: $_"
-            }
-
-            # SCCM cache (older than 5 days)
-            try {
-                if (Test-Path -Path "C:\Windows\ccmcache\*") {
-                    $filesToDelete = Get-ChildItem -Path "C:\Windows\ccmcache\*" -Recurse -Force |
-                        Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-5) }
-                    if ($filesToDelete.Count -gt 0) {
-                        Write-Host "Starting to clean SCCM cache"
-                        foreach ($file in $filesToDelete) {
-                            Remove-Item -Path $file.FullName -Force -Recurse -Verbose -ErrorAction SilentlyContinue
-                            if ((Test-Path -Path $file.FullName)) {
-                                Write-Host "Error deleting SCCM cache file: $($file.FullName)"
-                            }else {
-                                Write-Host "Deleted: $($file.FullName)"
-                            }
-                        }
-                    }else {
-                        Write-Host "SCCM cache not found"
+            # Process all file-based caches
+            foreach ($config in $cacheConfigs) {
+                try {
+                    Write-Host "`nProcessing $($config.Name)..."
+                    
+                    if (-not (Test-Path -Path $config.Path -ErrorAction SilentlyContinue)) {
+                        Write-Host "$($config.Name) not found - Skipping" -ForegroundColor Yellow
+                        continue
                     }
-                }
-            } catch {
-                Write-Host "Error cleaning SCCM cache: $_"
-            }
 
-            # Windows Temp files (older than 5 days)
-            try {
-                if (Test-Path -Path "C:\Windows\Temp\*") {
-                    $filesToDelete = Get-ChildItem -Path "C:\Windows\Temp\*" -Recurse -Force |
-                        Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-5) }
-                    if ($filesToDelete.Count -gt 0) {
-                        Write-Host "Starting to clean Windows Temp files"
-                        foreach ($file in $filesToDelete) {
-                            Remove-Item -Path $file.FullName -Force -Recurse -Verbose -ErrorAction SilentlyContinue
-                            if ((Test-Path -Path $file.FullName)) {
-                                Write-Host "Error deleting Windows Temp file: $($file.FullName)"
-                            }else {
-                                Write-Host "Deleted: $($file.FullName)"
-                            }
-                        }
-                    } else {
-                        Write-Host "Windows Temp not found"
+                    $filesToDelete = Get-ChildItem -Path $config.Path -Recurse -Force -ErrorAction SilentlyContinue |
+                        Where-Object { $_.LastWriteTime -lt $cutoffDate }
+
+                    if (-not $filesToDelete) {
+                        Write-Host "No expired files found in $($config.Name)"
+                        continue
                     }
+
+                    Write-Host "Found $($filesToDelete.Count) files to delete:"
+                    $successCount = 0
+                    $errorCount = 0
+
+                    foreach ($file in $filesToDelete) {
+                        try {
+                            Remove-Item -Path $file.FullName -Force -Recurse -ErrorAction Stop
+                            Write-Host "  Deleted: $($file.FullName)" -ForegroundColor Green
+                            $successCount++
+                        }
+                        catch {
+                            Write-Host "  Error deleting: $($file.FullName)" -ForegroundColor Red
+                            Write-Host "    Reason: $($_.Exception.Message)" -ForegroundColor Red
+                            $errorCount++
+                        }
+                    }
+                    
+                    Write-Host "`n$($config.Name) results: $successCount deleted, $errorCount errors" -ForegroundColor Cyan
                 }
-            } catch {
-                Write-Host "Error cleaning Windows Temp files: $_"
+                catch {
+                    Write-Host "Error processing $($config.Name): $_" -ForegroundColor Red
+                }
             }
 
-            # Recycle Bin
+            # Process Recycle Bin separately
             try {
-                Clear-RecycleBin -Force -ErrorAction SilentlyContinue
-                Write-Host "Recycle Bin cleaned"
-            } catch {
-                Write-Host "Error cleaning Recycle Bin: $_"
+                Write-Host "`nClearing Recycle Bin..."
+                Clear-RecycleBin -Force -ErrorAction Stop
+                Write-Host "Recycle Bin cleared" -ForegroundColor Green
+            }
+            catch {
+                Write-Host "Error clearing Recycle Bin: $_" -ForegroundColor Red
             }
         }
+        
         Invoke-Command -Session $session -ScriptBlock $ScriptBlock
+        Write-Host "`nCache clearing operation completed" -ForegroundColor Cyan
     }
     catch {
-        Write-Host "Error clearing system cache: $_" "Error"
+        Write-Host "Error clearing system cache: $_" -ForegroundColor Red
     }
 }
 

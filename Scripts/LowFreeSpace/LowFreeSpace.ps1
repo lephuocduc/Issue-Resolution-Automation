@@ -375,9 +375,11 @@ function Clear-SystemCache {
         
         Invoke-Command -Session $session -ScriptBlock $ScriptBlock
         Write-Host "`nCache clearing operation completed" -ForegroundColor Cyan
+        Write-Log "System cache cleared successfully on remote session"
     }
     catch {
         Write-Host "Error clearing system cache: $_" -ForegroundColor Red
+        Write-Log "Error clearing system cache: $_" "Error"
     }
 }
 

@@ -300,20 +300,20 @@ function Clear-SystemCache {
             # Define cache locations and configurations
             $cacheConfigs = @(
                 @{ 
-                    Name = 'Windows Update cache'
-                    Path = 'C:\Windows\SoftwareDistribution\Download\*'
+                    Name = "Windows Update cache"
+                    Path = "C:\Windows\SoftwareDistribution\Download\*"
                 },
                 @{ 
-                    Name = 'Windows Installer patch cache'
-                    Path = 'C:\Windows\Installer\$PatchCache$\*'
+                    Name = "Windows Installer patch cache"
+                    Path = "C:\Windows\Installer\$PatchCache$\*"
                 },
                 @{ 
-                    Name = 'SCCM cache'
+                    Name = "SCCM cache"
                     Path = 'C:\Windows\ccmcache\*' 
                 },
                 @{ 
-                    Name = 'Windows Temp files'
-                    Path = 'C:\Windows\Temp\*' 
+                    Name = "Windows Temp files"
+                    Path = "C:\Windows\Temp\*"
                 }
             )
 

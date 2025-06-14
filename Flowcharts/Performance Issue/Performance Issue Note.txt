@@ -1,0 +1,44 @@
+The workflow is generally as below
+Servername input -> Username, password input (loop until connected, max 3 times) -> Retrieve Performance Data -> Display Summary Report -> Exit 
+
+###############
+Details:
+
+*** Servername input:
+use the Test-ServerAvailability function in the LowFreeSpace script, prioritize WinRM connectivity only (since it's required for actual operations). Keep ping as optional diagnostic data.
+
+*** Username, password input
+use the Get-Session function in the LowFreeSpace script, loop until connected, max 3 times
+
+*** Retrieve Performance Data
+- Uptime: new function Get-SystemUptime: Input(server name, remote session), Output (uptime, servername with $env:COMPUTERNAME) (Retrieves the server’s uptime, showing how long it has been running since the last reboot.)
+- Get-PerformanceMetrics: Input (server name, remote session, number of samples, sample interval in second) Monitors the server over a specified duration (collecting x samples every y seconds) to gather:
+    Average overall CPU usage percentage.
+    Average overall memory usage percentage.
+    Per-process data, including average CPU consumption, memory consumption, PID, and the user running each process.
+- Get-TopCPUProcesses: Input(raw process data from Get-PerformanceMetrics) analyze the data from Get-PerformanceMetrics, sorts it by average CPU consumption, and identifies the top 5 processes.
+- Get-TopMemoryProcesses: Input(raw process data from Get-PerformanceMetrics). Analyzes the process data from Get-PerformanceMetrics, sorts it by average memory consumption, and identifies the top 5 processes.
+
+*** Dashboard Display
+- Show-PerformanceDashboard: Input(Uptime from Get-SystemUptime, Top processes (CPU+RAM) from Get-TopCPUProcesses, Get-TopMemoryProcesses)
+
+SERVER: XYZ-SERVER01 | UPTIME: 15 DAYS
+Data Collected at 09:17 AM on June 14, 2025
+───────────────────────────────────────────
+OVERVIEW:
+[CPU]: 85%   [MEM]: 20GB (52%)
+───────────────────────────────────────────
+TOP PROCESSES (CPU):
+Process name (PID)          CPU             RAM             Run as
+1. SQLSERVR.EXE (123)   - 50%           - 8GB (20%)         - User1
+2. W3WP.EXE (1234)      - 15%           - 2.5GB (25%)       - User2
+3. ...
+───────────────────────────────────────────
+TOP PROCESSES (MEM):
+Process name (PID)          CPU             RAM             Run as
+1. JAVAW.EXE (122)      - 20%           - 12GB (30%)        - User1
+2. CHROME.EXE (134)     - 10%           - 2.5GB (25%)       - User2
+3. ...
+───────────────────────────────────────────
+
+*** Exit

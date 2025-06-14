@@ -1,0 +1,15 @@
+graph TD
+    A[Start] --> B[Enter Server Name]
+    B --> C[Enter Username/Password]
+    C --> D{Connection Successful?}
+    D -- Yes --> E[Retrieve Performance Data]
+    D -- No --> F[Display Error]
+    F --> G{Retry?}
+    G -- Yes --> B
+    G -- No --> H[Exit]
+    E --> I[Display Summary Dashboard]
+    I --> J{Export Report?}
+    J -- Yes --> K[Generate Report File]
+    K --> L[Show File Path]
+    J -- No --> M[End]
+    L --> M

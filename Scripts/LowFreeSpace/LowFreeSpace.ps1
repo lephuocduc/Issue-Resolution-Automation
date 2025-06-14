@@ -1310,7 +1310,6 @@ $main_form.Controls.Add($okButton)
 $main_form.Controls.Add($cancelButton)
 
 # Show form
-#$main_form.ShowDialog()
 if ($null -eq $env:UNIT_TEST) {
     $main_form.ShowDialog()
 }

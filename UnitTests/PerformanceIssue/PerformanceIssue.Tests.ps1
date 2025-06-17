@@ -20,5 +20,5 @@ else {
 
 $env:UNIT_TEST = "true"
 # Load the script to be tested
-. "$PSScriptRoot/../../Scripts/Performance Issue/Performance Issue.ps1"
+. "$PSScriptRoot/../../Scripts/PerformanceIssue/PerformanceIssue.ps1"
 

@@ -3,11 +3,11 @@ name: Low Free Space Unit Tests
 on:
   push:
     branches:
-      - LowFreeSpace
+      - 'task/**'
     paths:
       - 'Scripts/LowFreeSpace/LowFreeSpace.ps1'
       - 'UnitTests/LowFreeSpace/LowFreeSpace.Tests.ps1.ps1'
-      - .github/workflows/LowFreeSpace-workflow.yml
+      - .github/workflows/LowFreeSpace-task.yml
 
 jobs:
   unittest:

@@ -29,7 +29,7 @@ if (-not $PesterModule) {
     }
 }
 else {
-    Write-Host "Pester version 5.7.1 is installed."
+    Write-Host "Pester version 5.7.1 is installed." 
     Import-Module Pester -RequiredVersion 5.7.1
 }
 

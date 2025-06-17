@@ -35,7 +35,7 @@ else {
 
 $env:UNIT_TEST = "true"
 # Load the script to be tested
-. "$PSScriptRoot/../../Scripts/Low Free Space/Low Free Space.ps1"
+. "$PSScriptRoot/../../Scripts/LowFreeSpace/LowFreeSpace.ps1"
 
 Describe "Test Clear-SystemCache" {
     BeforeAll {

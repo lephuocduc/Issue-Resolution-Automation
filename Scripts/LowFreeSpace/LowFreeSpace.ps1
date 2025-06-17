@@ -1051,7 +1051,7 @@ $main_form.MaximizeBox = $false
 $main_form.TopMost = $false  # Keep form on top
 $main_form.KeyPreview = $true  # Important: This allows the form to receive key events before controls
 $main_form.Add_KeyDown({
-    param($btnSender, $e)
+    param($sender, $e)
     if ($e.KeyCode -eq [System.Windows.Forms.Keys]::Escape) {
         $cancelButton.PerformClick()
     }
@@ -1081,7 +1081,7 @@ $textBoxServerName.Location = New-Object System.Drawing.Point(120, 30)
 $textBoxServerName.Size = New-Object System.Drawing.Size(250, 30)
 $textBoxServerName.Font = New-Object System.Drawing.Font("Arial", 11)
 $textBoxServerName.Add_KeyDown({
-    param($btnSender, $e)
+    param($sender, $e)
     if ($e.Control -and $e.KeyCode -eq [System.Windows.Forms.Keys]::A) {
         # Select all text in the ComboBox
         $textBoxServerName.SelectAll()
@@ -1112,7 +1112,7 @@ $diskTextBox.Location = New-Object System.Drawing.Point(120, 60)
 $diskTextBox.Size = New-Object System.Drawing.Size(250, 30)
 $diskTextBox.Font = New-Object System.Drawing.Font("Arial", 11)
 $diskTextBox.Add_KeyDown({
-    param($btnSender, $e)
+    param($sender, $e)
     if ($e.Control -and $e.KeyCode -eq [System.Windows.Forms.Keys]::A) {
         # Select all text in the ComboBox
         $diskTextBox.SelectAll()
@@ -1313,5 +1313,3 @@ $main_form.Controls.Add($cancelButton)
 if ($null -eq $env:UNIT_TEST) {
     $main_form.ShowDialog()
 }
-
-Export-ModuleMember -Variable 'errorCount'

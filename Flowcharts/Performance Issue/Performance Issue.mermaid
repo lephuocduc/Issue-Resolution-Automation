@@ -1,15 +1,22 @@
 graph TD
-    A[Start] --> B[Enter Server Name]
-    B --> C[Enter Username/Password]
-    C --> D{Connection Successful?}
-    D -- Yes --> E[Retrieve Performance Data]
-    D -- No --> F[Display Error]
-    F --> G{Retry?}
-    G -- Yes --> B
-    G -- No --> H[Exit]
-    E --> I[Display Summary Dashboard]
-    I --> J{Export Report?}
-    J -- Yes --> K[Generate Report File]
-    K --> L[Show File Path]
-    J -- No --> M[End]
-    L --> M
+    A([Start]) --> B[Input Server Name]
+    B --> C{Test Server Availability via WinRM?}
+    C -->|Success| D[Set Attempts=0]
+    C -->|Failure| E[Display Error: Server Unreachable]
+    E --> B
+    D --> F[Input Username & Password]
+    F --> G{Create Session with Credentials?}
+    G -->|Success| H[Retrieve Performance Data]
+    G -->|Failure| I[Increment Attempts]
+    I --> J{Attempts < 3?}
+    J -->|Yes| F
+    J -->|No| K[Display Error: Max Attempts Reached]
+    K --> Z([Exit])
+    H --> L[Get-SystemUptime]
+    H --> M[Get-PerformanceMetrics]
+    M --> N[Get-TopCPUProcesses]
+    M --> O[Get-TopMemoryProcesses]
+    L --> P[Show-PerformanceDashboard]
+    N --> P
+    O --> P
+    P --> Z

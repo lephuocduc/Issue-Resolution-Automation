@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Server Performance Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #1a2a6c, #2c3e50);
+            color: #333;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+        }
+        
+        h1 {
+            color: #fff;
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+        
+        .dashboard {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 25px;
+            margin-bottom: 40px;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+            overflow: hidden;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+        }
+        
+        .card-header {
+            background: linear-gradient(135deg, #4b6cb7, #182848);
+            color: white;
+            padding: 15px 20px;
+            font-size: 1.3rem;
+            font-weight: 600;
+        }
+        
+        .card-body {
+            padding: 25px;
+        }
+        
+        .server-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 20px;
+            background: #2c3e50;
+            color: white;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .timestamp {
+            text-align: center;
+            color: #eee;
+            margin: 15px 0;
+            font-size: 1.1rem;
+        }
+        
+        .overview {
+            display: flex;
+            justify-content: space-around;
+            margin: 30px 0;
+            gap: 20px;
+        }
+        
+        .metric {
+            text-align: center;
+            flex: 1;
+            padding: 20px;
+            border-radius: 10px;
+            color: white;
+            font-weight: bold;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        .metric.cpu {
+            background: linear-gradient(135deg, #ff416c, #ff4b2b);
+        }
+        
+        .metric.mem {
+            background: linear-gradient(135deg, #36d1dc, #5b86e5);
+        }
+        
+        .metric-value {
+            font-size: 2.2rem;
+            margin: 10px 0;
+        }
+        
+        .metric-label {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+        
+        th {
+            background: #f5f7fa;
+            padding: 14px 12px;
+            text-align: left;
+            font-weight: 600;
+            color: #2c3e50;
+            border-bottom: 2px solid #e1e5eb;
+        }
+        
+        td {
+            padding: 12px;
+            border-bottom: 1px solid #eef2f7;
+        }
+        
+        tr:hover {
+            background-color: #f9fbfd;
+        }
+        
+        .process-name {
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        
+        .pid {
+            color: #7f8c8d;
+            font-size: 0.9rem;
+        }
+        
+        .cpu-high {
+            color: #e74c3c;
+            font-weight: bold;
+        }
+        
+        .mem-high {
+            color: #3498db;
+            font-weight: bold;
+        }
+        
+        .divider {
+            height: 3px;
+            background: linear-gradient(90deg, transparent, #4b6cb7, transparent);
+            margin: 25px 0;
+            border-radius: 3px;
+        }
+        
+        .user-badge {
+            background: #e1f0fa;
+            color: #2980b9;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            display: inline-block;
+        }
+        
+        footer {
+            text-align: center;
+            padding: 20px;
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 0.9rem;
+        }
+        
+        @media (min-width: 768px) {
+            .dashboard {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .overview {
+                flex-direction: row;
+            }
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        
+        .status-online {
+            background: #2ecc71;
+            box-shadow: 0 0 8px #2ecc71;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><i class="fas fa-server"></i> Server Performance Dashboard</h1>
+        </header>
+        
+        <div class="server-info">
+            <div>
+                <span class="status-indicator status-online"></span>
+                <strong>SERVER:</strong> XYZ-SERVER01
+            </div>
+            <div>
+                <strong>UPTIME:</strong> 15 DAYS
+            </div>
+        </div>
+        
+        <div class="timestamp">
+            <i class="far fa-clock"></i> Data Collected at 09:17 AM on June 14, 2025
+        </div>
+        
+        <div class="divider"></div>
+        
+        <div class="overview">
+            <div class="metric cpu">
+                <div class="metric-label">CPU USAGE</div>
+                <div class="metric-value">85%</div>
+                <div class="metric-detail">High Load</div>
+            </div>
+            <div class="metric mem">
+                <div class="metric-label">MEMORY USAGE</div>
+                <div class="metric-value">20GB</div>
+                <div class="metric-detail">52% of Total</div>
+            </div>
+        </div>
+        
+        <div class="divider"></div>
+        
+        <div class="dashboard">
+            <div class="card">
+                <div class="card-header">
+                    <i class="fas fa-microchip"></i> TOP PROCESSES (CPU)
+                </div>
+                <div class="card-body">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Process</th>
+                                <th>CPU</th>
+                                <th>RAM</th>
+                                <th>Run As</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="process-name">SQLSERVR.EXE <span class="pid">(123)</span></td>
+                                <td class="cpu-high">50%</td>
+                                <td class="mem-high">8GB (20%)</td>
+                                <td><span class="user-badge">User1</span></td>
+                            </tr>
+                            <tr>
+                                <td class="process-name">W3WP.EXE <span class="pid">(1234)</span></td>
+                                <td class="cpu-high">15%</td>
+                                <td class="mem-high">2.5GB (25%)</td>
+                                <td><span class="user-badge">User2</span></td>
+                            </tr>
+                            <tr>
+                                <td class="process-name">System <span class="pid">(4)</span></td>
+                                <td class="cpu-high">8%</td>
+                                <td class="mem-high">0.8GB (2%)</td>
+                                <td><span class="user-badge">SYSTEM</span></td>
+                            </tr>
+                            <tr>
+                                <td class="process-name">chrome.exe <span class="pid">(5678)</span></td>
+                                <td class="cpu-high">7%</td>
+                                <td class="mem-high">1.2GB (3%)</td>
+                                <td><span class="user-badge">User3</span></td>
+                            </tr>
+                            <tr>
+                                <td class="process-name">powershell.exe <span class="pid">(8910)</span></td>
+                                <td class="cpu-high">5%</td>
+                                <td class="mem-high">0.5GB (1.2%)</td>
+                                <td><span class="user-badge">Admin</span></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">
+                    <i class="fas fa-memory"></i> TOP PROCESSES (MEMORY)
+                </div>
+                <div class="card-body">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Process</th>
+                                <th>CPU</th>
+                                <th>RAM</th>
+                                <th>Run As</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="process-name">JAVAW.EXE <span class="pid">(122)</span></td>
+                                <td class="cpu-high">20%</td>
+                                <td class="mem-high">12GB (30%)</td>
+                                <td><span class="user-badge">User1</span></td>
+                            </tr>
+                            <tr>
+                                <td class="process-name">CHROME.EXE <span class="pid">(134)</span></td>
+                                <td class="cpu-high">10%</td>
+                                <td class="mem-high">2.5GB (25%)</td>
+                                <td><span class="user-badge">User2</span></td>
+                            </tr>
+                            <tr>
+                                <td class="process-name">sqlservr.exe <span class="pid">(123)</span></td>
+                                <td class="cpu-high">50%</td>
+                                <td class="mem-high">8GB (20%)</td>
+                                <td><span class="user-badge">User1</span></td>
+                            </tr>
+                            <tr>
+                                <td class="process-name">docker.exe <span class="pid">(456)</span></td>
+                                <td class="cpu-high">4%</td>
+                                <td class="mem-high">3.2GB (8%)</td>
+                                <td><span class="user-badge">SYSTEM</span></td>
+                            </tr>
+                            <tr>
+                                <td class="process-name">explorer.exe <span class="pid">(2345)</span></td>
+                                <td class="cpu-high">2%</td>
+                                <td class="mem-high">1.8GB (4.5%)</td>
+                                <td><span class="user-badge">User3</span></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

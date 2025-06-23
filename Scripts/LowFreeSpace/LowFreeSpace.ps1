@@ -143,7 +143,7 @@ function Test-ServerAvailability {
 
     return $result
 }
-
+<#
 function Ensure-TrustedHosts {
     param(
         [Parameter(Mandatory=$true)]
@@ -174,6 +174,7 @@ function Ensure-TrustedHosts {
         Write-Log "Error configuring TrustedHosts for $serverName: $_" "Error"
     }
 }
+#>
 
 function Get-Session {
     param(
@@ -185,7 +186,26 @@ function Get-Session {
     $retryCount = 0
     $maxRetries = 3
     try {
-        Ensure-TrustedHosts -serverName $serverName
+        if (-not (Get-PSProvider -PSProvider WSMan -ErrorAction SilentlyContinue)) {
+            Write-Log "WSMan provider not available, cannot configure TrustedHosts" "Warning"
+            return
+        }
+        $currentTrustedHosts = (Get-Item WSMan:\localhost\Client\TrustedHosts -ErrorAction SilentlyContinue).Value
+        if ($currentTrustedHosts -eq "*") {
+            Write-Log "TrustedHosts is set to wildcard '*', no update needed for $serverName"
+            return
+        }
+        $hostList = if (-not [string]::IsNullOrEmpty($currentTrustedHosts)) {
+            $currentTrustedHosts -split ',' | ForEach-Object { $_.Trim() }
+        } else {
+            @()
+        }
+        if ($serverName -notin $hostList) {
+            Set-Item WSMan:\localhost\Client\TrustedHosts -Value $serverName -Concatenate -Force
+            Write-Log "Updated TrustedHosts to include $serverName"
+        } else {
+            Write-Log "$serverName already in TrustedHosts"
+        }
         do {
             Write-Log "Attempting to create session for $serverName (Attempt $($retryCount + 1) of $maxRetries)"
             $retryCount++

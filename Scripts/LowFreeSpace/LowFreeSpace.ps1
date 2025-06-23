@@ -178,9 +178,7 @@ function Get-Session {
                             
                             # Add server if not already present
                             if ($serverName -notin $hostList) {
-                                $hostList += $serverName
-                                $newValue = $hostList -join ','
-                                Set-Item WSMan:\localhost\Client\TrustedHosts -Value $newValue -Force
+                                Set-Item WSMan:\localhost\Client\TrustedHosts -Value $serverName -Concatenate -Force
                                 Write-Log "Updated TrustedHosts to include $serverName"
                             }
                         } else {

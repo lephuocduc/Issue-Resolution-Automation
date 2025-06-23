@@ -144,6 +144,37 @@ function Test-ServerAvailability {
     return $result
 }
 
+function Ensure-TrustedHosts {
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$serverName
+    )
+    try {
+        if (-not (Get-PSProvider -PSProvider WSMan -ErrorAction SilentlyContinue)) {
+            Write-Log "WSMan provider not available, cannot configure TrustedHosts" "Warning"
+            return
+        }
+        $currentTrustedHosts = (Get-Item WSMan:\localhost\Client\TrustedHosts -ErrorAction SilentlyContinue).Value
+        if ($currentTrustedHosts -eq "*") {
+            Write-Log "TrustedHosts is set to wildcard '*', no update needed for $serverName"
+            return
+        }
+        $hostList = if (-not [string]::IsNullOrEmpty($currentTrustedHosts)) {
+            $currentTrustedHosts -split ',' | ForEach-Object { $_.Trim() }
+        } else {
+            @()
+        }
+        if ($serverName -notin $hostList) {
+            Set-Item WSMan:\localhost\Client\TrustedHosts -Value $serverName -Concatenate -Force
+            Write-Log "Updated TrustedHosts to include $serverName"
+        } else {
+            Write-Log "$serverName already in TrustedHosts"
+        }
+    } catch {
+        Write-Log "Error configuring TrustedHosts for $serverName: $_" "Error"
+    }
+}
+
 function Get-Session {
     param(
         [Parameter(Mandatory = $true)]
@@ -154,6 +185,7 @@ function Get-Session {
     $retryCount = 0
     $maxRetries = 3
     try {
+        Ensure-TrustedHosts -serverName $serverName
         do {
             Write-Log "Attempting to create session for $serverName (Attempt $($retryCount + 1) of $maxRetries)"
             $retryCount++
@@ -164,29 +196,6 @@ function Get-Session {
                 return $null
             }
             try {
-                if (Get-PSProvider -PSProvider WSMan -ErrorAction SilentlyContinue) {
-                    $currentTrustedHosts = (Get-Item WSMan:\localhost\Client\TrustedHosts -ErrorAction SilentlyContinue).Value
-                    # Skip update if wildcard exists
-                        if ($currentTrustedHosts -ne "*") {
-                            Write-Log "Updating TrustedHosts for $serverName"
-                            # Get current list as array
-                            $hostList = if (-not [string]::IsNullOrEmpty($currentTrustedHosts)) {
-                                $currentTrustedHosts -split ',' | ForEach-Object { $_.Trim() }
-                            } else {
-                                @()
-                            }
-                            
-                            # Add server if not already present
-                            if ($serverName -notin $hostList) {
-                                $hostList += $serverName
-                                $newValue = $hostList -join ','
-                                Set-Item WSMan:\localhost\Client\TrustedHosts -Value $newValue -Force
-                                Write-Log "Updated TrustedHosts to include $serverName"
-                            }
-                        } else {
-                            Write-Log "TrustedHosts already set to wildcard '*', skipping update for $serverName"
-                        }
-                }
                 $session = New-PSSession -ComputerName $serverName -Credential $credential -ErrorAction Stop
                 Write-Log "Session created successfully for $serverName"
                 Update-StatusLabel -text "Session created successfully for $serverName"

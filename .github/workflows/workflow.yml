@@ -39,7 +39,7 @@ jobs:
       - name: Run Unit Tests
         shell: pwsh
         run: |
-          Invoke-Pester -Path ".\UnitTests" -Script ".\UnitTests\*.ps1"
+          Invoke-Pester -Script ".\UnitTests\*.ps1"
 
   build:
     runs-on: windows-latest

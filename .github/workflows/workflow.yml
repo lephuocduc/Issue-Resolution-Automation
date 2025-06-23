@@ -39,7 +39,7 @@ jobs:
       - name: Run Unit Tests
         shell: pwsh
         run: |
-          Get-ChildItem -Path ".\UnitTests" -Filter *.ps1 -Recurse | ForEach-Object { & $_.FullName }
+          Get-ChildItem -Path ".\UnitTests" -Filter *.ps1 -Recurse | ForEach-Object { . ${_.FullName} }
 
   build:
     runs-on: windows-latest

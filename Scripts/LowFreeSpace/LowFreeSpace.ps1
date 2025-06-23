@@ -164,7 +164,27 @@ function Get-Session {
                 return $null
             }
             try {
-                Set-Item WSMan:\localhost\Client\TrustedHosts -Value "$serverName" -Concatenate -Force #In a non-domain (workgroup) environment, the remote computerâ€™s name or IP must be added to the local computerâ€™s TrustedHosts list
+                $currentTrustedHosts = (Get-Item WSMan:\localhost\Client\TrustedHosts -ErrorAction SilentlyContinue).Value
+                # Skip update if wildcard exists
+                    if ($currentTrustedHosts -ne "*") {
+                        Write-Log "Updating TrustedHosts for $serverName"
+                        # Get current list as array
+                        $hostList = if (-not [string]::IsNullOrEmpty($currentTrustedHosts)) {
+                            $currentTrustedHosts -split ',' | ForEach-Object { $_.Trim() }
+                        } else {
+                            @()
+                        }
+                        
+                        # Add server if not already present
+                        if ($serverName -notin $hostList) {
+                            $hostList += $serverName
+                            $newValue = $hostList -join ','
+                            Set-Item WSMan:\localhost\Client\TrustedHosts -Value $newValue -Force
+                            Write-Log "Updated TrustedHosts to include $serverName"
+                        }
+                    } else {
+                        Write-Log "TrustedHosts already set to wildcard '*', skipping update for $serverName"
+                    }
                 $session = New-PSSession -ComputerName $serverName -Credential $credential -ErrorAction Stop
                 Write-Log "Session created successfully for $serverName"
                 Update-StatusLabel -text "Session created successfully for $serverName"

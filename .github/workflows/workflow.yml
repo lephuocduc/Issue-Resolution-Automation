@@ -10,6 +10,13 @@ on:
       - 'UnitTests/**/*.ps1'
       - .github/workflows/workflow.yml
       - 'ScriptManager/package.psd1'
+  push:
+    branches:
+      - master
+    paths:
+      - 'ScriptManager/ScriptManager.ps1'
+      - .github/workflows/workflow.yml
+      - 'ScriptManager/package.psd1'
 
 jobs:
   build:

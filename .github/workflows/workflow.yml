@@ -1,7 +1,7 @@
 name: Package PowerShell App - Master Branch
 
 on:
-  push:
+  pull_request:
     branches:
       - master
     paths:

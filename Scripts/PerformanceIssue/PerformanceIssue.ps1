@@ -149,7 +149,7 @@ $toolTip.InitialDelay = 500   # Time before the tooltip appears (in milliseconds
 $toolTip.ReshowDelay = 500    # Time before tooltip reappears if mouse moves away and back
 $toolTip.ShowAlways = $true   # Show tooltip even if the form is not active
 
-# Server Name Label
+# Server Name Label 
 $labelServerName = New-Object System.Windows.Forms.Label
 $labelServerName.Location = New-Object System.Drawing.Point(20, 30)
 $labelServerName.Size = New-Object System.Drawing.Size(100, 30)

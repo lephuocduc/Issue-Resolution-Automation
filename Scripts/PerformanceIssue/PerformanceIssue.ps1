@@ -1,11 +1,3 @@
-[System.Windows.Forms.MessageBox]::Show(
-    "The script hasn't been done yet. Welcome you to the project! ", 
-    "Information", 
-    [System.Windows.Forms.MessageBoxButtons]::OK, 
-    [System.Windows.Forms.MessageBoxIcon]::Information
-)
-
-
 # NOTES
 # Name:        PerformanceIssue.ps1
 # Author:      Duc Le
@@ -126,7 +118,7 @@ function Remove-Session {
 
 $main_form = New-Object System.Windows.Forms.Form
 $main_form.Text = "Low Free Space"
-$main_form.Size = New-Object System.Drawing.Size(410, 250)
+$main_form.Size = New-Object System.Drawing.Size(410, 200)
 $main_form.StartPosition = "CenterScreen"
 $main_form.FormBorderStyle = 'FixedSingle'  # Or 'FixedDialog'
 $main_form.MaximizeBox = $false
@@ -208,8 +200,8 @@ $totalWidth = ($buttonWidth * 2) + $spaceBetween
 $startX = ($main_form.ClientSize.Width - $totalWidth) / 2
 
 # Position buttons
-$okButton.Location = New-Object System.Drawing.Point($startX, 100)
-$cancelButton.Location = New-Object System.Drawing.Point(($startX + $buttonWidth + $spaceBetween), 100)
+$okButton.Location = New-Object System.Drawing.Point($startX, 80)
+$cancelButton.Location = New-Object System.Drawing.Point(($startX + $buttonWidth + $spaceBetween), 80)
 
 # Status label
 $statusLabel = New-Object System.Windows.Forms.Label

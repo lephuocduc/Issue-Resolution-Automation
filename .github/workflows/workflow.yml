@@ -24,6 +24,9 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
+        with:
+          ref: master
+          fetch-depth: 0
 
       - name: Install PowerShellProTools
         shell: pwsh
@@ -50,10 +53,11 @@ jobs:
           if (Test-Path 'ScriptManager.exe') {
               git config --global user.name "GitHub Action"
               git config --global user.email "action@github.com"
+              git checkout master
               Copy-Item -Path "ScriptManager.exe" -Destination "ScriptManager\ScriptManager.exe"
               git add ScriptManager\ScriptManager.exe
               git add ScriptManager\ScriptManager.ps1
-              git commit -m "Add ScriptManager.exe"
+              git commit -m "Add ScriptManager.exe" || Write-Host "Nothing to commit"
               git push origin master || Write-Host "Failed to push changes"
           } else {
               Write-Host "Executable not found"

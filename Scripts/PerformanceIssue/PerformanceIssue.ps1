@@ -30,6 +30,73 @@ function Write-Log {
     "$timestamp [$Level] $Message" | Out-File -FilePath $LogPath -Append -Encoding UTF8
 }
 
+function Get-Session {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$serverName,
+        [Parameter(Mandatory = $false)]
+        [PSCredential]$Credential = $null
+    )
+    $retryCount = 0
+    $maxRetries = 3
+    try {
+        if (Get-PSProvider -PSProvider WSMan -ErrorAction SilentlyContinue) {
+                    $currentTrustedHosts = (Get-Item WSMan:\localhost\Client\TrustedHosts -ErrorAction SilentlyContinue).Value
+                    # Skip update if wildcard exists
+                        if ($currentTrustedHosts -ne "*") {
+                            Write-Log "Updating TrustedHosts for $serverName"
+                            # Get current list as array
+                            $hostList = if (-not [string]::IsNullOrEmpty($currentTrustedHosts)) {
+                                $currentTrustedHosts -split ',' | ForEach-Object { $_.Trim() }
+                            } else {
+                                @()
+                            }
+                            
+                            # Add server if not already present
+                            if ($serverName -notin $hostList) {
+                                Set-Item WSMan:\localhost\Client\TrustedHosts -Value $serverName -Concatenate -Force
+                                Write-Log "Updated TrustedHosts to include $serverName"
+                            }
+                        } else {
+                            Write-Log "TrustedHosts already set to wildcard '*', skipping update for $serverName"
+                        }
+        }
+        do {
+            Write-Log "Attempting to create session for $serverName (Attempt $($retryCount + 1) of $maxRetries)"
+            $retryCount++
+            $Credential = Get-Credential -Message "Enter credentials for $ServerName (Attempt $($retryCount) of $MaxRetries)"
+            if ($null -eq $Credential -or $retryCount -ge $maxRetries) {
+                Write-Log "Session creation canceled or retry limit reached for $serverName" "Error"
+                Update-StatusLabel -text "Session creation canceled or retry limit reached for $serverName"
+                return $null
+            }
+            try {
+                
+                $session = New-PSSession -ComputerName $serverName -Credential $credential -ErrorAction Stop
+                Write-Log "Session created successfully for $serverName"
+                Update-StatusLabel -text "Session created successfully for $serverName"
+                return $session
+            } catch {
+                if ($retryCount -ge $maxRetries) {
+                    Write-Log "Failed to create session for $serverName after $maxRetries attempts: $_" "Error"
+                    Update-StatusLabel -text "Failed to create session for $serverName after $maxRetries attempts."
+                    return $null
+                }else {
+                    $errorDetails = "Exception: $($_.Exception.GetType().FullName)`nMessage: $($_.Exception.Message)`nStackTrace: $($_.ScriptStackTrace)"
+                    Write-Log "Failed to create session for $ServerName on attempt $retryCount. Error: $errorDetails" "Error"
+                    Update-StatusLabel -text "Failed to create session for $serverName."
+                }
+            }
+        } while ($true)
+    }
+    catch {
+        $errorDetails = "Exception: $($_.Exception.GetType().FullName)`nMessage: $($_.Exception.Message)`nStackTrace: $($_.ScriptStackTrace)"
+        Write-Log "Error creating session for $serverName': $errorDetails" "Error"
+        Update-StatusLabel -text "Error creating session for $serverName"
+        return $null
+    }
+}
+
 function Test-ServerAvailability {
     param(
         [Parameter(Mandatory=$true)]
@@ -115,9 +182,63 @@ function Remove-Session {
     }
 }
 
+function Test-ReportFileCreation {
+    [CmdletBinding()]
+    param(
+        [string]$LogPath = "C:\Temp",
+        [string]$TestFile = "test_$(Get-Date -Format 'ddMMyyyy_HHmmss').html"
+    )
+    
+    try {
+        Write-Log "Testing log file creation in: $LogPath"
+        
+        # Resolve full path using .NET methods
+        $resolvedPath = [System.IO.Path]::GetFullPath($LogPath)
+        $testFilePath = [System.IO.Path]::Combine($resolvedPath, $TestFile)
+
+        # Create directory structure using .NET (faster and more reliable)
+        $testDir = [System.IO.Path]::GetDirectoryName($testFilePath)
+        if (-not [System.IO.Directory]::Exists($testDir)) {
+            [System.IO.Directory]::CreateDirectory($testDir) | Out-Null
+        }
+
+        # Generate content with UTC timestamp for consistency
+        $utcTimestamp = [System.DateTime]::UtcNow.ToString("o")
+        $testContent = "Log creation test: $utcTimestamp"
+
+        # Use FileStream for atomic write operation
+        try {
+            $stream = [System.IO.File]::OpenWrite($testFilePath)
+            $writer = [System.IO.StreamWriter]::new($stream)
+            $writer.Write($testContent)
+            $writer.Close()
+        }
+        finally {
+            if ($writer) { $writer.Dispose() }
+            if ($stream) { $stream.Dispose() }
+        }
+
+        # Verify file creation using file attributes (faster than Test-Path)
+        $fileInfo = [System.IO.File]::GetAttributes($testFilePath)
+        if (($fileInfo -band [System.IO.FileAttributes]::Archive) -eq [System.IO.FileAttributes]::Archive) {
+            [System.IO.File]::Delete($testFilePath)
+            Write-Log "Log file created and verified successfully: $TestFile"
+            return $true
+        }
+
+        throw "File verification failed after write operation"
+    }
+    catch {
+        $errorMsg = "Error creating test file: $($_.Exception.Message)"
+        Write-Log $errorMsg "Error"
+        return $false
+    }
+}
+
+
 
 $main_form = New-Object System.Windows.Forms.Form
-$main_form.Text = "Low Free Space"
+$main_form.Text = "Windows Performance Issue"
 $main_form.Size = New-Object System.Drawing.Size(410, 200)
 $main_form.StartPosition = "CenterScreen"
 $main_form.FormBorderStyle = 'FixedSingle'  # Or 'FixedDialog'
@@ -178,7 +299,66 @@ $okButton = New-Object System.Windows.Forms.Button
 $okButton.Size = New-Object System.Drawing.Size(80, 30)
 $okButton.Text = "OK"
 $okButton.Add_Click({
+    try {
+        $serverName = $textBoxServerName.Text.Trim()
 
+        if ([string]::IsNullOrEmpty($serverName)) {
+            [System.Windows.Forms.MessageBox]::Show(
+                "Please enter server name.", 
+                "Warning", 
+                [System.Windows.Forms.MessageBoxButtons]::OK, 
+                [System.Windows.Forms.MessageBoxIcon]::Warning
+            )
+            return
+        }
+
+        $result = Test-ServerAvailability -serverName $serverName
+        if (-not $result.RemotingAvailable) {
+            [System.Windows.Forms.MessageBox]::Show(
+                "Server '$serverName' is not available for remoting. Details: $($result.ErrorDetails)",
+                "Error",
+                [System.Windows.Forms.MessageBoxButtons]::OK,
+                [System.Windows.Forms.MessageBoxIcon]::Error
+            )
+            return
+        }
+
+        $session = Get-Session -serverName $serverName
+        if ($null -eq $session) {
+            [System.Windows.Forms.MessageBox]::Show(
+                "Session creation canceled or retry limit reached.", 
+                "Error", 
+                [System.Windows.Forms.MessageBoxButtons]::OK, 
+                [System.Windows.Forms.MessageBoxIcon]::Error
+            )
+            return
+        }
+
+        if (-not (Test-ReportFileCreation)) {
+            [System.Windows.Forms.MessageBox]::Show(
+                "Cannot proceed - local log file creation failed", 
+                "Error", 
+                [System.Windows.Forms.MessageBoxButtons]::OK, 
+                [System.Windows.Forms.MessageBoxIcon]::Error
+            )
+            return
+        }
+
+        try {
+            # Load the main script for performance issue analysis
+
+            $main_form.Close()
+            Remove-Session
+        }
+        catch {
+            [System.Windows.Forms.MessageBox]::Show($_.Exception.Message, "Error")
+            Write-Log "Error in OK button click event: $_" "Error"
+        }
+    } catch {
+        [System.Windows.Forms.MessageBox]::Show($_.Exception.Message, "Error")
+        Write-Log "Error in OK button click event: $_" "Error"
+        Remove-Session
+    }
 })
 
 # Exit Button
@@ -189,8 +369,7 @@ $cancelButton.Text = "Cancel"
 $cancelButton.BackColor = [System.Drawing.Color]::LightCoral
 $cancelButton.Add_Click({
     $main_form.Close()
-    Remove-Session
-}
+    Remove-Session}
 )
 
 # Calculate horizontal positions for centered alignment

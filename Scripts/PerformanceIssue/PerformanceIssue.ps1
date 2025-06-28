@@ -205,6 +205,25 @@ function Get-PerformanceMetrics {
         $cpuSamples = @()
         $memorySamples = @()
         $processData = @()
+        $numberOfCores = [Environment]::ProcessorCount
+
+        # Create hashtable to track previous CPU times
+        $previousCpuTimes = @{}
+
+        # Function to reliably get process owner
+        function Get-ProcessOwner {
+            param($ProcessId)
+            try {
+                $cimProcess = Get-CimInstance -ClassName Win32_Process -Filter "ProcessId = $ProcessId"
+                if ($cimProcess) {
+                    $owner = Invoke-CimMethod -InputObject $cimProcess -MethodName GetOwner
+                    return $owner.User
+                }
+                return "Unknown"
+            } catch {
+                return "Unknown"
+            }
+        }
 
         for ($i = 0; $i -lt $Samples; $i++) {
             # System CPU
@@ -217,27 +236,37 @@ function Get-PerformanceMetrics {
             $memoryPercent = [math]::Round(($usedMemory / $totalMemory) * 100, 2)
             $memorySamples += $memoryPercent
             
-            # Process Data with proper owner retrieval
-            Get-CimInstance -ClassName Win32_Process | ForEach-Object {
-                $user = "N/A"
-                try {
-                    $owner = Invoke-CimMethod -InputObject $_ -MethodName GetOwner -ErrorAction Stop
-                    $user = $owner.User
+            # Revised Process Data Collection
+            $currentProcesses = Get-Process | Where-Object { $_.Id -ne 0 }  # Exclude Idle process
+            $currentCpuTimes = @{}
+            
+            foreach ($process in $currentProcesses) {
+                $processID = $process.Id
+                $currentCpu = $process.TotalProcessorTime.TotalSeconds
+                $currentCpuTimes[$processID] = $currentCpu
+                
+                # Calculate CPU usage since last sample
+                $cpuUsage = 0
+                if ($previousCpuTimes.ContainsKey($processID)) {
+                    $cpuDelta = $currentCpu - $previousCpuTimes[$processID]
+                    $cpuUsage = [math]::Round(($cpuDelta / $Interval) * 100 / $numberOfCores, 2)
                 }
-                catch {
-                    # Use process name as fallback if we can't get owner
-                    $user = "Unknown"
-                }
+                
+                # Get process owner
+                $user = Get-ProcessOwner -ProcessId $processID
                 
                 $processData += [PSCustomObject]@{
                     SampleTime = [datetime]::Now
-                    PID = $_.ProcessId
-                    ProcessName = $_.Name
-                    CPU = if ($null -ne $_.PercentProcessorTime) { $_.PercentProcessorTime / [Environment]::ProcessorCount } else { 0 }
-                    MemoryBytes = $_.WorkingSetSize
+                    PID = $processID
+                    ProcessName = $process.ProcessName
+                    CPU = $cpuUsage
+                    MemoryBytes = $process.WorkingSet64
                     User = $user
                 }
             }
+            
+            # Update previous CPU times for next iteration
+            $previousCpuTimes = $currentCpuTimes
             
             if ($i -lt ($Samples - 1)) {
                 Start-Sleep -Seconds $Interval
@@ -346,13 +375,13 @@ function Show-PerformanceDashboard {
         $totalGB = [math]::Round($SystemMetrics.TotalMemoryBytes / 1GB, 1)
 
         $output = @()
-        $output += ""
-        $output += "SERVER: $($Uptime.ServerName) | UPTIME: $($Uptime.Days) DAYS"
+        $output += ("=" * 60)
+        $output += "SERVER: $($Uptime.ServerName) | UPTIME: $($Uptime.Days) DAYS $($Uptime.Hours) HOURS $($Uptime.Minutes) MINUTES"
         $output += "Data Collected at $collectionTime"
-        $output += ("-" * 60)
+        $output += ("=" * 60)
         $output += "OVERVIEW:"
         $output += "[CPU]: $($SystemMetrics.AvgCPU)%`t[MEM]: ${memGB}GB ($memPercent%)"
-        $output += ("-" * 60)
+        $output += ("=" * 60)
         $output += "TOP PROCESSES (CPU):"
         $output += ("{0,-30} {1,-15} {2,-15} {3}" -f "Process name (PID)", "CPU", "RAM", "Run as")
         
@@ -369,7 +398,7 @@ function Show-PerformanceDashboard {
                 $p.User)
         }
         
-        $output += ("-" * 60)
+        $output += ("=" * 60)
         $output += "TOP PROCESSES (MEM):"
         $output += ("{0,-30} {1,-15} {2,-15} {3}" -f "Process name (PID)", "CPU", "RAM", "Run as")
         
@@ -386,7 +415,7 @@ function Show-PerformanceDashboard {
                 $p.User)
         }
         
-        $output += ("-" * 60)
+        $output += ("=" * 60)
         
         # Display dashboard to console
         $output | Out-Host
@@ -600,7 +629,11 @@ $okButton.Add_Click({
             # Collect data using separate functions
             Update-StatusLabel -text "Collecting system uptime for $serverName..."
             $uptime = Get-SystemUptime -ServerName $serverName -Session $session
+
+            Update-StatusLabel -text "Collecting performance metrics for $serverName..."
             $metrics = Get-PerformanceMetrics -ServerName $serverName -Session $session -Samples 5 -Interval 2
+
+            Update-StatusLabel -text "Processing performance data for $serverName..."
             $topCPU = Get-TopCPUProcesses -PerformanceData $metrics -TopCount 5
             $topMemory = Get-TopMemoryProcesses -PerformanceData $metrics -TopCount 5
 

@@ -41,25 +41,25 @@ function Get-Session {
     $maxRetries = 3
     try {
         if (Get-PSProvider -PSProvider WSMan -ErrorAction SilentlyContinue) {
-                    $currentTrustedHosts = (Get-Item WSMan:\localhost\Client\TrustedHosts -ErrorAction SilentlyContinue).Value
-                    # Skip update if wildcard exists
-                        if ($currentTrustedHosts -ne "*") {
-                            Write-Log "Updating TrustedHosts for $serverName"
-                            # Get current list as array
-                            $hostList = if (-not [string]::IsNullOrEmpty($currentTrustedHosts)) {
-                                $currentTrustedHosts -split ',' | ForEach-Object { $_.Trim() }
-                            } else {
-                                @()
-                            }
-                            
-                            # Add server if not already present
-                            if ($serverName -notin $hostList) {
-                                Set-Item WSMan:\localhost\Client\TrustedHosts -Value $serverName -Concatenate -Force
-                                Write-Log "Updated TrustedHosts to include $serverName"
-                            }
-                        } else {
-                            Write-Log "TrustedHosts already set to wildcard '*', skipping update for $serverName"
-                        }
+            $currentTrustedHosts = (Get-Item WSMan:\localhost\Client\TrustedHosts -ErrorAction SilentlyContinue).Value
+            # Skip update if wildcard exists
+            if ($currentTrustedHosts -ne "*") {
+                Write-Log "Updating TrustedHosts for $serverName"
+                # Get current list as array
+                $hostList = if (-not [string]::IsNullOrEmpty($currentTrustedHosts)) {
+                    $currentTrustedHosts -split ',' | ForEach-Object { $_.Trim() }
+                } else {
+                    @()
+                }
+                
+                # Add server if not already present
+                if ($serverName -notin $hostList) {
+                    Set-Item WSMan:\localhost\Client\TrustedHosts -Value $serverName -Concatenate -Force
+                    Write-Log "Updated TrustedHosts to include $serverName"
+                }
+            } else {
+                Write-Log "TrustedHosts already set to wildcard '*', skipping update for $serverName"
+            }
         }
         do {
             Write-Log "Attempting to create session for $serverName (Attempt $($retryCount + 1) of $maxRetries)"
@@ -158,6 +158,35 @@ function Update-StatusLabel {
     $label_x = ($main_form.ClientSize.Width - $statusLabel_width) / 2
     $statusLabel.Location = New-Object System.Drawing.Point($label_x, $statusLabel.Location.Y)
     $statusLabel.Refresh()
+}
+
+function Get-SystemUptime {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ServerName,
+        [System.Management.Automation.Runspaces.PSSession]$Session
+    )
+
+    $params = @{
+        ComputerName = $ComputerName
+        ErrorAction  = 'Stop'
+    }
+    if ($Credential) { $params['Credential'] = $Credential }
+
+    try {
+        $os = Get-CimInstance -ClassName Win32_OperatingSystem @params
+        $uptime = (Get-Date) - $os.LastBootUpTime
+        $bootTime = $os.LastBootUpTime
+        
+        [PSCustomObject]@{
+            ComputerName = $ComputerName
+            Uptime       = $uptime
+            LastBootTime = $bootTime
+        }
+    }
+    catch {
+        Write-Error "Failed to get uptime for $ComputerName : $_"
+    }
 }
 
 function Remove-Session {
@@ -268,7 +297,7 @@ $labelServerName.Location = New-Object System.Drawing.Point(20, 30)
 $labelServerName.Size = New-Object System.Drawing.Size(100, 30)
 $labelServerName.Text = "Server Name:"
 $labelServerName.Font = New-Object System.Drawing.Font("Arial", 11)
-$toolTip.SetToolTip($labelServerName, "Enter the hostname or IP address of the remote server to analyze or clean.")
+$toolTip.SetToolTip($labelServerName, "Enter the hostname or IP address of the remote server.")
 
 # Server Name TextBox
 $textBoxServerName = New-Object System.Windows.Forms.TextBox

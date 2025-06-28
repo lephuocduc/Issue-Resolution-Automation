@@ -217,15 +217,25 @@ function Get-PerformanceMetrics {
             $memoryPercent = [math]::Round(($usedMemory / $totalMemory) * 100, 2)
             $memorySamples += $memoryPercent
             
-            # Process Data
+            # Process Data with proper owner retrieval
             Get-CimInstance -ClassName Win32_Process | ForEach-Object {
+                $user = "N/A"
+                try {
+                    $owner = Invoke-CimMethod -InputObject $_ -MethodName GetOwner -ErrorAction Stop
+                    $user = $owner.User
+                }
+                catch {
+                    # Use process name as fallback if we can't get owner
+                    $user = "Unknown"
+                }
+                
                 $processData += [PSCustomObject]@{
                     SampleTime = [datetime]::Now
                     PID = $_.ProcessId
                     ProcessName = $_.Name
-                    CPU = ($_.PercentProcessorTime / [Environment]::ProcessorCount)
+                    CPU = if ($null -ne $_.PercentProcessorTime) { $_.PercentProcessorTime / [Environment]::ProcessorCount } else { 0 }
                     MemoryBytes = $_.WorkingSetSize
-                    User = (($_.GetOwner()).User)
+                    User = $user
                 }
             }
             
@@ -549,6 +559,8 @@ $okButton.Add_Click({
             return
         }
 
+        # Test server availability
+        Update-StatusLabel -text "Testing server availability for $serverName..."
         $result = Test-ServerAvailability -serverName $serverName
         if (-not $result.RemotingAvailable) {
             [System.Windows.Forms.MessageBox]::Show(
@@ -560,6 +572,8 @@ $okButton.Add_Click({
             return
         }
 
+        # Create remote session
+        Update-StatusLabel -text "Creating session for $serverName..."
         $session = Get-Session -serverName $serverName
         if ($null -eq $session) {
             [System.Windows.Forms.MessageBox]::Show(
@@ -583,6 +597,30 @@ $okButton.Add_Click({
 
         try {
             # Load the main script for performance issue analysis
+            # Collect data using separate functions
+            Update-StatusLabel -text "Collecting system uptime for $serverName..."
+            $uptime = Get-SystemUptime -ServerName $serverName -Session $session
+            $metrics = Get-PerformanceMetrics -ServerName $serverName -Session $session -Samples 5 -Interval 2
+            $topCPU = Get-TopCPUProcesses -PerformanceData $metrics -TopCount 5
+            $topMemory = Get-TopMemoryProcesses -PerformanceData $metrics -TopCount 5
+
+            # Show performance dashboard
+            $dashboardFile = Show-PerformanceDashboard -Uptime $uptime -TopCPU $topCPU -TopMemory $topMemory -SystemMetrics $metrics.SystemMetrics
+            if ($dashboardFile) {
+                [System.Windows.Forms.MessageBox]::Show(
+                    "Performance dashboard generated successfully: $dashboardFile",
+                    "Success",
+                    [System.Windows.Forms.MessageBoxButtons]::OK,
+                    [System.Windows.Forms.MessageBoxIcon]::Information
+                )
+            } else {
+                [System.Windows.Forms.MessageBox]::Show(
+                    "Failed to generate performance dashboard.",
+                    "Error",
+                    [System.Windows.Forms.MessageBoxButtons]::OK,
+                    [System.Windows.Forms.MessageBoxIcon]::Error
+                )
+            }
 
             $main_form.Close()
             Remove-Session

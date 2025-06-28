@@ -161,31 +161,30 @@ function Update-StatusLabel {
 }
 
 function Get-SystemUptime {
+    [CmdletBinding()]
     param(
         [Parameter(Mandatory = $true)]
         [string]$ServerName,
         [System.Management.Automation.Runspaces.PSSession]$Session
     )
-
-    $params = @{
-        ComputerName = $ComputerName
-        ErrorAction  = 'Stop'
-    }
-    if ($Credential) { $params['Credential'] = $Credential }
-
-    try {
-        $os = Get-CimInstance -ClassName Win32_OperatingSystem @params
-        $uptime = (Get-Date) - $os.LastBootUpTime
-        $bootTime = $os.LastBootUpTime
-        
+    
+    $scriptBlock = {
+        $lastBoot = (Get-CimInstance -ClassName Win32_OperatingSystem).LastBootUpTime
+        $uptime = [datetime]::Now - $lastBoot
         [PSCustomObject]@{
-            ComputerName = $ComputerName
-            Uptime       = $uptime
-            LastBootTime = $bootTime
+            ServerName = $env:COMPUTERNAME
+            Days = $uptime.Days
+            Hours = $uptime.Hours
+            Minutes = $uptime.Minutes
         }
     }
-    catch {
-        Write-Error "Failed to get uptime for $ComputerName : $_"
+
+    try {
+        $result = Invoke-Command -Session $Session -ScriptBlock $scriptBlock
+        return $result
+    } catch {
+        Write-Log "Error getting uptime for $ServerName : $_"
+        throw
     }
 }
 

@@ -188,6 +188,97 @@ function Get-SystemUptime {
     }
 }
 
+function Get-PerformanceMetrics {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ServerName,
+        [System.Management.Automation.Runspaces.PSSession]$Session,
+        [int]$Samples = 5,
+        [int]$Interval = 2
+    )
+
+    $scriptBlock = {
+        param($Samples, $Interval)
+        
+        $totalMemory = (Get-CimInstance -ClassName Win32_ComputerSystem).TotalPhysicalMemory
+        $cpuSamples = @()
+        $memorySamples = @()
+        $processData = @()
+
+        for ($i = 0; $i -lt $Samples; $i++) {
+            # System CPU
+            $cpu = (Get-Counter -Counter "\Processor(_Total)\% Processor Time" -ErrorAction Stop).CounterSamples.CookedValue
+            $cpuSamples += $cpu
+            
+            # System Memory
+            $available = (Get-Counter -Counter "\Memory\Available Bytes" -ErrorAction Stop).CounterSamples.CookedValue
+            $usedMemory = $totalMemory - $available
+            $memoryPercent = [math]::Round(($usedMemory / $totalMemory) * 100, 2)
+            $memorySamples += $memoryPercent
+            
+            # Process Data
+            Get-CimInstance -ClassName Win32_Process | ForEach-Object {
+                $processData += [PSCustomObject]@{
+                    SampleTime = [datetime]::Now
+                    PID = $_.ProcessId
+                    ProcessName = $_.Name
+                    CPU = ($_.PercentProcessorTime / [Environment]::ProcessorCount)
+                    MemoryBytes = $_.WorkingSetSize
+                    User = (($_.GetOwner()).User)
+                }
+            }
+            
+            if ($i -lt ($Samples - 1)) {
+                Start-Sleep -Seconds $Interval
+            }
+        }
+
+        # Calculate system averages
+        $avgCPU = [math]::Round(($cpuSamples | Measure-Object -Average).Average, 2)
+        $avgMemoryPercent = [math]::Round(($memorySamples | Measure-Object -Average).Average, 2)
+        $avgMemoryBytes = [math]::Round(($memorySamples | ForEach-Object { ($_ / 100) * $totalMemory } | Measure-Object -Average).Average, 0)
+
+        # Aggregate process data
+        $processSummary = $processData | Group-Object PID | ForEach-Object {
+            $first = $_.Group[0]
+            [PSCustomObject]@{
+                PID = $first.PID
+                ProcessName = $first.ProcessName
+                User = $first.User
+                AvgCPU = [math]::Round(($_.Group.CPU | Measure-Object -Average).Average, 2)
+                AvgMemoryBytes = [math]::Round(($_.Group.MemoryBytes | Measure-Object -Average).Average, 0)
+            }
+        }
+
+        [PSCustomObject]@{
+            SystemMetrics = [PSCustomObject]@{
+                AvgCPU = $avgCPU
+                AvgMemoryPercent = $avgMemoryPercent
+                AvgMemoryBytes = $avgMemoryBytes
+                TotalMemoryBytes = $totalMemory
+            }
+            ProcessMetrics = $processSummary
+        }
+    }
+
+    try {
+        $params = @{
+            ScriptBlock = $scriptBlock
+            ArgumentList = $Samples, $Interval
+        }
+        if ($Session) {
+            $result = Invoke-Command -Session $Session @params
+        } else {
+            $result = Invoke-Command -ComputerName $ServerName @params
+        }
+        return $result
+    } catch {
+        Write-Log "Error collecting metrics for $ServerName : $_"
+        throw
+    }
+}
+
 function Remove-Session {
     try {
         # Check if session exists and is still open before removing it

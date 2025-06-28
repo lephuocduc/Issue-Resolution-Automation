@@ -160,6 +160,35 @@ function Update-StatusLabel {
     $statusLabel.Refresh()
 }
 
+function Get-SystemUptime {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ServerName,
+        [System.Management.Automation.Runspaces.PSSession]$Session
+    )
+
+    $params = @{
+        ComputerName = $ComputerName
+        ErrorAction  = 'Stop'
+    }
+    if ($Credential) { $params['Credential'] = $Credential }
+
+    try {
+        $os = Get-CimInstance -ClassName Win32_OperatingSystem @params
+        $uptime = (Get-Date) - $os.LastBootUpTime
+        $bootTime = $os.LastBootUpTime
+        
+        [PSCustomObject]@{
+            ComputerName = $ComputerName
+            Uptime       = $uptime
+            LastBootTime = $bootTime
+        }
+    }
+    catch {
+        Write-Error "Failed to get uptime for $ComputerName : $_"
+    }
+}
+
 function Remove-Session {
     try {
         # Check if session exists and is still open before removing it

@@ -42,3 +42,9 @@ Process name (PID)          CPU             RAM             Run as
 ───────────────────────────────────────────
 
 *** Exit
+
+
+##############################
+
+simulate a hung server
+https://chat.deepseek.com/a/chat/s/9adfc5ee-e5d5-44ff-aa28-5372312b909f

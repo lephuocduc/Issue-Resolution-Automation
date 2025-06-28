@@ -279,6 +279,19 @@ function Get-PerformanceMetrics {
     }
 }
 
+function Get-TopCPUProcesses {
+    param (
+        [Parameter(Mandatory = $true)]
+        [array]$ProcessData,
+        [int]$TopCount = 5
+    )
+
+    Write-Log "Analyzing top 5 CPU-consuming processes"
+    $topCPU = $ProcessData | Sort-Object AvgCPU -Descending | Select-Object -First $TopCount
+    Write-Log "Top $TopCount CPU processes identified"
+    return $topCPU
+}
+
 function Remove-Session {
     try {
         # Check if session exists and is still open before removing it

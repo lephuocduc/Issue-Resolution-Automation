@@ -198,6 +198,7 @@ function Get-PerformanceMetrics {
         [int]$Interval = 2
     )
 
+    Update-StatusLabel -text "Collecting performance metrics for $ServerName... Estimated time: $($Samples * $Interval) seconds"
     $scriptBlock = {
         param($Samples, $Interval)
         
@@ -376,6 +377,9 @@ function Show-PerformanceDashboard {
 
         $output = @()
         $output += ("=" * 60)
+        $output += "SERVER PERFORMANCE REPORT"
+        $output += ("=" * 60)
+        $output += ""
         $output += "SERVER: $($Uptime.ServerName) | UPTIME: $($Uptime.Days) DAYS $($Uptime.Hours) HOURS $($Uptime.Minutes) MINUTES"
         $output += "Data Collected at $collectionTime"
         $output += ("=" * 60)

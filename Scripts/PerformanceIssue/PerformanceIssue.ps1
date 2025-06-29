@@ -198,7 +198,7 @@ function Get-PerformanceMetrics {
         [int]$Interval = 0
     )
 
-    # Scriptblock to collect static system information (runs once)
+    # Scriptblock to collect static system information (runs once) 
     $staticScriptBlock = {
         $totalMemory = (Get-CimInstance -ClassName Win32_ComputerSystem).TotalPhysicalMemory
         $numberOfCores = [Environment]::ProcessorCount

@@ -35,7 +35,6 @@ jobs:
               Install-Module -Name PowerShellProTools -Force
           }
           Import-Module PowerShellProTools
-          git pull origin master
 
       - name: Start Script Watcher
         shell: pwsh

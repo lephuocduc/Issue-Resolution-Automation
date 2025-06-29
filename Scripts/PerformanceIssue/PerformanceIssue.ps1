@@ -195,23 +195,23 @@ function Get-PerformanceMetrics {
         [string]$ServerName,
         [System.Management.Automation.Runspaces.PSSession]$Session,
         [int]$Samples = 5,
-        [int]$Interval = 2
+        [int]$Interval = 0
     )
 
-    Update-StatusLabel -text "Collecting performance metrics for $ServerName... Estimated time: $($Samples * $Interval) seconds"
-    $scriptBlock = {
-        param($Samples, $Interval)
-        
+    # Scriptblock to collect static system information (runs once)
+    $staticScriptBlock = {
         $totalMemory = (Get-CimInstance -ClassName Win32_ComputerSystem).TotalPhysicalMemory
-        $cpuSamples = @()
-        $memorySamples = @()
-        $processData = @()
         $numberOfCores = [Environment]::ProcessorCount
+        return @{
+            TotalMemory = $totalMemory
+            NumberOfCores = $numberOfCores
+        }
+    }
 
-        # Create hashtable to track previous CPU times
-        $previousCpuTimes = @{}
+    # Scriptblock to collect a single performance sample
+    $sampleScriptBlock = {
+        param($previousCpuTimes, $totalMemory, $numberOfCores, $Interval)
 
-        # Function to reliably get process owner
         function Get-ProcessOwner {
             param($ProcessId)
             try {
@@ -226,52 +226,93 @@ function Get-PerformanceMetrics {
             }
         }
 
-        for ($i = 0; $i -lt $Samples; $i++) {
-            # System CPU
-            $cpu = (Get-Counter -Counter "\Processor(_Total)\% Processor Time" -ErrorAction Stop).CounterSamples.CookedValue
-            $cpuSamples += $cpu
+        # System CPU
+        $cpuSample = (Get-Counter -Counter "\Processor(_Total)\% Processor Time" -ErrorAction Stop).CounterSamples.CookedValue
+        
+        # System Memory
+        $available = (Get-Counter -Counter "\Memory\Available Bytes" -ErrorAction Stop).CounterSamples.CookedValue
+        $usedMemory = $totalMemory - $available
+        $memorySample = [math]::Round(($usedMemory / $totalMemory) * 100, 2)
+        
+        # Process Data
+        $currentProcesses = Get-Process | Where-Object { $_.Id -ne 0 }
+        $currentCpuTimes = @{}
+        $processData = @()
+
+        foreach ($process in $currentProcesses) {
+            $processID = $process.Id
+            $currentCpu = $process.TotalProcessorTime.TotalSeconds
+            $currentCpuTimes[$processID] = $currentCpu
             
-            # System Memory
-            $available = (Get-Counter -Counter "\Memory\Available Bytes" -ErrorAction Stop).CounterSamples.CookedValue
-            $usedMemory = $totalMemory - $available
-            $memoryPercent = [math]::Round(($usedMemory / $totalMemory) * 100, 2)
-            $memorySamples += $memoryPercent
-            
-            # Revised Process Data Collection
-            $currentProcesses = Get-Process | Where-Object { $_.Id -ne 0 }  # Exclude Idle process
-            $currentCpuTimes = @{}
-            
-            foreach ($process in $currentProcesses) {
-                $processID = $process.Id
-                $currentCpu = $process.TotalProcessorTime.TotalSeconds
-                $currentCpuTimes[$processID] = $currentCpu
-                
-                # Calculate CPU usage since last sample
-                $cpuUsage = 0
-                if ($previousCpuTimes.ContainsKey($processID)) {
-                    $cpuDelta = $currentCpu - $previousCpuTimes[$processID]
-                    $cpuUsage = [math]::Round(($cpuDelta / $Interval) * 100 / $numberOfCores, 2)
-                }
-                
-                # Get process owner
-                $user = Get-ProcessOwner -ProcessId $processID
-                
-                $processData += [PSCustomObject]@{
-                    SampleTime = [datetime]::Now
-                    PID = $processID
-                    ProcessName = $process.ProcessName
-                    CPU = $cpuUsage
-                    MemoryBytes = $process.WorkingSet64
-                    User = $user
-                }
+            # Calculate CPU usage since last sample
+            $cpuUsage = 0
+            if ($previousCpuTimes -and $previousCpuTimes.ContainsKey($processID)) {
+                $cpuDelta = $currentCpu - $previousCpuTimes[$processID]
+                $cpuUsage = [math]::Round(($cpuDelta / $Interval) * 100 / $numberOfCores, 2)
             }
             
-            # Update previous CPU times for next iteration
-            $previousCpuTimes = $currentCpuTimes
+            # Get process owner
+            $user = Get-ProcessOwner -ProcessId $processID
             
-            if ($i -lt ($Samples - 1)) {
-                Start-Sleep -Seconds $Interval
+            $processData += [PSCustomObject]@{
+                SampleTime = [datetime]::Now
+                PID = $processID
+                ProcessName = $process.ProcessName
+                CPU = $cpuUsage
+                MemoryBytes = $process.WorkingSet64
+                User = $user
             }
+        }
+
+        return @{
+            CurrentCpuTimes = $currentCpuTimes
+            CpuSample = $cpuSample
+            MemorySample = $memorySample
+            ProcessData = $processData
+        }
+    }
+
+    try {
+        # Get static system info
+        $staticParams = @{ ScriptBlock = $staticScriptBlock }
+        if ($Session) {
+            $staticResult = Invoke-Command -Session $Session @staticParams
+        } else {
+            $staticResult = Invoke-Command -ComputerName $ServerName @staticParams
+        }
+        $totalMemory = $staticResult.TotalMemory
+        $numberOfCores = $staticResult.NumberOfCores
+
+        # Initialize sample collections
+        $cpuSamples = @()
+        $memorySamples = @()
+        $allProcessData = @()
+        $previousCpuTimes = $null
+
+        # Collect performance samples
+        for ($i = 1; $i -le $Samples; $i++) {
+            # Update status label (local call)
+            Update-StatusLabel -text "Collecting sample $i of $Samples on $ServerName"
+
+            # Collect single sample
+            $sampleParams = @{
+                ScriptBlock = $sampleScriptBlock
+                ArgumentList = $previousCpuTimes, $totalMemory, $numberOfCores, $Interval
+            }
+            if ($Session) {
+                $sampleResult = Invoke-Command -Session $Session @sampleParams
+            } else {
+                $sampleResult = Invoke-Command -ComputerName $ServerName @sampleParams
+            }
+
+            # Store results
+            $previousCpuTimes = $sampleResult.CurrentCpuTimes
+            $cpuSamples += $sampleResult.CpuSample
+            $memorySamples += $sampleResult.MemorySample
+            $allProcessData += $sampleResult.ProcessData
+
+            # Wait between samples (except last iteration)
+            if ($i -lt $Samples) { Start-Sleep -Seconds $Interval }
         }
 
         # Calculate system averages
@@ -280,7 +321,7 @@ function Get-PerformanceMetrics {
         $avgMemoryBytes = [math]::Round(($memorySamples | ForEach-Object { ($_ / 100) * $totalMemory } | Measure-Object -Average).Average, 0)
 
         # Aggregate process data
-        $processSummary = $processData | Group-Object PID | ForEach-Object {
+        $processSummary = $allProcessData | Group-Object PID | ForEach-Object {
             $first = $_.Group[0]
             [PSCustomObject]@{
                 PID = $first.PID
@@ -291,7 +332,7 @@ function Get-PerformanceMetrics {
             }
         }
 
-        [PSCustomObject]@{
+        return [PSCustomObject]@{
             SystemMetrics = [PSCustomObject]@{
                 AvgCPU = $avgCPU
                 AvgMemoryPercent = $avgMemoryPercent
@@ -300,19 +341,7 @@ function Get-PerformanceMetrics {
             }
             ProcessMetrics = $processSummary
         }
-    }
 
-    try {
-        $params = @{
-            ScriptBlock = $scriptBlock
-            ArgumentList = $Samples, $Interval
-        }
-        if ($Session) {
-            $result = Invoke-Command -Session $Session @params
-        } else {
-            $result = Invoke-Command -ComputerName $ServerName @params
-        }
-        return $result
     } catch {
         Write-Log "Error collecting metrics for $ServerName : $_"
         throw
@@ -377,9 +406,6 @@ function Show-PerformanceDashboard {
 
         $output = @()
         $output += ("=" * 60)
-        $output += "SERVER PERFORMANCE REPORT"
-        $output += ("=" * 60)
-        $output += ""
         $output += "SERVER: $($Uptime.ServerName) | UPTIME: $($Uptime.Days) DAYS $($Uptime.Hours) HOURS $($Uptime.Minutes) MINUTES"
         $output += "Data Collected at $collectionTime"
         $output += ("=" * 60)

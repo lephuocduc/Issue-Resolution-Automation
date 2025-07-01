@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - 'PerformanceIssue/**'
+      - 'PerformanceIssue'
     paths:
       - 'Scripts/PerformanceIssue/PerformanceIssue.ps1'
       - 'UnitTests/PerformanceIssue/PerformanceIssue.Tests.ps1'

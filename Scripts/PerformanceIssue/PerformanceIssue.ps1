@@ -4,6 +4,8 @@
 # Version:     1.0
 # Date:        June 24, 2025
 
+# DESCRIPTION
+# This script creates a Windows Forms application that allows users to enter a server name, the script will then:
 
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
@@ -110,38 +112,45 @@ function Test-ServerAvailability {
         ErrorDetails     = $null
     }
 
-    # Test WinRM availability first
-    Update-StatusLabel -text "Testing WinRM availability for $ServerName"
+    
     try {
+        # Test WinRM availability first
+        Update-StatusLabel -text "Testing WinRM service on $ServerName."
+        Write-Log "Testing WinRM service on $ServerName."
         $null = Test-WSMan -ComputerName $ServerName -ErrorAction Stop
         $result.RemotingAvailable = $true
-        Write-Log "WinRM service is available on $ServerName"
+        Update-StatusLabel -text "WinRM service is available on $ServerName."
+        Write-Log "WinRM service is available on $ServerName."
         return $result  # Exit early if successful
     }
     catch {
         $result.ErrorDetails = "WinRM test failed: $($_.Exception.Message)"
+        Update-StatusLabel -text "WinRM service is unavailable on $ServerName."
         Write-Log $result.ErrorDetails "Warning"
     }
 
     # If WinRM fails, test ping connectivity
-    Update-StatusLabel -text "Testing ping reachability for $ServerName"
     try {
+        Update-StatusLabel -text "Testing ping for $ServerName"
         Write-Log "Testing ping for $ServerName"
         $ping = [System.Net.NetworkInformation.Ping]::new()
         $reply = $ping.Send($ServerName, 1000)  # 1 second timeout
         
         if ($reply.Status -eq 'Success') {
             $result.PingReachable = $true
-            Write-Log "Server $ServerName is ping reachable but WinRM is unavailable"
+            Update-StatusLabel -text "Server $ServerName is ping reachable but WinRM is unavailable. Please check WinRM service on the server and the server may be hung."
+            Write-Log "Server $ServerName is ping reachable but WinRM is unavailable. Please check WinRM service on the server and the server may be hung." "Warning"
         }
         else {
             $result.ErrorDetails += "; Ping failed ($($reply.Status))"
-            Write-Log "Server $ServerName is not ping reachable ($($reply.Status))" "Warning"
+            Update-StatusLabel -text "Server $ServerName is not ping reachable ($($reply.Status)) and WinRM is unavailable. The server may be offline."
+            Write-Log "Server $ServerName is not ping reachable ($($reply.Status)) and WinRM is unavailable. The server may be offline." "Warning"
         }
     }
     catch {
         $result.ErrorDetails += "; Ping test failed: $($_.Exception.Message)"
-        Write-Log "Ping test failed for $ServerName': $($_.Exception.Message)" "Warning"
+        Update-StatusLabel -text "Ping test failed and WinRM is unavailable. Please check the server name or the server may be offline."
+        Write-Log "Ping test failed for $ServerName': $($_.Exception.Message) and WinRM is unavailable. The server may be offline." "Warning"
     }
 
     return $result
@@ -194,14 +203,12 @@ function Get-PerformanceMetrics {
         [Parameter(Mandatory = $true)]
         [System.Management.Automation.Runspaces.PSSession]$Session,
         [Parameter(Mandatory = $false)]
-        [ValidateRange(1, [int]::MaxValue)]
-        [int]$Samples = 5, # Number of samples to collect
+        [int]$Samples = 3,
         [Parameter(Mandatory = $false)]
-        [ValidateRange(1, [int]::MaxValue)]
-        [int]$Interval = 2 # Interval in seconds between samples
+        [int]$Interval = 5
     )
 
-    # Scriptblock to collect static system information (runs once)
+    # Scriptblock to collect static system information
     $staticScriptBlock = {
         $totalMemory = (Get-CimInstance -ClassName Win32_ComputerSystem).TotalPhysicalMemory
         $numberOfCores = [Environment]::ProcessorCount
@@ -213,31 +220,33 @@ function Get-PerformanceMetrics {
 
     # Scriptblock to collect performance samples
     $sampleScriptBlock = {
-        param($previousCpuTimes, $totalMemory, $numberOfCores, $previousTimestamp)
+        param(
+            $previousCpuTimes,
+            $totalMemory,
+            $numberOfCores,
+            $previousTimestamp,
+            $ownerCache
+        )
 
-        # Function to get process owner
+        # Function to get process owner (cached)
         function Get-ProcessOwner {
             param($ProcessId)
             try {
                 $cimProcess = Get-CimInstance -ClassName Win32_Process -Filter "ProcessId = $ProcessId"
-                if ($cimProcess) {
-                    $owner = Invoke-CimMethod -InputObject $cimProcess -MethodName GetOwner
-                    return $owner.User
-                }
-                return "Unknown"
+                return ($cimProcess | Invoke-CimMethod -MethodName GetOwner).User
             } catch {
                 return "Unknown"
             }
         }
 
-        # Get CPU and memory usage
+        # Get system metrics
         $cpuSample = (Get-Counter -Counter "\Processor(_Total)\% Processor Time" -ErrorAction Stop).CounterSamples.CookedValue
         $available = (Get-Counter -Counter "\Memory\Available Bytes" -ErrorAction Stop).CounterSamples.CookedValue
         $usedMemory = $totalMemory - $available
         $memorySample = [math]::Round(($usedMemory / $totalMemory) * 100, 2)
 
-        # Process data
-        $currentProcesses = Get-Process | Where-Object { $_.Id -ne 0 }
+        # Get processes >1MB working set
+        $currentProcesses = Get-Process | Where-Object { $_.Id -ne 0 -and $_.WorkingSet64 -gt 1MB }
         $currentCpuTimes = @{}
         $processData = @()
         $sampleStartTime = [datetime]::Now
@@ -254,14 +263,23 @@ function Get-PerformanceMetrics {
             $currentCpu = $process.TotalProcessorTime.TotalSeconds
             $currentCpuTimes[$processID] = $currentCpu
 
-            # Calculate CPU usage for processes (skip for first sample)
+            # CPU usage calculation (requires previous sample)
             $cpuUsage = 0
             if ($previousCpuTimes -and $previousCpuTimes.ContainsKey($processID) -and $actualInterval -gt 0) {
                 $cpuDelta = $currentCpu - $previousCpuTimes[$processID]
                 $cpuUsage = [math]::Round(($cpuDelta / $actualInterval) * 100 / $numberOfCores, 2)
             }
 
-            $user = Get-ProcessOwner -ProcessId $processID
+            # Owner lookup (cached and conditional)
+            if (-not $ownerCache.ContainsKey($processID)) {
+                if ($process.WorkingSet64 -gt 10MB) {
+                    $ownerCache[$processID] = Get-ProcessOwner -ProcessId $processID
+                } else {
+                    $ownerCache[$processID] = "Unknown"
+                }
+            }
+            $user = $ownerCache[$processID]
+
             $processData += [PSCustomObject]@{
                 SampleTime = $sampleStartTime
                 PID = $processID
@@ -278,6 +296,7 @@ function Get-PerformanceMetrics {
             MemorySample = $memorySample
             ProcessData = $processData
             SampleStartTime = $sampleStartTime
+            OwnerCache = $ownerCache
         }
     }
 
@@ -290,31 +309,52 @@ function Get-PerformanceMetrics {
         # Initialize collections
         $cpuSamples = @()
         $memorySamples = @()
-        $allProcessData = @()
+        $processAggregates = @{}
         $previousCpuTimes = $null
         $previousTimestamp = $null
+        $ownerCache = @{}
 
         # Collect performance samples
         for ($i = 1; $i -le $Samples; $i++) {
-            Update-StatusLabel -text "Collecting sample $i of $Samples."
+            Update-StatusLabel "Collecting sample $i of $Samples with interval $Interval seconds..."
 
-            $sampleParams = @{
-                ScriptBlock = $sampleScriptBlock
-                ArgumentList = $previousCpuTimes, $totalMemory, $numberOfCores, $previousTimestamp
-            }
+            $sampleResult = Invoke-Command -Session $Session -ScriptBlock $sampleScriptBlock -ArgumentList @(
+                $previousCpuTimes,
+                $totalMemory,
+                $numberOfCores,
+                $previousTimestamp,
+                $ownerCache
+            )
 
-            $sampleResult = Invoke-Command -Session $Session @sampleParams
-
-            # Store all samples, including first one for memory and CPU
+            # Store system metrics
             $cpuSamples += $sampleResult.CpuSample
             $memorySamples += $sampleResult.MemorySample
+
+            # Aggregate process data (skip first sample)
             if ($null -ne $previousTimestamp) {
-                $allProcessData += $sampleResult.ProcessData
+                foreach ($p in $sampleResult.ProcessData) {
+                    $pidKey = $p.PID
+                    if (-not $processAggregates.ContainsKey($pidKey)) {
+                        $processAggregates[$pidKey] = [PSCustomObject]@{
+                            PID = $p.PID
+                            ProcessName = $p.ProcessName
+                            User = $p.User
+                            TotalCPU = 0
+                            TotalMemoryBytes = 0
+                            SampleCount = 0
+                        }
+                    }
+                    $agg = $processAggregates[$pidKey]
+                    $agg.TotalCPU += $p.CPU
+                    $agg.TotalMemoryBytes += $p.MemoryBytes
+                    $agg.SampleCount++
+                }
             }
 
             # Update for next iteration
             $previousCpuTimes = $sampleResult.CurrentCpuTimes
             $previousTimestamp = $sampleResult.SampleStartTime
+            $ownerCache = $sampleResult.OwnerCache
 
             if ($i -lt $Samples) { Start-Sleep -Seconds $Interval }
         }
@@ -324,21 +364,16 @@ function Get-PerformanceMetrics {
         $avgMemoryPercent = [math]::Round(($memorySamples | Measure-Object -Average).Average, 2)
         $avgMemoryBytes = [math]::Round(($memorySamples | ForEach-Object { ($_ / 100) * $totalMemory } | Measure-Object -Average).Average, 0)
 
-        # Aggregate process data
-        $processSummary = if ($allProcessData) {
-            $allProcessData | Group-Object PID | ForEach-Object {
-                $first = $_.Group[0]
-                [PSCustomObject]@{
-                    PID = $first.PID
-                    ProcessName = $first.ProcessName
-                    User = $first.User
-                    AvgCPU = [math]::Round(($_.Group.CPU | Measure-Object -Average).Average, 2)
-                    AvgMemoryBytes = [math]::Round(($_.Group.MemoryBytes | Measure-Object -Average).Average, 0)
-                }
+        # Generate process summary (filter negligible processes)
+        $processSummary = $processAggregates.Values | ForEach-Object {
+            [PSCustomObject]@{
+                PID = $_.PID
+                ProcessName = $_.ProcessName
+                User = $_.User
+                AvgCPU = [math]::Round($_.TotalCPU / $_.SampleCount, 2)
+                AvgMemoryBytes = [math]::Round($_.TotalMemoryBytes / $_.SampleCount, 0)
             }
-        } else {
-            @()
-        }
+        } | Where-Object { $_.AvgCPU -ge 0.1 -or $_.AvgMemoryBytes -ge 1MB }
 
         return [PSCustomObject]@{
             SystemMetrics = [PSCustomObject]@{
@@ -351,7 +386,7 @@ function Get-PerformanceMetrics {
         }
 
     } catch {
-        Write-Log "Error collecting performance metrics: $_" "Error"
+        Write-Error "Error collecting performance metrics: $_"
         throw
     }
 }
@@ -669,7 +704,7 @@ $okButton.Add_Click({
             $uptime = Get-SystemUptime -ServerName $serverName -Session $session
 
             Update-StatusLabel -text "Collecting performance metrics for $serverName..."
-            $metrics = Get-PerformanceMetrics -Session $session -Samples 5 -Interval 2
+            $metrics = Get-PerformanceMetrics -Session $session -Samples 3 -Interval 5
 
             Update-StatusLabel -text "Processing performance data for $serverName..."
             $topCPU = Get-TopCPUProcesses -PerformanceData $metrics -TopCount 5
@@ -730,11 +765,12 @@ $cancelButton.Location = New-Object System.Drawing.Point(($startX + $buttonWidth
 
 # Status label
 $statusLabel = New-Object System.Windows.Forms.Label
-$statusLabel.AutoSize = $true  # Important:  Let the label size itself to the text
-$statusLabel_width = $statusLabel.PreferredWidth # get the actual width of the label based on the text
-$label_x = ($main_form.ClientSize.Width - $statusLabel_width) / 2  # Center horizontally
-$label_y = 135  # Top padding
-$statusLabel.Location = New-Object System.Drawing.Point($label_x, $label_y)
+$statusLabel.AutoSize = $false  # Set to false to enable manual sizing
+$statusLabel.Size = New-Object System.Drawing.Size(370, 50)  # Width, Height
+$statusLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
+$statusLabel.Location = New-Object System.Drawing.Point(20, 110)
+$statusLabel.MaximumSize = New-Object System.Drawing.Size(370, 0)  # Set maximum width, 0 height for auto-height
+$statusLabel.MinimumSize = New-Object System.Drawing.Size(370, 50)  # Set minimum size
 $main_form.Controls.Add($statusLabel)
 
 

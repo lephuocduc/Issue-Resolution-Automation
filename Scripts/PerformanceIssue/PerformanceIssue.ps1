@@ -197,6 +197,178 @@ function Get-SystemUptime {
     }
 }
 
+# Version 1.0 of Get-PerformanceMetrics function
+<#
+function Get-PerformanceMetrics {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [System.Management.Automation.Runspaces.PSSession]$Session,
+        [Parameter(Mandatory = $false)]
+        [ValidateRange(1, [int]::MaxValue)]
+        [int]$Samples = 5, # Number of samples to collect
+        [Parameter(Mandatory = $false)]
+        [ValidateRange(1, [int]::MaxValue)]
+        [int]$Interval = 2 # Interval in seconds between samples
+    )
+
+    # Scriptblock to collect static system information (runs once)
+    $staticScriptBlock = {
+        $totalMemory = (Get-CimInstance -ClassName Win32_ComputerSystem).TotalPhysicalMemory
+        $numberOfCores = [Environment]::ProcessorCount
+        return @{
+            TotalMemory = $totalMemory
+            NumberOfCores = $numberOfCores
+        }
+    }
+
+    # Scriptblock to collect performance samples
+    $sampleScriptBlock = {
+        param($previousCpuTimes, $totalMemory, $numberOfCores, $previousTimestamp)
+
+        # Function to get process owner
+        function Get-ProcessOwner {
+            param($ProcessId)
+            try {
+                $cimProcess = Get-CimInstance -ClassName Win32_Process -Filter "ProcessId = $ProcessId"
+                if ($cimProcess) {
+                    $owner = Invoke-CimMethod -InputObject $cimProcess -MethodName GetOwner
+                    return $owner.User
+                }
+                return "Unknown"
+            } catch {
+                return "Unknown"
+            }
+        }
+
+        # Get CPU and memory usage
+        $cpuSample = (Get-Counter -Counter "\Processor(_Total)\% Processor Time" -ErrorAction Stop).CounterSamples.CookedValue
+        $available = (Get-Counter -Counter "\Memory\Available Bytes" -ErrorAction Stop).CounterSamples.CookedValue
+        $usedMemory = $totalMemory - $available
+        $memorySample = [math]::Round(($usedMemory / $totalMemory) * 100, 2)
+
+        # Process data
+        $currentProcesses = Get-Process | Where-Object { $_.Id -ne 0 }
+        $currentCpuTimes = @{}
+        $processData = @()
+        $sampleStartTime = [datetime]::Now
+
+        # Calculate actual interval since last sample
+        $actualInterval = if ($previousTimestamp) {
+            ($sampleStartTime - $previousTimestamp).TotalSeconds
+        } else {
+            $null
+        }
+
+        foreach ($process in $currentProcesses) {
+            $processID = $process.Id
+            $currentCpu = $process.TotalProcessorTime.TotalSeconds
+            $currentCpuTimes[$processID] = $currentCpu
+
+            # Calculate CPU usage for processes (skip for first sample)
+            $cpuUsage = 0
+            if ($previousCpuTimes -and $previousCpuTimes.ContainsKey($processID) -and $actualInterval -gt 0) {
+                $cpuDelta = $currentCpu - $previousCpuTimes[$processID]
+                $cpuUsage = [math]::Round(($cpuDelta / $actualInterval) * 100 / $numberOfCores, 2)
+            }
+
+            $user = Get-ProcessOwner -ProcessId $processID
+            $processData += [PSCustomObject]@{
+                SampleTime = $sampleStartTime
+                PID = $processID
+                ProcessName = $process.ProcessName
+                CPU = $cpuUsage
+                MemoryBytes = $process.WorkingSet64
+                User = $user
+            }
+        }
+
+        return @{
+            CurrentCpuTimes = $currentCpuTimes
+            CpuSample = $cpuSample
+            MemorySample = $memorySample
+            ProcessData = $processData
+            SampleStartTime = $sampleStartTime
+        }
+    }
+
+    try {
+        # Get static system information
+        $staticResult = Invoke-Command -Session $Session -ScriptBlock $staticScriptBlock
+        $totalMemory = $staticResult.TotalMemory
+        $numberOfCores = $staticResult.NumberOfCores
+
+        # Initialize collections
+        $cpuSamples = @()
+        $memorySamples = @()
+        $allProcessData = @()
+        $previousCpuTimes = $null
+        $previousTimestamp = $null
+
+        # Collect performance samples
+        for ($i = 1; $i -le $Samples; $i++) {
+            Update-StatusLabel -text "Collecting sample $i of $Samples."
+
+            $sampleParams = @{
+                ScriptBlock = $sampleScriptBlock
+                ArgumentList = $previousCpuTimes, $totalMemory, $numberOfCores, $previousTimestamp
+            }
+
+            $sampleResult = Invoke-Command -Session $Session @sampleParams
+
+            # Store all samples, including first one for memory and CPU
+            $cpuSamples += $sampleResult.CpuSample
+            $memorySamples += $sampleResult.MemorySample
+            if ($null -ne $previousTimestamp) {
+                $allProcessData += $sampleResult.ProcessData
+            }
+
+            # Update for next iteration
+            $previousCpuTimes = $sampleResult.CurrentCpuTimes
+            $previousTimestamp = $sampleResult.SampleStartTime
+
+            if ($i -lt $Samples) { Start-Sleep -Seconds $Interval }
+        }
+
+        # Calculate system averages
+        $avgCPU = [math]::Round(($cpuSamples | Measure-Object -Average).Average, 2)
+        $avgMemoryPercent = [math]::Round(($memorySamples | Measure-Object -Average).Average, 2)
+        $avgMemoryBytes = [math]::Round(($memorySamples | ForEach-Object { ($_ / 100) * $totalMemory } | Measure-Object -Average).Average, 0)
+
+        # Aggregate process data
+        $processSummary = if ($allProcessData) {
+            $allProcessData | Group-Object PID | ForEach-Object {
+                $first = $_.Group[0]
+                [PSCustomObject]@{
+                    PID = $first.PID
+                    ProcessName = $first.ProcessName
+                    User = $first.User
+                    AvgCPU = [math]::Round(($_.Group.CPU | Measure-Object -Average).Average, 2)
+                    AvgMemoryBytes = [math]::Round(($_.Group.MemoryBytes | Measure-Object -Average).Average, 0)
+                }
+            }
+        } else {
+            @()
+        }
+
+        return [PSCustomObject]@{
+            SystemMetrics = [PSCustomObject]@{
+                AvgCPU = $avgCPU
+                AvgMemoryPercent = $avgMemoryPercent
+                AvgMemoryBytes = $avgMemoryBytes
+                TotalMemoryBytes = $totalMemory
+            }
+            ProcessMetrics = $processSummary
+        }
+
+    } catch {
+        Write-Log "Error collecting performance metrics: $_" "Error"
+        throw
+    }
+}
+#>
+
+# Version 2.0 of Get-PerformanceMetrics function
 function Get-PerformanceMetrics {
     [CmdletBinding()]
     param(
@@ -246,7 +418,7 @@ function Get-PerformanceMetrics {
         $memorySample = [math]::Round(($usedMemory / $totalMemory) * 100, 2)
 
         # Get processes >1MB working set
-        $currentProcesses = Get-Process | Where-Object { $_.Id -ne 0 -and $_.WorkingSet64 -gt 1MB }
+        $currentProcesses = Get-Process | Where-Object { $_.Id -ne 0 -and $_.WorkingSet64 -gt 10MB }
         $currentCpuTimes = @{}
         $processData = @()
         $sampleStartTime = [datetime]::Now
@@ -373,7 +545,7 @@ function Get-PerformanceMetrics {
                 AvgCPU = [math]::Round($_.TotalCPU / $_.SampleCount, 2)
                 AvgMemoryBytes = [math]::Round($_.TotalMemoryBytes / $_.SampleCount, 0)
             }
-        } | Where-Object { $_.AvgCPU -ge 0.1 -or $_.AvgMemoryBytes -ge 1MB }
+        } | Where-Object { $_.AvgCPU -ge 1 -or $_.AvgMemoryBytes -ge 10MB }
 
         return [PSCustomObject]@{
             SystemMetrics = [PSCustomObject]@{
@@ -386,7 +558,8 @@ function Get-PerformanceMetrics {
         }
 
     } catch {
-        Write-Error "Error collecting performance metrics: $_"
+        Write-Log "Error collecting performance metrics: $_" "Error"
+        Update-StatusLabel -text "Error collecting performance metrics: $_"
         throw
     }
 }

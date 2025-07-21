@@ -109,19 +109,19 @@ function Test-ServerAvailability {
     $result = [PSCustomObject]@{
         RemotingAvailable = $false
         PingReachable    = $false
+        DNSResolvable   = $false
         ErrorDetails     = $null
     }
 
-    
     try {
         # Test WinRM availability first
         Update-StatusLabel -text "Testing WinRM service on $ServerName."
         Write-Log "Testing WinRM service on $ServerName."
         $null = Test-WSMan -ComputerName $ServerName -ErrorAction Stop
         $result.RemotingAvailable = $true
-        Update-StatusLabel -text "WinRM service is available on $ServerName."
-        Write-Log "WinRM service is available on $ServerName."
-        return $result  # Exit early if successful
+        Update-StatusLabel -text "Server $ServerName is running normally."
+        Write-Log "Server $ServerName is running normally."
+        return $result
     }
     catch {
         $result.ErrorDetails = "WinRM test failed: $($_.Exception.Message)"
@@ -130,6 +130,7 @@ function Test-ServerAvailability {
     }
 
     # If WinRM fails, test ping connectivity
+    $pingFailed = $true
     try {
         Update-StatusLabel -text "Testing ping for $ServerName"
         Write-Log "Testing ping for $ServerName"
@@ -137,20 +138,37 @@ function Test-ServerAvailability {
         $reply = $ping.Send($ServerName, 1000)  # 1 second timeout
         
         if ($reply.Status -eq 'Success') {
+            $pingFailed = $false
             $result.PingReachable = $true
             Update-StatusLabel -text "Server $ServerName is ping reachable but WinRM is unavailable. Please check WinRM service on the server and the server may be hung."
             Write-Log "Server $ServerName is ping reachable but WinRM is unavailable. Please check WinRM service on the server and the server may be hung." "Warning"
+            return $result
         }
         else {
             $result.ErrorDetails += "; Ping failed ($($reply.Status))"
-            Update-StatusLabel -text "Server $ServerName is not ping reachable ($($reply.Status)) and WinRM is unavailable. The server may be offline."
-            Write-Log "Server $ServerName is not ping reachable ($($reply.Status)) and WinRM is unavailable. The server may be offline." "Warning"
         }
     }
     catch {
         $result.ErrorDetails += "; Ping test failed: $($_.Exception.Message)"
-        Update-StatusLabel -text "Ping test failed and WinRM is unavailable. Please check the server name or the server may be offline."
-        Write-Log "Ping test failed for $ServerName': $($_.Exception.Message) and WinRM is unavailable. The server may be offline." "Warning"
+    }
+
+    # If both WinRM and Ping fail, test DNS resolution
+    if ($pingFailed) {
+        try {
+            Update-StatusLabel -text "Trying to resolve DNS name"
+            Write-Log "Trying to resolve DNS name"
+            $null = [System.Net.Dns]::GetHostEntry($ServerName)
+            $result.DNSResolvable = $true
+            $result.ErrorDetails += "; DNS resolution succeeded but ping failed"
+            Update-StatusLabel -text "Server $ServerName is offline."
+            Write-Log "Server $ServerName is offline." "Warning"
+        }
+        catch {
+            $result.DNSResolvable = $false
+            $result.ErrorDetails += "; DNS resolution failed: $($_.Exception.Message)"
+            Update-StatusLabel -text "Server name $ServerName cannot be resolved. Please check the server name."
+            Write-Log "Server name $ServerName cannot be resolved. Please check the server name." "Warning"
+        }
     }
 
     return $result
@@ -839,7 +857,7 @@ $okButton.Add_Click({
         $result = Test-ServerAvailability -serverName $serverName
         if (-not $result.RemotingAvailable) {
             [System.Windows.Forms.MessageBox]::Show(
-                "Server '$serverName' is not available for remoting. Details: $($result.ErrorDetails)",
+                "Server '$serverName' is not available for remoting.",
                 "Error",
                 [System.Windows.Forms.MessageBoxButtons]::OK,
                 [System.Windows.Forms.MessageBoxIcon]::Error

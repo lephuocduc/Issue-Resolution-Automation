@@ -400,24 +400,42 @@ function Get-PerformanceMetrics {
 
     # Scriptblock to collect static system information
     $staticScriptBlock = {
-        $os = Get-CimInstance -ClassName Win32_OperatingSystem
+        $totalMemory = (Get-CimInstance -ClassName Win32_ComputerSystem).TotalPhysicalMemory
+        $numberOfCores = [Environment]::ProcessorCount
         return @{
-            TotalMemory = $os.TotalVisibleMemorySize * 1KB
-            NumberOfCores = [Environment]::ProcessorCount
+            TotalMemory = $totalMemory
+            NumberOfCores = $numberOfCores
         }
     }
 
     # Scriptblock to collect performance samples
     $sampleScriptBlock = {
-        param($previousCpuTimes, $totalMemory, $numberOfCores, $previousTimestamp)
+        param(
+            $previousCpuTimes,
+            $totalMemory,
+            $numberOfCores,
+            $previousTimestamp,
+            $ownerCache
+        )
 
-        $counterSamples = Get-Counter -Counter "\Processor(_Total)\% Processor Time", "\Memory\Available Bytes" -ErrorAction Stop
-        $cpuSample = ($counterSamples.CounterSamples | Where-Object { $_.Path -eq '\Processor(_Total)\% Processor Time' }).CookedValue
-        $availableBytes = ($counterSamples.CounterSamples | Where-Object { $_.Path -eq '\Memory\Available Bytes' }).CookedValue
-        $usedMemory = $totalMemory - $availableBytes
+        # Function to get process owner (cached)
+        function Get-ProcessOwner {
+            param($ProcessId)
+            try {
+                $cimProcess = Get-CimInstance -ClassName Win32_Process -Filter "ProcessId = $ProcessId"
+                return ($cimProcess | Invoke-CimMethod -MethodName GetOwner).User
+            } catch {
+                return "Unknown"
+            }
+        }
+
+        # Get system metrics
+        $cpuSample = (Get-Counter -Counter "\Processor(_Total)\% Processor Time" -ErrorAction Stop).CounterSamples.CookedValue
+        $available = (Get-Counter -Counter "\Memory\Available Bytes" -ErrorAction Stop).CounterSamples.CookedValue
+        $usedMemory = $totalMemory - $available
         $memorySample = [math]::Round(($usedMemory / $totalMemory) * 100, 2)
 
-        # Get processes with >10MB working set
+        # Get processes >1MB working set
         $currentProcesses = Get-Process | Where-Object { $_.Id -ne 0 -and $_.WorkingSet64 -gt 10MB }
         $currentCpuTimes = @{}
         $processData = @()
@@ -431,27 +449,34 @@ function Get-PerformanceMetrics {
         }
 
         foreach ($process in $currentProcesses) {
-            try {
-                $processID = $process.Id
-                $currentCpu = $process.TotalProcessorTime.TotalSeconds
-                $currentCpuTimes[$processID] = $currentCpu
+            $processID = $process.Id
+            $currentCpu = $process.TotalProcessorTime.TotalSeconds
+            $currentCpuTimes[$processID] = $currentCpu
 
-                # CPU usage calculation (requires previous sample)
-                $cpuUsage = 0
-                if ($previousCpuTimes -and $previousCpuTimes.ContainsKey($processID) -and $actualInterval -gt 0) {
-                    $cpuDelta = $currentCpu - $previousCpuTimes[$processID]
-                    $cpuUsage = [math]::Round(($cpuDelta / $actualInterval) * 100 / $numberOfCores, 2)
-                }
+            # CPU usage calculation (requires previous sample)
+            $cpuUsage = 0
+            if ($previousCpuTimes -and $previousCpuTimes.ContainsKey($processID) -and $actualInterval -gt 0) {
+                $cpuDelta = $currentCpu - $previousCpuTimes[$processID]
+                $cpuUsage = [math]::Round(($cpuDelta / $actualInterval) * 100 / $numberOfCores, 2)
+            }
 
-                $processData += [PSCustomObject]@{
-                    PID = $processID
-                    ProcessName = $process.ProcessName
-                    CPU = $cpuUsage
-                    MemoryBytes = $process.WorkingSet64
-                    SampleTime = $sampleStartTime
+            # Owner lookup (cached and conditional)
+            if (-not $ownerCache.ContainsKey($processID)) {
+                if ($process.WorkingSet64 -gt 10MB) {
+                    $ownerCache[$processID] = Get-ProcessOwner -ProcessId $processID
+                } else {
+                    $ownerCache[$processID] = "Unknown"
                 }
-            } catch {
-                continue  # Skip processes that exit during enumeration
+            }
+            $user = $ownerCache[$processID]
+
+            $processData += [PSCustomObject]@{
+                SampleTime = $sampleStartTime
+                PID = $processID
+                ProcessName = $process.ProcessName
+                CPU = $cpuUsage
+                MemoryBytes = $process.WorkingSet64
+                User = $user
             }
         }
 
@@ -461,33 +486,8 @@ function Get-PerformanceMetrics {
             MemorySample = $memorySample
             ProcessData = $processData
             SampleStartTime = $sampleStartTime
+            OwnerCache = $ownerCache
         }
-    }
-
-    # Scriptblock to batch-get process owners
-    $ownerScriptBlock = {
-        param([int[]]$ProcessIds)
-        $owners = @{}
-        if (-not $ProcessIds) { return $owners }
-        foreach ($pid in $ProcessIds) {
-            $owners[$pid] = "Unknown"  # Initialize all to "Unknown"
-        }
-        try {
-            $filter = "ProcessId = " + ($ProcessIds -join " OR ProcessId = ")
-            $cimProcesses = Get-CimInstance -ClassName Win32_Process -Filter $filter -ErrorAction Stop
-            foreach ($cim in $cimProcesses) {
-                $pid = $cim.ProcessId
-                try {
-                    $ownerResult = $cim | Invoke-CimMethod -MethodName GetOwner
-                    $owners[$pid] = $ownerResult.User
-                } catch {
-                    # Keep "Unknown" on failure
-                }
-            }
-        } catch {
-            # Fallback: all remain "Unknown"
-        }
-        return $owners
     }
 
     try {
@@ -502,18 +502,18 @@ function Get-PerformanceMetrics {
         $processAggregates = @{}
         $previousCpuTimes = $null
         $previousTimestamp = $null
+        $ownerCache = @{}
 
         # Collect performance samples
         for ($i = 1; $i -le $Samples; $i++) {
-            if (Get-Command -Name Update-StatusLabel -ErrorAction SilentlyContinue) {
-                Update-StatusLabel "Collecting sample $i of $Samples with interval $Interval seconds..."
-            }
+            Update-StatusLabel "Collecting sample $i of $Samples with interval $Interval seconds..."
 
             $sampleResult = Invoke-Command -Session $Session -ScriptBlock $sampleScriptBlock -ArgumentList @(
                 $previousCpuTimes,
                 $totalMemory,
                 $numberOfCores,
-                $previousTimestamp
+                $previousTimestamp,
+                $ownerCache
             )
 
             # Store system metrics
@@ -528,6 +528,7 @@ function Get-PerformanceMetrics {
                         $processAggregates[$pidKey] = [PSCustomObject]@{
                             PID = $p.PID
                             ProcessName = $p.ProcessName
+                            User = $p.User
                             TotalCPU = 0
                             TotalMemoryBytes = 0
                             SampleCount = 0
@@ -543,6 +544,7 @@ function Get-PerformanceMetrics {
             # Update for next iteration
             $previousCpuTimes = $sampleResult.CurrentCpuTimes
             $previousTimestamp = $sampleResult.SampleStartTime
+            $ownerCache = $sampleResult.OwnerCache
 
             if ($i -lt $Samples) { Start-Sleep -Seconds $Interval }
         }
@@ -552,28 +554,16 @@ function Get-PerformanceMetrics {
         $avgMemoryPercent = [math]::Round(($memorySamples | Measure-Object -Average).Average, 2)
         $avgMemoryBytes = [math]::Round(($memorySamples | ForEach-Object { ($_ / 100) * $totalMemory } | Measure-Object -Average).Average, 0)
 
-        # Batch-get process owners
-        $ownerMap = @{}
-        $pidsToLookup = $processAggregates.Keys | Sort-Object -Unique
-        if ($pidsToLookup) {
-            $ownerMap = Invoke-Command -Session $Session -ScriptBlock $ownerScriptBlock -ArgumentList (,$pidsToLookup)
-        }
-
-        # Generate process summary
-        $processSummary = $processAggregates.Values | Where-Object {
-            $_.SampleCount -gt 0 -and (
-                ($_.TotalCPU / $_.SampleCount) -ge 1 -or
-                ($_.TotalMemoryBytes / $_.SampleCount) -ge 10MB
-            )
-        } | ForEach-Object {
+        # Generate process summary (filter negligible processes)
+        $processSummary = $processAggregates.Values | ForEach-Object {
             [PSCustomObject]@{
                 PID = $_.PID
                 ProcessName = $_.ProcessName
-                User = $ownerMap[$_.PID]
+                User = $_.User
                 AvgCPU = [math]::Round($_.TotalCPU / $_.SampleCount, 2)
                 AvgMemoryBytes = [math]::Round($_.TotalMemoryBytes / $_.SampleCount, 0)
             }
-        }
+        } | Where-Object { $_.AvgCPU -ge 1 -or $_.AvgMemoryBytes -ge 10MB }
 
         return [PSCustomObject]@{
             SystemMetrics = [PSCustomObject]@{
@@ -586,14 +576,9 @@ function Get-PerformanceMetrics {
         }
 
     } catch {
-        $errorMessage = "Error collecting performance metrics: $($_.Exception.Message)"
-        if (Get-Command -Name Write-Log -ErrorAction SilentlyContinue) {
-            Write-Log $errorMessage "Error"
-        }
-        if (Get-Command -Name Update-StatusLabel -ErrorAction SilentlyContinue) {
-            Update-StatusLabel -Text $errorMessage
-        }
-        throw $errorMessage
+        Write-Log "Error collecting performance metrics: $_" "Error"
+        Update-StatusLabel -text "Error collecting performance metrics: $_"
+        throw
     }
 }
 

@@ -1,5 +1,5 @@
 #NOTES
-# Name:   LowFreeSpace.ps1
+# Name:   ScriptManager.ps1
 # Author:  Duc Le
 # Version:  1.0
 # Major Release History:
@@ -21,7 +21,107 @@
 
 # Load the necessary assembly for Windows Forms
 Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
 
+
+
+function Update-StatusLabel {
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$text
+    )
+    
+    $statusLabel.Text = $text
+    $statusLabel_width = $statusLabel.PreferredWidth
+    $label_x = ($bitwarden_form.ClientSize.Width - $statusLabel_width) / 2
+    $statusLabel.Location = New-Object System.Drawing.Point($label_x, $statusLabel.Location.Y)
+    $statusLabel.Refresh()
+}
+
+function Get-BitwardenAuthentication {
+    param(
+        [Parameter(Mandatory = $false)]
+        [string]$version = '1.22.1' # <-- Update to the newest version available at https://github.com/bitwarden/cli/releases
+    )
+    # Check if Bitwarden CLI is installed
+    if (-not (Get-Command 'bw' -ErrorAction SilentlyContinue)) {
+        # URLs and paths
+        $baseUrl = "https://github.com/bitwarden/cli/releases/download/v$version"
+        $zipFileName = "bw-windows-$version.zip"
+        $downloadUrl = "$baseUrl/$zipFileName"
+        $zipPath = "$env:TEMP\$zipFileName"
+        $extractPath = "$env:TEMP\bw-extract"
+        $destinationPath = "$env:windir\System32\bw.exe"
+
+        # Download the Bitwarden CLI zip file
+        Update-StatusLabel -text "Downloading Bitwarden CLI version $version..."
+        Invoke-WebRequest -Uri $downloadUrl -OutFile $zipPath -UseBasicParsing
+
+        # Remove any previous extraction folder
+        if (Test-Path $extractPath) {
+            Remove-Item -Recurse -Force $extractPath
+        }
+
+        # Extract the downloaded zip file
+        Update-StatusLabel -text "Extracting Bitwarden CLI..."
+        Expand-Archive -Path $zipPath -DestinationPath $extractPath -Force
+
+        # The extracted folder contains bw.exe directly, move it to System32
+        $bwExePath = Join-Path -Path $extractPath -ChildPath "bw.exe"
+
+        # Check if running as Administrator
+        $currentIdentity = [Security.Principal.WindowsIdentity]::GetCurrent()
+        $principal = New-Object Security.Principal.WindowsPrincipal($currentIdentity)
+        $adminRole = [Security.Principal.WindowsBuiltInRole]::Administrator
+        if (-not $principal.IsInRole($adminRole)) {
+            Write-Warning "This script must be run with Administrator privileges to move bw.exe to $destinationPath."
+            Write-Warning "Please run PowerShell as Administrator and re-run this script."
+            exit 1
+        }
+
+        # Move bw.exe to System32
+        Update-StatusLabel -text "Moving bw.exe to $destinationPath..."
+        Move-Item -Path $bwExePath -Destination $destinationPath -Force
+
+        # Clean up downloaded zip and extracted files
+        Remove-Item -Path $zipPath -Force
+        Remove-Item -Recurse -Force $extractPath
+
+        # Verify installation
+        Update-StatusLabel -text "Verifying installation..."
+        if (Get-Command 'bw' -ErrorAction SilentlyContinue) {
+            $bitwarden_form.Close()
+            $main_form.ShowDialog() | Out-Null
+        } else {
+            Update-StatusLabel -text "Bitwarden CLI installation failed."
+            exit 1
+        }
+    }
+}
+    
+# Bitwarden form
+$bitwarden_form = New-Object System.Windows.Forms.Form
+$bitwarden_form.Text = "Script Manager - Bitwarden CLI Check"
+$bitwarden_form.Size = New-Object System.Drawing.Size(410, 250)
+$bitwarden_form.StartPosition = "CenterScreen"
+$bitwarden_form.FormBorderStyle = 'FixedSingle'  # Or 'FixedDialog'
+$bitwarden_form.MaximizeBox = $false
+
+# Status label
+$statusLabel = New-Object System.Windows.Forms.Label
+$statusLabel.AutoSize = $true  # Important:  Let the label size itself to the text
+$statusLabel_width = $statusLabel.PreferredWidth # get the actual width of the label based on the text
+$label_x = ($bitwarden_form.ClientSize.Width - $statusLabel_width) / 2  # Center horizontally
+$label_y = 135  # Top padding
+$statusLabel.Location = New-Object System.Drawing.Point($label_x, $label_y)
+
+  # Initially hidden until the check is done
+$bitwarden_form.Controls.Add($statusLabel)
+$bitwarden_form.Add_Shown({
+    Get-BitwardenAuthentication
+})
+
+#########################################
 # Create the main form
 $main_form = New-Object System.Windows.Forms.Form
 $main_form.Text = 'Script Manager'
@@ -147,10 +247,9 @@ $main_form.Controls.Add($comboBox)
 $main_form.Controls.Add($okButton)
 $main_form.Controls.Add($cancelButton)
 
+
 # Show the form as a dialog
-$main_form.ShowDialog()
-
-
+$bitwarden_form.ShowDialog()
 
 
 

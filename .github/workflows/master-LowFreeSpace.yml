@@ -3,7 +3,7 @@ name: Low Free Space Unit Tests
 on:
   push:
     branches:
-      - 'LowFreeSpace/**'
+      - 'LowFreeSpace'
     paths:
       - 'Scripts/LowFreeSpace/LowFreeSpace.ps1'
       - 'UnitTests/LowFreeSpace/LowFreeSpace.Tests.ps1'

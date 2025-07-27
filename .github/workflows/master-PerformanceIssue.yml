@@ -3,7 +3,6 @@ name: Performance Issue Unit Tests
 on:
   push:
     branches:
-      - 'PerformanceIssue/**'
       - 'PerformanceIssue'
     paths:
       - 'Scripts/PerformanceIssue/PerformanceIssue.ps1'

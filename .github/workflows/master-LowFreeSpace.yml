@@ -6,8 +6,8 @@ on:
       - 'LowFreeSpace/**'
     paths:
       - 'Scripts/LowFreeSpace/LowFreeSpace.ps1'
-      - 'UnitTests/LowFreeSpace/LowFreeSpace.Tests.ps1.ps1'
-      - .github/workflows/LowFreeSpace-task.yml
+      - 'UnitTests/LowFreeSpace/LowFreeSpace.Tests.ps1'
+      - .github/workflows/master-LowFreeSpace.yml
 
 jobs:
   unittest:

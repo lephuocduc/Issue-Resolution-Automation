@@ -8,7 +8,7 @@ on:
     paths:
       - 'Scripts/PerformanceIssue/PerformanceIssue.ps1'
       - 'UnitTests/PerformanceIssue/PerformanceIssue.Tests.ps1'
-      - .github/workflows/PerformanceIssue.yml
+      - .github/workflows/master-PerformanceIssue.yml
 
 jobs:
   unittest:

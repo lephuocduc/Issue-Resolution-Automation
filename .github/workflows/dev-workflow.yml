@@ -1,21 +1,21 @@
-name: Package PowerShell App - Master Branch
+name: Package PowerShell App - DEV Branch
 
 on:
   pull_request:
     branches:
-      - master
+      - dev
     paths:
       - 'Scripts/**/*.ps1'
       - 'ScriptManager/ScriptManager.ps1'
       - 'UnitTests/**/*.ps1'
-      - .github/workflows/workflow.yml
+      - .github/workflows/dev-workflow.yml
       - 'ScriptManager/package.psd1'
   push:
     branches:
-      - master
+      - dev
     paths:
       - 'ScriptManager/ScriptManager.ps1'
-      - .github/workflows/workflow.yml
+      - .github/workflows/dev-workflow.yml
       - 'ScriptManager/package.psd1'
 
 jobs:
@@ -25,7 +25,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
         with:
-          ref: master
+          ref: dev
           fetch-depth: 0
 
       - name: Install PowerShellProTools
@@ -53,12 +53,12 @@ jobs:
           if (Test-Path 'ScriptManager.exe') {
               git config --global user.name "GitHub Action"
               git config --global user.email "action@github.com"
-              git checkout master
+              git checkout dev
               Copy-Item -Path "ScriptManager.exe" -Destination "ScriptManager\ScriptManager.exe"
               git add ScriptManager\ScriptManager.exe
               git add ScriptManager\ScriptManager.ps1
               git commit -m "Add ScriptManager.exe" || Write-Host "Nothing to commit"
-              git push origin master || Write-Host "Failed to push changes"
+              git push origin dev || Write-Host "Failed to push changes"
           } else {
               Write-Host "Executable not found"
           }

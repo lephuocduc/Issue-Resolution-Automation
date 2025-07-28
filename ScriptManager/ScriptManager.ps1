@@ -23,6 +23,8 @@
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
+$script:ADM_Credential = $null
+$CurrentUser = ([System.Security.Principal.WindowsIdentity]::GetCurrent().Name).Split('\')[1]
 
 
 function Update-StatusLabel {
@@ -186,6 +188,7 @@ function Get-BitwardenAuthentication {
     $sessionKey = ($session | Select-String -Pattern 'BW_SESSION=') -replace '.*BW_SESSION="([^"]+)".*','$1'
     }
     $env:BW_SESSION = $sessionKey
+    bw sync --session $env:BW_SESSION | Out-Null
 
     $itemList = bw list items --session $env:BW_SESSION | ConvertFrom-Json
     $item = $itemList | Where-Object { $_.name -eq "adm credentials" }
@@ -224,23 +227,16 @@ function Get-BitwardenAuthentication {
 
     $ADM_UserName = $username
     $ADM_Password = ConvertTo-SecureString -String $password -AsPlainText -Force
-    $ADM_Credential = New-Object System.Management.Automation.PSCredential($ADM_UserName, $ADM_Password)
-
+    $script:ADM_Credential = New-Object System.Management.Automation.PSCredential($ADM_UserName, $ADM_Password)
 
     # Logout the Bitwarden session
     bw logout --session $env:BW_SESSION | Out-Null
-    # Clear the environment variables
-    $bitwarden_form.Close()  # Close the Bitwarden form
-    $bitwarden_form.Dispose()  # Close the Bitwarden form
-    $main_form.ShowDialog() | Out-Null
-
-    return $ADM_Credential
 }
     
 # Bitwarden form
 $bitwarden_form = New-Object System.Windows.Forms.Form
-$bitwarden_form.Text = "Script Manager - Bitwarden CLI Check"
-$bitwarden_form.Size = New-Object System.Drawing.Size(410, 250)
+$bitwarden_form.Text = "Script Manager - Checking"
+$bitwarden_form.Size = New-Object System.Drawing.Size(410, 120)
 $bitwarden_form.StartPosition = "CenterScreen"
 $bitwarden_form.FormBorderStyle = 'FixedSingle'  # Or 'FixedDialog'
 $bitwarden_form.MaximizeBox = $false
@@ -250,19 +246,21 @@ $statusLabel = New-Object System.Windows.Forms.Label
 $statusLabel.AutoSize = $true  # Important:  Let the label size itself to the text
 $statusLabel_width = $statusLabel.PreferredWidth # get the actual width of the label based on the text
 $label_x = ($bitwarden_form.ClientSize.Width - $statusLabel_width) / 2  # Center horizontally
-$label_y = 135  # Top padding
+$label_y = 40  # Top padding
 $statusLabel.Location = New-Object System.Drawing.Point($label_x, $label_y)
 
   # Initially hidden until the check is done
 $bitwarden_form.Controls.Add($statusLabel)
 $bitwarden_form.Add_Shown({
     Get-BitwardenAuthentication
+    $bitwarden_form.Close()  # Close the Bitwarden form
+    $bitwarden_form.Dispose()  # Close the Bitwarden form
 })
 
 #########################################
 # Create the main form
 $main_form = New-Object System.Windows.Forms.Form
-$main_form.Text = 'Script Manager'
+$main_form.Text = "Script Manager - $CurrentUser"
 $main_form.Size = New-Object System.Drawing.Size(400, 190)
 $main_form.StartPosition = "CenterScreen"
 # Prevent resizing
@@ -343,13 +341,13 @@ $okButton.Add_Click({
             return
         }
         "Heartbeat" {
-            . (Join-Path $PSScriptRoot "..\Scripts\Heartbeat\Heartbeat.ps1") -ADM_Credential $ADM_Credential
+            . (Join-Path $PSScriptRoot "..\Scripts\Heartbeat\Heartbeat.ps1") -ADM_Credential $script:ADM_Credential
         }
         "LowFreeSpace" {
-            . (Join-Path $PSScriptRoot "..\Scripts\LowFreeSpace\LowFreeSpace.ps1") -ADM_Credential $ADM_Credential
+            . (Join-Path $PSScriptRoot "..\Scripts\LowFreeSpace\LowFreeSpace.ps1") -ADM_Credential $script:ADM_Credential
         }
         "PerformanceIssue" {
-            . (Join-Path $PSScriptRoot "..\Scripts\PerformanceIssue\PerformanceIssue.ps1") -ADM_Credential $ADM_Credential
+            . (Join-Path $PSScriptRoot "..\Scripts\PerformanceIssue\PerformanceIssue.ps1") -ADM_Credential $script:ADM_Credential
         }
         default {
             [System.Windows.Forms.MessageBox]::Show(
@@ -389,6 +387,11 @@ $main_form.Controls.Add($cancelButton)
 # Show the form as a dialog
 $bitwarden_form.ShowDialog()
 
+
+if ($script:ADM_Credential) {
+    # Show the main form after Bitwarden authentication
+    $main_form.ShowDialog()
+}
 
 
 

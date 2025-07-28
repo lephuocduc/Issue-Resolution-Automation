@@ -72,6 +72,9 @@ Param(
     [System.Management.Automation.PSCredential]$ADM_Credential
 )
 
+# Get current user
+$CurrentUser = ([System.Security.Principal.WindowsIdentity]::GetCurrent().Name).Split('\')[1]
+
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
@@ -1068,7 +1071,7 @@ function Remove-Session {
 
 
 $main_form = New-Object System.Windows.Forms.Form
-$main_form.Text = "Low Free Space"
+$main_form.Text = "Low Free Space - $CurrentUser"
 $main_form.Size = New-Object System.Drawing.Size(410, 250)
 $main_form.StartPosition = "CenterScreen"
 $main_form.FormBorderStyle = 'FixedSingle'  # Or 'FixedDialog'

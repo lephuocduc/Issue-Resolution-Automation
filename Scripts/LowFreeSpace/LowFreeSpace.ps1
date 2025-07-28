@@ -67,6 +67,13 @@
 #    - Scenario: Non-existent disk
 #    - Output: MessageBox indicating disk not found
 
+Param(
+    [Parameter(Mandatory=$true)]
+    [System.Management.Automation.PSCredential]$ADM_Credential
+)
+
+
+
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
@@ -178,7 +185,7 @@ function Get-Session {
         do {
             Write-Log "Attempting to create session for $serverName (Attempt $($retryCount + 1) of $maxRetries)"
             $retryCount++
-            $Credential = Get-Credential -Message "Enter credentials for $ServerName (Attempt $($retryCount) of $MaxRetries)"
+            $Credential = $ADM_Credential
             if ($null -eq $Credential -or $retryCount -ge $maxRetries) {
                 Write-Log "Session creation canceled or retry limit reached for $serverName" "Error"
                 Update-StatusLabel -text "Session creation canceled or retry limit reached for $serverName"

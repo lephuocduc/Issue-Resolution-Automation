@@ -38,6 +38,28 @@ function Update-StatusLabel {
     $statusLabel.Refresh()
 }
 
+function Write-Log {
+    param (
+        [string]$Message,
+        [string]$Level = "Info",
+        [string]$LogDirectory = "C:\temp"
+    )
+
+    # Create directory if needed (more efficient check)
+    if (-not [System.IO.Directory]::Exists($LogDirectory)) {
+        [System.IO.Directory]::CreateDirectory($LogDirectory) | Out-Null
+    }
+
+    # Generate all date strings in a single call
+    $currentDate = Get-Date
+    $datePart = $currentDate.ToString("dd-MM-yyyy")
+    $LogPath = Join-Path $LogDirectory "ScriptManager-log-$datePart.log"
+    $timestamp = $currentDate.ToString("dd-MM-yyyy HH:mm:ss")
+
+    # Construct and write log entry
+    "$timestamp [$Level] $Message" | Out-File -FilePath $LogPath -Append -Encoding UTF8
+}
+
 function Get-BitwardenAuthentication {
     param(
         [Parameter(Mandatory = $false)]
@@ -52,9 +74,10 @@ function Get-BitwardenAuthentication {
         $zipPath = "$env:TEMP\$zipFileName"
         $extractPath = "$env:TEMP\bw-extract"
         $destinationPath = "$env:windir\System32\bw.exe"
-
+        
         # Download the Bitwarden CLI zip file
         Update-StatusLabel -text "Downloading Bitwarden CLI version $version..."
+        Write-Log "Starting Bitwarden CLI version $version installation process."
         Invoke-WebRequest -Uri $downloadUrl -OutFile $zipPath -UseBasicParsing
 
         # Remove any previous extraction folder
@@ -64,23 +87,15 @@ function Get-BitwardenAuthentication {
 
         # Extract the downloaded zip file
         Update-StatusLabel -text "Extracting Bitwarden CLI..."
+        Write-Log "Extracting Bitwarden CLI from $zipPath to $extractPath."
         Expand-Archive -Path $zipPath -DestinationPath $extractPath -Force
 
         # The extracted folder contains bw.exe directly, move it to System32
         $bwExePath = Join-Path -Path $extractPath -ChildPath "bw.exe"
 
-        # Check if running as Administrator
-        $currentIdentity = [Security.Principal.WindowsIdentity]::GetCurrent()
-        $principal = New-Object Security.Principal.WindowsPrincipal($currentIdentity)
-        $adminRole = [Security.Principal.WindowsBuiltInRole]::Administrator
-        if (-not $principal.IsInRole($adminRole)) {
-            Write-Warning "This script must be run with Administrator privileges to move bw.exe to $destinationPath."
-            Write-Warning "Please run PowerShell as Administrator and re-run this script."
-            exit 1
-        }
-
         # Move bw.exe to System32
         Update-StatusLabel -text "Moving bw.exe to $destinationPath..."
+        Write-Log "Moving bw.exe from $bwExePath to $destinationPath."
         Move-Item -Path $bwExePath -Destination $destinationPath -Force
 
         # Clean up downloaded zip and extracted files
@@ -89,14 +104,65 @@ function Get-BitwardenAuthentication {
 
         # Verify installation
         Update-StatusLabel -text "Verifying installation..."
+        Write-Log "Verifying Bitwarden CLI installation."
         if (Get-Command 'bw' -ErrorAction SilentlyContinue) {
-            $bitwarden_form.Close()
+            $bitwarden_form.Dispose()  # Close the Bitwarden form
             $main_form.ShowDialog() | Out-Null
         } else {
             Update-StatusLabel -text "Bitwarden CLI installation failed."
+            Write-Log "Bitwarden CLI installation failed. Please check the log for details." -Level "Error"
+            Start-Sleep -Seconds 3
             exit 1
         }
     }
+    Update-StatusLabel -text "Checking Bitwarden login status..."
+    Write-Log "Checking Bitwarden CLI login status."
+
+    $env:BW_CLIENTID = "user.a70e6672-6b16-4539-be6c-b327002104f7"
+    $env:BW_CLIENTSECRET = "LFXVMuhkdDcokVMAdWETV79fLy87Xn"
+    $env:BW_PASSWORD = "#q+m:ZcQjhQ.M7q"
+
+    # Check if BW has been logged in before
+    if (-not (bw status --session $env:BW_SESSION)) {
+        Update-StatusLabel -text "Logging in to Bitwarden CLI..."
+        Write-Log "Logging in to Bitwarden CLI with API key."
+        # Log in to Bitwarden
+        bw login --apikey
+    } else {
+        Update-StatusLabel -text "Already logged in to Bitwarden CLI."
+        Write-Log "Bitwarden CLI is already logged in."
+    }
+
+    Update-StatusLabel -text "Unlocking Bitwarden CLI session..."
+    Write-Log "Unlocking Bitwarden CLI session."
+    # Capture the session key
+    $session = bw unlock --passwordenv BW_PASSWORD
+    $sessionKey = $session | Select-String -Pattern 'export BW_SESSION=' | ForEach-Object { ($_ -split '"')[1] }
+    if (-not $sessionKey) {
+    # Alternative extraction if pattern differs:
+    $sessionKey = ($session | Select-String -Pattern 'BW_SESSION=') -replace '.*BW_SESSION="([^"]+)".*','$1'
+    }
+    $env:BW_SESSION = $sessionKey
+
+    $itemList = bw list items --session $env:BW_SESSION | ConvertFrom-Json
+    $item = $itemList | Where-Object { $_.name -eq "adm credentials" }
+    $username = $item.login.username
+    $password = $item.login.password
+
+    if ($username -and $password) {
+        Update-StatusLabel -text "Script Manager ready to use."
+        Write-Log "Script Manager is ready to use with credentials for user: $username."
+    }
+
+    $ADM_UserName = $username
+    $ADM_Password = ConvertTo-SecureString -String $password -AsPlainText -Force
+    $ADM_Credential = New-Object System.Management.Automation.PSCredential($ADM_UserName, $ADM_Password)
+
+
+    $bitwarden_form.Dispose()  # Close the Bitwarden form
+    $main_form.ShowDialog() | Out-Null
+
+    return $ADM_Credential
 }
     
 # Bitwarden form
@@ -208,7 +274,7 @@ $okButton.Add_Click({
             . (Join-Path $PSScriptRoot "..\Scripts\Heartbeat\Heartbeat.ps1")
         }
         "LowFreeSpace" {
-            . (Join-Path $PSScriptRoot "..\Scripts\LowFreeSpace\LowFreeSpace.ps1")
+            . (Join-Path $PSScriptRoot "..\Scripts\LowFreeSpace\LowFreeSpace.ps1") -ADM_Credential $ADM_Credential
         }
         "PerformanceIssue" {
             . (Join-Path $PSScriptRoot "..\Scripts\PerformanceIssue\PerformanceIssue.ps1")
@@ -230,7 +296,7 @@ $cancelButton.Text = 'Cancel'
 #$cancelButton.Location = New-Object System.Drawing.Point(220, 100) # Positioning next to the OK button
 $cancelButton.Size = New-Object System.Drawing.Size(80, 30)  # Fixed size matching OK button
 $cancelButton.BackColor = [System.Drawing.Color]::LightCoral
-$cancelButton.Add_Click({ $main_form.Close() })
+$cancelButton.Add_Click({ $main_form.Dispose() })  # Close the form when Cancel is clicked
 
 # Calculate horizontal positions for centered alignment
 $buttonWidth = $okButton.Size.Width

@@ -68,7 +68,7 @@
 #    - Output: MessageBox indicating disk not found
 
 Param(
-    [Parameter(Mandatory=$false)]
+    [Parameter(Mandatory= $false)]
     [System.Management.Automation.PSCredential]$ADM_Credential
 )
 

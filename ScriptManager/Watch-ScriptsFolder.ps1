@@ -43,7 +43,7 @@ function Update-ScriptManagerContent {
             $switchCases += @"
 
         "$($script.Name)" {
-            . (Join-Path `$PSScriptRoot "..\Scripts\$($script.Folder)\$($script.Name).ps1")
+            . (Join-Path `$PSScriptRoot "..\Scripts\$($script.Folder)\$($script.Name).ps1") -ADM_Credential `$ADM_Credential
         }
 "@
         }

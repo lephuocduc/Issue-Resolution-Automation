@@ -68,11 +68,9 @@
 #    - Output: MessageBox indicating disk not found
 
 Param(
-    [Parameter(Mandatory=$true)]
+    [Parameter(Mandatory=$false)]
     [System.Management.Automation.PSCredential]$ADM_Credential
 )
-
-
 
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
@@ -158,43 +156,41 @@ function Get-Session {
         [Parameter(Mandatory = $false)]
         [PSCredential]$Credential = $null
     )
-    $retryCount = 0
-    $maxRetries = 3
     try {
         if (Get-PSProvider -PSProvider WSMan -ErrorAction SilentlyContinue) {
-                    $currentTrustedHosts = (Get-Item WSMan:\localhost\Client\TrustedHosts -ErrorAction SilentlyContinue).Value
-                    # Skip update if wildcard exists
-                        if ($currentTrustedHosts -ne "*") {
-                            Write-Log "Updating TrustedHosts for $serverName"
-                            # Get current list as array
-                            $hostList = if (-not [string]::IsNullOrEmpty($currentTrustedHosts)) {
-                                $currentTrustedHosts -split ',' | ForEach-Object { $_.Trim() }
-                            } else {
-                                @()
-                            }
-                            
-                            # Add server if not already present
-                            if ($serverName -notin $hostList) {
-                                Set-Item WSMan:\localhost\Client\TrustedHosts -Value $serverName -Concatenate -Force
-                                Write-Log "Updated TrustedHosts to include $serverName"
-                            }
-                        } else {
-                            Write-Log "TrustedHosts already set to wildcard '*', skipping update for $serverName"
-                        }
+            $currentTrustedHosts = (Get-Item WSMan:\localhost\Client\TrustedHosts -ErrorAction SilentlyContinue).Value
+            # Skip update if wildcard exists
+                if ($currentTrustedHosts -ne "*") {
+                    Write-Log "Updating TrustedHosts for $serverName"
+                    # Get current list as array
+                    $hostList = if (-not [string]::IsNullOrEmpty($currentTrustedHosts)) {
+                        $currentTrustedHosts -split ',' | ForEach-Object { $_.Trim() }
+                    } else {
+                        @()
+                    }
+                    
+                    # Add server if not already present
+                    if ($serverName -notin $hostList) {
+                        Set-Item WSMan:\localhost\Client\TrustedHosts -Value $serverName -Concatenate -Force
+                    }
+                }
         }
         do {
-            Write-Log "Attempting to create session for $serverName (Attempt $($retryCount + 1) of $maxRetries)"
-            $retryCount++
             $Credential = $ADM_Credential
-            if ($null -eq $Credential -or $retryCount -ge $maxRetries) {
-                Write-Log "Session creation canceled or retry limit reached for $serverName" "Error"
-                Update-StatusLabel -text "Session creation canceled or retry limit reached for $serverName"
-                return $null
-            }
             try {
                 
-                $session = New-PSSession -ComputerName $serverName -Credential $credential -ErrorAction Stop
-                Write-Log "Session created successfully for $serverName"
+                $session = New-PSSession -ComputerName $serverName -Credential $Credential -ErrorAction Continue
+                if ($null -eq $session) {
+                    Write-Log "Failed to create session for $serverName. Retrying..." "Warning"
+                    [System.Windows.Forms.MessageBox]::Show(
+                        "Failed to create session for $serverName. Please check the credentials.",
+                        "Warning",
+                        [System.Windows.Forms.MessageBoxButtons]::OK,
+                        [System.Windows.Forms.MessageBoxIcon]::Warning
+                    )
+                    [System.Windows.Forms.Application]::Exit()
+                    return
+                }
                 Update-StatusLabel -text "Session created successfully for $serverName"
                 return $session
             } catch {
@@ -1004,6 +1000,7 @@ function Export-DiskReport {
                 [System.Windows.Forms.MessageBoxButtons]::OK, 
                 [System.Windows.Forms.MessageBoxIcon]::Information
             )
+            Start-Process -FilePath $reportPath
         } else {
             $errorDetails = "Exception: $($_.Exception.GetType().FullName)`nMessage: $($_.Exception.Message)`nStackTrace: $($_.ScriptStackTrace)"
             Write-Log "Failed to export disk report: $errorDetails" "Error"

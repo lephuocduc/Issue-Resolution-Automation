@@ -61,13 +61,10 @@ function Write-Log {
 }
 
 function Get-BitwardenAuthentication {
-    param(
-        [Parameter(Mandatory = $false)]
-        [string]$version = '1.22.1' # <-- Update to the newest version available at https://github.com/bitwarden/cli/releases
-    )
     # Check if Bitwarden CLI is installed
     if (-not (Get-Command 'bw' -ErrorAction SilentlyContinue)) {
         # URLs and paths
+        $version = "1.22.1"
         $baseUrl = "https://github.com/bitwarden/cli/releases/download/v$version"
         $zipFileName = "bw-windows-$version.zip"
         $downloadUrl = "$baseUrl/$zipFileName"
@@ -77,8 +74,21 @@ function Get-BitwardenAuthentication {
         
         # Download the Bitwarden CLI zip file
         Update-StatusLabel -text "Downloading Bitwarden CLI version $version..."
-        Write-Log "Starting Bitwarden CLI version $version installation process."
         Invoke-WebRequest -Uri $downloadUrl -OutFile $zipPath -UseBasicParsing
+
+        # Check if the download was successful
+        if (-not (Test-Path $zipPath)) {
+            Write-Log "Failed to download Bitwarden CLI from $downloadUrl." -Level "Error"
+            [System.Windows.Forms.MessageBox]::Show(
+                "Failed to download Bitwarden CLI. Please check your internet connection or the URL.",
+                "Download Error",
+                [System.Windows.Forms.MessageBoxButtons]::OK,
+                [System.Windows.Forms.MessageBoxIcon]::Error
+            )
+            $bitwarden_form.Close()  # Close the Bitwarden form
+            $bitwarden_form.Dispose()  # Close the Bitwarden form
+            return
+        }
 
         # Remove any previous extraction folder
         if (Test-Path $extractPath) {
@@ -87,7 +97,6 @@ function Get-BitwardenAuthentication {
 
         # Extract the downloaded zip file
         Update-StatusLabel -text "Extracting Bitwarden CLI..."
-        Write-Log "Extracting Bitwarden CLI from $zipPath to $extractPath."
         Expand-Archive -Path $zipPath -DestinationPath $extractPath -Force
 
         # The extracted folder contains bw.exe directly, move it to System32
@@ -98,43 +107,77 @@ function Get-BitwardenAuthentication {
         Write-Log "Moving bw.exe from $bwExePath to $destinationPath."
         Move-Item -Path $bwExePath -Destination $destinationPath -Force
 
+        # Check if the move was successful
+        if (-not (Test-Path $destinationPath)) {
+            Write-Log "Failed to move bw.exe to $destinationPath." -Level "Error"
+            [System.Windows.Forms.MessageBox]::Show(
+                "Failed to install Bitwarden CLI.",
+                "Installation Error",
+                [System.Windows.Forms.MessageBoxButtons]::OK,
+                [System.Windows.Forms.MessageBoxIcon]::Error
+            )
+            $bitwarden_form.Close()  # Close the Bitwarden form
+            $bitwarden_form.Dispose()  # Close the Bitwarden form
+            return
+        }
+
         # Clean up downloaded zip and extracted files
-        Remove-Item -Path $zipPath -Force
-        Remove-Item -Recurse -Force $extractPath
+        Remove-Item -Path $zipPath -Force -ErrorAction SilentlyContinue
+        Remove-Item -Recurse -Force $extractPath -ErrorAction SilentlyContinue
 
         # Verify installation
         Update-StatusLabel -text "Verifying installation..."
-        Write-Log "Verifying Bitwarden CLI installation."
-        if (Get-Command 'bw' -ErrorAction SilentlyContinue) {
+
+        if (-not (Get-Command 'bw' -ErrorAction SilentlyContinue)) {
+            Write-Log "Bitwarden CLI installation failed." -Level "Error"
+            [System.Windows.Forms.MessageBox]::Show(
+                "Bitwarden CLI installation failed. Please try again.",
+                "Installation Error",
+                [System.Windows.Forms.MessageBoxButtons]::OK,
+                [System.Windows.Forms.MessageBoxIcon]::Error
+            )
+            $bitwarden_form.Close()  # Close the Bitwarden form
             $bitwarden_form.Dispose()  # Close the Bitwarden form
-            $main_form.ShowDialog() | Out-Null
-        } else {
-            Update-StatusLabel -text "Bitwarden CLI installation failed."
-            Write-Log "Bitwarden CLI installation failed. Please check the log for details." -Level "Error"
-            Start-Sleep -Seconds 3
-            exit 1
+            return
         }
     }
+
+    # If bw command is available, proceed with authentication
     Update-StatusLabel -text "Checking Bitwarden login status..."
-    Write-Log "Checking Bitwarden CLI login status."
 
     $env:BW_CLIENTID = "user.a70e6672-6b16-4539-be6c-b327002104f7"
     $env:BW_CLIENTSECRET = "LFXVMuhkdDcokVMAdWETV79fLy87Xn"
     $env:BW_PASSWORD = "#q+m:ZcQjhQ.M7q"
 
     # Check if BW has been logged in before
-    if (-not (bw status --session $env:BW_SESSION)) {
+    # Run bw status and capture the output
+    $bwStatus = bw status | ConvertFrom-Json
+
+    # Check the status field
+    if ($bwStatus.status -eq "unauthenticated") {
         Update-StatusLabel -text "Logging in to Bitwarden CLI..."
-        Write-Log "Logging in to Bitwarden CLI with API key."
         # Log in to Bitwarden
         bw login --apikey
+
+        # Check if the login was successful
+        $bwStatus = bw status | ConvertFrom-Json
+        if ($bwStatus.status -eq "unauthenticated") {
+            Write-Log "Bitwarden CLI login failed." -Level "Error"
+            [System.Windows.Forms.MessageBox]::Show(
+                "Bitwarden CLI login failed. Please check your credentials.",
+                "Login Error",
+                [System.Windows.Forms.MessageBoxButtons]::OK,
+                [System.Windows.Forms.MessageBoxIcon]::Error
+            )
+            $bitwarden_form.Close()  # Close the Bitwarden form
+            $bitwarden_form.Dispose()  # Close the Bitwarden form
+            return
+        }
     } else {
         Update-StatusLabel -text "Already logged in to Bitwarden CLI."
-        Write-Log "Bitwarden CLI is already logged in."
     }
 
     Update-StatusLabel -text "Unlocking Bitwarden CLI session..."
-    Write-Log "Unlocking Bitwarden CLI session."
     # Capture the session key
     $session = bw unlock --passwordenv BW_PASSWORD
     $sessionKey = $session | Select-String -Pattern 'export BW_SESSION=' | ForEach-Object { ($_ -split '"')[1] }
@@ -146,12 +189,37 @@ function Get-BitwardenAuthentication {
 
     $itemList = bw list items --session $env:BW_SESSION | ConvertFrom-Json
     $item = $itemList | Where-Object { $_.name -eq "adm credentials" }
+    if (-not $item) {
+        Write-Log "No item found with the name 'adm credentials' in Bitwarden." -Level "Error"
+        [System.Windows.Forms.MessageBox]::Show(
+            "No item found with the name 'adm credentials' in Bitwarden.",
+            "Retrieval Error",
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Error
+        )
+        # Logout the Bitwarden session
+        bw logout --session $env:BW_SESSION | Out-Null
+        $bitwarden_form.Close()  # Close the Bitwarden form
+        $bitwarden_form.Dispose()  # Close the Bitwarden form
+        return
+    }
     $username = $item.login.username
     $password = $item.login.password
 
-    if ($username -and $password) {
-        Update-StatusLabel -text "Script Manager ready to use."
-        Write-Log "Script Manager is ready to use with credentials for user: $username."
+    # Check if username and password are retrieved
+    if (-not $username -or -not $password) {
+        Write-Log "Username or password not found in Bitwarden." -Level "Error"
+        [System.Windows.Forms.MessageBox]::Show(
+            "Username or password not found in Bitwarden.",
+            "Retrieval Error",
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Error
+        )
+        # Logout the Bitwarden session
+        bw logout --session $env:BW_SESSION | Out-Null
+        $bitwarden_form.Close()  # Close the Bitwarden form
+        $bitwarden_form.Dispose()  # Close the Bitwarden form
+        return
     }
 
     $ADM_UserName = $username
@@ -159,6 +227,10 @@ function Get-BitwardenAuthentication {
     $ADM_Credential = New-Object System.Management.Automation.PSCredential($ADM_UserName, $ADM_Password)
 
 
+    # Logout the Bitwarden session
+    bw logout --session $env:BW_SESSION | Out-Null
+    # Clear the environment variables
+    $bitwarden_form.Close()  # Close the Bitwarden form
     $bitwarden_form.Dispose()  # Close the Bitwarden form
     $main_form.ShowDialog() | Out-Null
 
@@ -271,13 +343,13 @@ $okButton.Add_Click({
             return
         }
         "Heartbeat" {
-            . (Join-Path $PSScriptRoot "..\Scripts\Heartbeat\Heartbeat.ps1")
+            . (Join-Path $PSScriptRoot "..\Scripts\Heartbeat\Heartbeat.ps1") -ADM_Credential $ADM_Credential
         }
         "LowFreeSpace" {
-            . (Join-Path $PSScriptRoot "..\Scripts\LowFreeSpace\LowFreeSpace.ps1")
+            . (Join-Path $PSScriptRoot "..\Scripts\LowFreeSpace\LowFreeSpace.ps1") -ADM_Credential $ADM_Credential
         }
         "PerformanceIssue" {
-            . (Join-Path $PSScriptRoot "..\Scripts\PerformanceIssue\PerformanceIssue.ps1")
+            . (Join-Path $PSScriptRoot "..\Scripts\PerformanceIssue\PerformanceIssue.ps1") -ADM_Credential $ADM_Credential
         }
         default {
             [System.Windows.Forms.MessageBox]::Show(
@@ -316,6 +388,7 @@ $main_form.Controls.Add($cancelButton)
 
 # Show the form as a dialog
 $bitwarden_form.ShowDialog()
+
 
 
 

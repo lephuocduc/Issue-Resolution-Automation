@@ -274,7 +274,7 @@ $okButton.Add_Click({
             . (Join-Path $PSScriptRoot "..\Scripts\Heartbeat\Heartbeat.ps1")
         }
         "LowFreeSpace" {
-            . (Join-Path $PSScriptRoot "..\Scripts\LowFreeSpace\LowFreeSpace.ps1") -ADM_Credential $ADM_Credential
+            . (Join-Path $PSScriptRoot "..\Scripts\LowFreeSpace\LowFreeSpace.ps1")
         }
         "PerformanceIssue" {
             . (Join-Path $PSScriptRoot "..\Scripts\PerformanceIssue\PerformanceIssue.ps1")
@@ -316,6 +316,7 @@ $main_form.Controls.Add($cancelButton)
 
 # Show the form as a dialog
 $bitwarden_form.ShowDialog()
+
 
 
 

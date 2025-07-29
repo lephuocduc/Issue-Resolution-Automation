@@ -396,6 +396,14 @@ $bitwarden_form.ShowDialog()
 if ($script:ADM_Credential) {
     # Show the main form after Bitwarden authentication
     $main_form.ShowDialog()
+} else {
+    # If ADM_Credential is not set, show an error message
+    [System.Windows.Forms.MessageBox]::Show(
+        "Failed to retrieve ADM_Credential from Bitwarden.",
+        "Error",
+        [System.Windows.Forms.MessageBoxButtons]::OK,
+        [System.Windows.Forms.MessageBoxIcon]::Error
+    )
 }
 
 

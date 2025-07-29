@@ -1045,6 +1045,60 @@ function Export-DiskReport {
     }
 }
 
+function Write-EventLogEntry {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$LogName,
+        
+        [Parameter(Mandatory=$true)]
+        [string]$Source,
+        
+        [Parameter(Mandatory=$true)]
+        [ValidateRange(0,65535)]
+        [int]$EventID,
+        
+        [Parameter(Mandatory=$true)]
+        [ValidateSet('Information','Warning','Error')]
+        [string]$EntryType,
+        
+        [Parameter(Mandatory=$true)]
+        [string]$Message,
+
+        [Parameter(Mandatory=$true)]
+        [System.Management.Automation.Runspaces.PSSession]$Session
+    )
+
+    # Define the remote script block
+    $scriptBlock = {
+        param ($LogName, $Source, $EventID, $EntryType, $Message)
+
+        # Helper function Write-Log omitted here for brevity; add if you want logging inside remote session
+
+        # Handle source existence
+        if (-not [System.Diagnostics.EventLog]::SourceExists($Source)) {
+            try {
+                New-EventLog -LogName $LogName -Source $Source -ErrorAction Stop
+            }
+            catch {
+                # You can add logging or output here, e.g. Write-Error
+                Write-Error "Failed to create event source '$Source' in log '$LogName': $_"
+                return
+            }
+        }
+
+        # Write event
+        try {
+            Write-EventLog -LogName $LogName -Source $Source -EventId $EventID -EntryType $EntryType -Message $Message
+        }
+        catch {
+            Write-Error "Failed to write event to log '$LogName' with source '$Source': $_"
+        }
+    }
+
+    # Invoke the script block remotely with parameters
+    Invoke-Command -Session $Session -ScriptBlock $scriptBlock -ArgumentList $LogName, $Source, $EventID, $EntryType, $Message
+}
 
 
 function Update-StatusLabel {
@@ -1333,6 +1387,9 @@ $okButton.Add_Click({
 
                 Export-DiskReport -serverName $serverName -diskName $diskName `
                     -diskInfo $diskInfo -topItems $topItems
+                
+                # Write Windows Event Log Entry on the remote server
+
             }
             $main_form.Close()
             Remove-Session
@@ -1384,10 +1441,11 @@ $main_form.Controls.Add($labelServerName)
 $main_form.Controls.Add($textBoxServerName)
 $main_form.Controls.Add($diskLabel)
 $main_form.Controls.Add($diskTextBox)
-$main_form.Controls.Add($okButton)
-$main_form.Controls.Add($cancelButton)
 $main_form.Controls.Add($ticketNumberLabel)
 $main_form.Controls.Add($ticketNumberTextBox)
+$main_form.Controls.Add($okButton)
+$main_form.Controls.Add($cancelButton)
+
 
 # Show form
 if ($null -eq $env:UNIT_TEST) {

@@ -1,6 +1,22 @@
 $scriptManagerPath = Join-Path $PSScriptRoot "ScriptManager.ps1"
 $scriptsRootPath = Join-Path $PSScriptRoot "..\Scripts"
 
+# Helper function to insert spaces before capital letters
+function Split-CamelCase {
+    param (
+        [string]$Text
+    )
+    $result = ""
+    for ($i = 0; $i -lt $Text.Length; $i++) {
+        $char = $Text[$i]
+        if ($i -gt 0 -and [char]::IsUpper($char)) {
+            $result += " "
+        }
+        $result += $char
+    }
+    return $result
+}
+
 function Update-ScriptManagerContent {
     try {
         # Get script names from subfolders
@@ -10,6 +26,9 @@ function Update-ScriptManagerContent {
             Select-Object @{
                 Name = 'Name'
                 Expression = { $_.BaseName }
+            }, @{
+                Name = 'DisplayName'
+                Expression = { Split-CamelCase $_.BaseName }
             }, @{
                 Name = 'Folder'
                 Expression = { $folderName }
@@ -21,12 +40,12 @@ function Update-ScriptManagerContent {
         # Read content
         $content = Get-Content $scriptManagerPath -Raw
 
-        # Update ComboBox items
+        # Update ComboBox items with display names
         $comboBoxPattern = '\$comboBox\.Items\.AddRange\(@\([^)]+\)\)'
-        $newComboBoxItems = "`$comboBox.Items.AddRange(@('" + ($scriptNames.Name -join "','") + "'))"
+        $newComboBoxItems = "`$comboBox.Items.AddRange(@('" + ($scriptNames.DisplayName -join "','") + "'))"
         $content = $content -replace $comboBoxPattern, $newComboBoxItems
 
-        # Build switch cases with proper formatting
+        # Build switch cases with proper formatting, using original names
         $switchCases = @"
         "------------------------------" {
             [System.Windows.Forms.MessageBox]::Show(
@@ -40,9 +59,10 @@ function Update-ScriptManagerContent {
 "@
 
         foreach ($script in $scriptNames) {
+            # Map display name to original name in switch case
             $switchCases += @"
 
-        "$($script.Name)" {
+        "$($script.DisplayName)" {
             . (Join-Path `$PSScriptRoot "..\Scripts\$($script.Folder)\$($script.Name).ps1") -ADM_Credential `$script:ADM_Credential
         }
 "@

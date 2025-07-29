@@ -142,14 +142,10 @@ function Get-BitwardenAuthentication {
             $bitwarden_form.Dispose()  # Close the Bitwarden form
             return
         }
-    }
+    } # End of Bitwarden CLI installation check
 
     # If bw command is available, proceed with authentication
     Update-StatusLabel -text "Checking Bitwarden login status..."
-
-    $env:BW_CLIENTID = "user.a70e6672-6b16-4539-be6c-b327002104f7"
-    $env:BW_CLIENTSECRET = "LFXVMuhkdDcokVMAdWETV79fLy87Xn"
-    $env:BW_PASSWORD = "#q+m:ZcQjhQ.M7q"
 
     # Check if BW has been logged in before
     # Run bw status and capture the output
@@ -159,6 +155,8 @@ function Get-BitwardenAuthentication {
     if ($bwStatus.status -eq "unauthenticated") {
         Update-StatusLabel -text "Logging in to Bitwarden CLI..."
         # Log in to Bitwarden
+        $env:BW_CLIENTID = "user.a70e6672-6b16-4539-be6c-b327002104f7"
+        $env:BW_CLIENTSECRET = "LFXVMuhkdDcokVMAdWETV79fLy87Xn"
         bw login --apikey
 
         # Check if the login was successful
@@ -179,16 +177,20 @@ function Get-BitwardenAuthentication {
         Update-StatusLabel -text "Already logged in to Bitwarden CLI."
     }
 
+    $env:BW_PASSWORD = "#q+m:ZcQjhQ.M7q"
     Update-StatusLabel -text "Unlocking Bitwarden CLI session..."
     # Capture the session key
     $session = bw unlock --passwordenv BW_PASSWORD
     $sessionKey = $session | Select-String -Pattern 'export BW_SESSION=' | ForEach-Object { ($_ -split '"')[1] }
     if (-not $sessionKey) {
-    # Alternative extraction if pattern differs:
-    $sessionKey = ($session | Select-String -Pattern 'BW_SESSION=') -replace '.*BW_SESSION="([^"]+)".*','$1'
-    }
+        # Alternative extraction if pattern differs:
+        $sessionKey = ($session | Select-String -Pattern 'BW_SESSION=') -replace '.*BW_SESSION="([^"]+)".*','$1'
+        }
     $env:BW_SESSION = $sessionKey
-    bw sync --session $env:BW_SESSION | Out-Null
+
+    # Synchronize the Bitwarden vault
+    Update-StatusLabel -text "Synchronizing Bitwarden vault..."
+    bw sync --session $env:BW_SESSION
 
     $itemList = bw list items --session $env:BW_SESSION | ConvertFrom-Json
     $item = $itemList | Where-Object { $_.name -eq "adm credentials" }
@@ -229,8 +231,10 @@ function Get-BitwardenAuthentication {
     $ADM_Password = ConvertTo-SecureString -String $password -AsPlainText -Force
     $script:ADM_Credential = New-Object System.Management.Automation.PSCredential($ADM_UserName, $ADM_Password)
 
+    Update-StatusLabel -text "Script Manager is ready to use."
     # Logout the Bitwarden session
     bw logout --session $env:BW_SESSION | Out-Null
+    Start-Sleep -Seconds 1
 }
     
 # Bitwarden form
@@ -244,6 +248,7 @@ $bitwarden_form.MaximizeBox = $false
 # Status label
 $statusLabel = New-Object System.Windows.Forms.Label
 $statusLabel.AutoSize = $true  # Important:  Let the label size itself to the text
+$statusLabel.Font = New-Object System.Drawing.Font($statusLabel.Font.FontFamily, 11)
 $statusLabel_width = $statusLabel.PreferredWidth # get the actual width of the label based on the text
 $label_x = ($bitwarden_form.ClientSize.Width - $statusLabel_width) / 2  # Center horizontally
 $label_y = 40  # Top padding
@@ -284,7 +289,7 @@ $main_form.Controls.Add($label)
 $comboBox = New-Object System.Windows.Forms.ComboBox
 #$comboBox.Location = New-Object System.Drawing.Point(110, 50)  # Centered horizontally - REMOVE THIS LINE
 $comboBox.Size = New-Object System.Drawing.Size (200, 25) # set the size of combobox
-$comboBox.Items.AddRange(@('Heartbeat','LowFreeSpace','PerformanceIssue'))  # Add items to the dropdown
+$comboBox.Items.AddRange(@('Heartbeat','Low Free Space','Performance Issue'))  # Add items to the dropdown
 $comboBox.DropDownStyle = 'DropDown' # Allow text editing in the ComboBox
 # Calculate the horizontal center for the ComboBox
 $combobox_width = $comboBox.Size.Width
@@ -343,10 +348,10 @@ $okButton.Add_Click({
         "Heartbeat" {
             . (Join-Path $PSScriptRoot "..\Scripts\Heartbeat\Heartbeat.ps1") -ADM_Credential $script:ADM_Credential
         }
-        "LowFreeSpace" {
+        "Low Free Space" {
             . (Join-Path $PSScriptRoot "..\Scripts\LowFreeSpace\LowFreeSpace.ps1") -ADM_Credential $script:ADM_Credential
         }
-        "PerformanceIssue" {
+        "Performance Issue" {
             . (Join-Path $PSScriptRoot "..\Scripts\PerformanceIssue\PerformanceIssue.ps1") -ADM_Credential $script:ADM_Credential
         }
         default {
@@ -392,6 +397,8 @@ if ($script:ADM_Credential) {
     # Show the main form after Bitwarden authentication
     $main_form.ShowDialog()
 }
+
+
 
 
 

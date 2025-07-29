@@ -112,41 +112,66 @@ function Test-ServerAvailability {
     $result = [PSCustomObject]@{
         RemotingAvailable = $false
         PingReachable    = $false
+        DNSResolvable   = $false
         ErrorDetails     = $null
     }
 
-    # Test WinRM availability first
-    Update-StatusLabel -text "Testing WinRM availability for $ServerName"
     try {
+        # Test WinRM availability first
+        Update-StatusLabel -text "Testing WinRM service on $ServerName."
+        Write-Log "Testing WinRM service on $ServerName."
         $null = Test-WSMan -ComputerName $ServerName -ErrorAction Stop
         $result.RemotingAvailable = $true
-        Write-Log "WinRM service is available on $ServerName"
-        return $result  # Exit early if successful
+        Update-StatusLabel -text "Server $ServerName is running normally."
+        Write-Log "Server $ServerName is running normally."
+        return $result
     }
     catch {
         $result.ErrorDetails = "WinRM test failed: $($_.Exception.Message)"
+        Update-StatusLabel -text "WinRM service is unavailable on $ServerName."
         Write-Log $result.ErrorDetails "Warning"
     }
 
     # If WinRM fails, test ping connectivity
-    Update-StatusLabel -text "Testing ping reachability for $ServerName"
+    $pingFailed = $true
     try {
+        Update-StatusLabel -text "Testing ping for $ServerName"
         Write-Log "Testing ping for $ServerName"
         $ping = [System.Net.NetworkInformation.Ping]::new()
         $reply = $ping.Send($ServerName, 1000)  # 1 second timeout
         
         if ($reply.Status -eq 'Success') {
+            $pingFailed = $false
             $result.PingReachable = $true
-            Write-Log "Server $ServerName is ping reachable but WinRM is unavailable"
+            Update-StatusLabel -text "Server $ServerName is ping reachable but WinRM is unavailable. Please check WinRM service on the server and the server may be hung."
+            Write-Log "Server $ServerName is ping reachable but WinRM is unavailable. Please check WinRM service on the server and the server may be hung." "Warning"
+            return $result
         }
         else {
             $result.ErrorDetails += "; Ping failed ($($reply.Status))"
-            Write-Log "Server $ServerName is not ping reachable ($($reply.Status))" "Warning"
         }
     }
     catch {
         $result.ErrorDetails += "; Ping test failed: $($_.Exception.Message)"
-        Write-Log "Ping test failed for $ServerName': $($_.Exception.Message)" "Warning"
+    }
+
+    # If both WinRM and Ping fail, test DNS resolution
+    if ($pingFailed) {
+        try {
+            Update-StatusLabel -text "Trying to resolve DNS name"
+            Write-Log "Trying to resolve DNS name"
+            $null = [System.Net.Dns]::GetHostEntry($ServerName)
+            $result.DNSResolvable = $true
+            $result.ErrorDetails += "; DNS resolution succeeded but ping failed"
+            Update-StatusLabel -text "Server $ServerName is offline."
+            Write-Log "Server $ServerName is offline." "Warning"
+        }
+        catch {
+            $result.DNSResolvable = $false
+            $result.ErrorDetails += "; DNS resolution failed: $($_.Exception.Message)"
+            Update-StatusLabel -text "Server name $ServerName cannot be resolved. Please check the server name."
+            Write-Log "Server name $ServerName cannot be resolved. Please check the server name." "Warning"
+        }
     }
 
     return $result
@@ -1072,7 +1097,7 @@ function Remove-Session {
 
 $main_form = New-Object System.Windows.Forms.Form
 $main_form.Text = "Low Free Space - $CurrentUser"
-$main_form.Size = New-Object System.Drawing.Size(410, 250)
+$main_form.Size = New-Object System.Drawing.Size(430, 270)
 $main_form.StartPosition = "CenterScreen"
 $main_form.FormBorderStyle = 'FixedSingle'  # Or 'FixedDialog'
 $main_form.MaximizeBox = $false
@@ -1098,14 +1123,14 @@ $toolTip.ShowAlways = $true   # Show tooltip even if the form is not active
 # Server Name Label
 $labelServerName = New-Object System.Windows.Forms.Label
 $labelServerName.Location = New-Object System.Drawing.Point(20, 30)
-$labelServerName.Size = New-Object System.Drawing.Size(100, 30)
+$labelServerName.Size = New-Object System.Drawing.Size(120, 30)
 $labelServerName.Text = "Server Name:"
 $labelServerName.Font = New-Object System.Drawing.Font("Arial", 11)
 $toolTip.SetToolTip($labelServerName, "Enter the hostname or IP address of the remote server to analyze or clean.")
 
 # Disk Name TextBox
 $textBoxServerName = New-Object System.Windows.Forms.TextBox
-$textBoxServerName.Location = New-Object System.Drawing.Point(120, 30)
+$textBoxServerName.Location = New-Object System.Drawing.Point(140, 30)
 $textBoxServerName.Size = New-Object System.Drawing.Size(250, 30)
 $textBoxServerName.Font = New-Object System.Drawing.Font("Arial", 11)
 $textBoxServerName.Add_KeyDown({
@@ -1129,14 +1154,14 @@ $textBoxServerName.Add_KeyDown({
 # Disk Name Label
 $diskLabel = New-Object System.Windows.Forms.Label
 $diskLabel.Location = New-Object System.Drawing.Point(20, 60)
-$diskLabel.Size = New-Object System.Drawing.Size(100, 30)
+$diskLabel.Size = New-Object System.Drawing.Size(120, 30)
 $diskLabel.Text = "Drive Letter:"
 $diskLabel.Font = New-Object System.Drawing.Font("Arial", 11)
 $toolTip.SetToolTip($diskLabel, "Enter the drive letter to process (e.g., C or C: or C:\).")
 
 # Disk Name TextBox
 $diskTextBox = New-Object System.Windows.Forms.TextBox
-$diskTextBox.Location = New-Object System.Drawing.Point(120, 60)
+$diskTextBox.Location = New-Object System.Drawing.Point(140, 60)
 $diskTextBox.Size = New-Object System.Drawing.Size(250, 30)
 $diskTextBox.Font = New-Object System.Drawing.Font("Arial", 11)
 $diskTextBox.Add_KeyDown({
@@ -1157,6 +1182,36 @@ $diskTextBox.Add_KeyDown({
     }
 })
 
+# Ticket number Label
+$ticketNumberLabel = New-Object System.Windows.Forms.Label
+$ticketNumberLabel.Location = New-Object System.Drawing.Point(20, 90)
+$ticketNumberLabel.Size = New-Object System.Drawing.Size(120, 30)
+$ticketNumberLabel.Text = "Ticket Number:"
+$ticketNumberLabel.Font = New-Object System.Drawing.Font("Arial", 11)
+$toolTip.SetToolTip($ticketNumberLabel, "Enter the ticket number associated with this operation.")
+
+# Ticket number TextBox
+$ticketNumberTextBox = New-Object System.Windows.Forms.TextBox
+$ticketNumberTextBox.Location = New-Object System.Drawing.Point(140, 90)
+$ticketNumberTextBox.Size = New-Object System.Drawing.Size(250, 30)
+$ticketNumberTextBox.Font = New-Object System.Drawing.Font("Arial", 11)
+$ticketNumberTextBox.Add_KeyDown({
+    param($sender, $e)
+    if ($e.Control -and $e.KeyCode -eq [System.Windows.Forms.Keys]::A) {
+        # Select all text in the ComboBox
+        $ticketNumberTextBox.SelectAll()
+        $e.SuppressKeyPress = $true
+    }
+    elseif ($e.Control -and $e.KeyCode -eq [System.Windows.Forms.Keys]::C) {
+        # Copy selected text to clipboard
+        if ($ticketNumberTextBox.SelectedText) {
+            [System.Windows.Forms.Clipboard]::SetText($ticketNumberTextBox.SelectedText)
+        } else {
+            [System.Windows.Forms.Clipboard]::SetText($ticketNumberTextBox.Text)
+        }
+        $e.SuppressKeyPress = $true
+    }
+})
 
 # OK Button
 $okButton = New-Object System.Windows.Forms.Button
@@ -1166,20 +1221,15 @@ $okButton.Text = "OK"
 $okButton.Add_Click({
     try {
         # Normalize disk name input
-        if ($diskTextBox.Text -eq $diskTextBox.Tag) {
-            $diskTextBox.Text = ""
-        }
-        if ($textBoxServerName.Text -eq $textBoxServerName.Tag) {
-            $textBoxServerName.Text = ""
-        }
         $rawDiskName = $diskTextBox.Text.Trim()
         $diskName = $rawDiskName -replace '[:\\]', ''
         $diskName = $diskName.ToUpper()
         $serverName = $textBoxServerName.Text.Trim()
+        $ticketNumber = $ticketNumberTextBox.Text
 
-        if ([string]::IsNullOrEmpty($diskName) -or [string]::IsNullOrEmpty($serverName)) {
+        if ([string]::IsNullOrEmpty($diskName) -or [string]::IsNullOrEmpty($serverName) -or [string]::IsNullOrEmpty($ticketNumber)) {
             [System.Windows.Forms.MessageBox]::Show(
-                "Please enter server name and disk name.", 
+                "Please enter server name, disk name and ticket number.", 
                 "Warning", 
                 [System.Windows.Forms.MessageBoxButtons]::OK, 
                 [System.Windows.Forms.MessageBoxIcon]::Warning
@@ -1316,15 +1366,15 @@ $totalWidth = ($buttonWidth * 2) + $spaceBetween
 $startX = ($main_form.ClientSize.Width - $totalWidth) / 2
 
 # Position buttons
-$okButton.Location = New-Object System.Drawing.Point($startX, 100)
-$cancelButton.Location = New-Object System.Drawing.Point(($startX + $buttonWidth + $spaceBetween), 100)
+$okButton.Location = New-Object System.Drawing.Point($startX, 130)
+$cancelButton.Location = New-Object System.Drawing.Point(($startX + $buttonWidth + $spaceBetween), 130)
 
 # Status label
 $statusLabel = New-Object System.Windows.Forms.Label
 $statusLabel.AutoSize = $true  # Important:  Let the label size itself to the text
 $statusLabel_width = $statusLabel.PreferredWidth # get the actual width of the label based on the text
 $label_x = ($main_form.ClientSize.Width - $statusLabel_width) / 2  # Center horizontally
-$label_y = 135  # Top padding
+$label_y = 175  # Top padding
 $statusLabel.Location = New-Object System.Drawing.Point($label_x, $label_y)
 $main_form.Controls.Add($statusLabel)
 
@@ -1336,6 +1386,8 @@ $main_form.Controls.Add($diskLabel)
 $main_form.Controls.Add($diskTextBox)
 $main_form.Controls.Add($okButton)
 $main_form.Controls.Add($cancelButton)
+$main_form.Controls.Add($ticketNumberLabel)
+$main_form.Controls.Add($ticketNumberTextBox)
 
 # Show form
 if ($null -eq $env:UNIT_TEST) {

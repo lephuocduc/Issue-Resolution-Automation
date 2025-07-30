@@ -7,6 +7,14 @@
 # DESCRIPTION
 # This script creates a Windows Forms application that allows users to enter a server name, the script will then:
 
+Param(
+    [Parameter(Mandatory= $false)]
+    [System.Management.Automation.PSCredential]$ADM_Credential
+)
+
+# Get current user
+$CurrentUser = ([System.Security.Principal.WindowsIdentity]::GetCurrent().Name).Split('\')[1]
+
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
@@ -775,25 +783,18 @@ function Test-ReportFileCreation {
     }
 }
 
+# Get screen resolution
+$screen = Get-WmiObject -Class Win32_VideoController -ErrorAction Continue
+$screenWidth = $screen.CurrentHorizontalResolution
+$screenHeight = $screen.CurrentVerticalResolution
+# Set scaling factors based on an assumed design size (e.g., 1920x1080)
+$designWidth = 1920
+$designHeight = 1080
+$scaleX = $screenWidth / $designWidth
+$scaleY = $screenHeight / $designHeight
 
-
-$main_form = New-Object System.Windows.Forms.Form
-$main_form.Text = "Windows Performance Issue"
-$main_form.Size = New-Object System.Drawing.Size(410, 200)
-$main_form.StartPosition = "CenterScreen"
-$main_form.FormBorderStyle = 'FixedSingle'  # Or 'FixedDialog'
-$main_form.MaximizeBox = $false
-$main_form.TopMost = $false  # Keep form on top
-$main_form.KeyPreview = $true  # Important: This allows the form to receive key events before controls
-$main_form.Add_KeyDown({
-    param($sender, $e)
-    if ($e.KeyCode -eq [System.Windows.Forms.Keys]::Escape) {
-        $cancelButton.PerformClick()
-    }
-    if ($e.KeyCode -eq [System.Windows.Forms.Keys]::Enter) {
-        $okButton.PerformClick()
-    }
-})
+# Vertical padding between objects
+$verticalPadding = 7 * $scaleY
 
 # Create ToolTip object
 $toolTip = New-Object System.Windows.Forms.ToolTip
@@ -802,19 +803,19 @@ $toolTip.InitialDelay = 500   # Time before the tooltip appears (in milliseconds
 $toolTip.ReshowDelay = 500    # Time before tooltip reappears if mouse moves away and back
 $toolTip.ShowAlways = $true   # Show tooltip even if the form is not active
 
-# Server Name Label 
+# Server Name Label
 $labelServerName = New-Object System.Windows.Forms.Label
-$labelServerName.Location = New-Object System.Drawing.Point(20, 30)
-$labelServerName.Size = New-Object System.Drawing.Size(100, 30)
+$labelServerName.Location = New-Object System.Drawing.Point([Math]::Round(20 * $scaleX), [Math]::Round(20 * $scaleY))
+$labelServerName.Size = New-Object System.Drawing.Size([Math]::Round(120 * $scaleX), [Math]::Round(30 * $scaleY))
 $labelServerName.Text = "Server Name:"
-$labelServerName.Font = New-Object System.Drawing.Font("Arial", 11)
-$toolTip.SetToolTip($labelServerName, "Enter the hostname or IP address of the remote server.")
+$labelServerName.Font = New-Object System.Drawing.Font("Arial", [Math]::Round(11 * $scaleY))
+$toolTip.SetToolTip($labelServerName, "Enter the hostname or IP address of the remote server to analyze or clean.")
 
-# Server Name TextBox
+# Disk Name TextBox
 $textBoxServerName = New-Object System.Windows.Forms.TextBox
-$textBoxServerName.Location = New-Object System.Drawing.Point(120, 30)
-$textBoxServerName.Size = New-Object System.Drawing.Size(250, 30)
-$textBoxServerName.Font = New-Object System.Drawing.Font("Arial", 11)
+$textBoxServerName.Location = New-Object System.Drawing.Point(($labelServerName.Location.X + $labelServerName.Width), $labelServerName.Location.Y)
+$textBoxServerName.Size = New-Object System.Drawing.Size([Math]::Round(250 * $scaleX), $labelServerName.Height)
+$textBoxServerName.Font = $labelServerName.Font
 $textBoxServerName.Add_KeyDown({
     param($sender, $e)
     if ($e.Control -and $e.KeyCode -eq [System.Windows.Forms.Keys]::A) {
@@ -833,18 +834,53 @@ $textBoxServerName.Add_KeyDown({
     }
 })
 
+# Main Form Width Calculation
+$mainFormWidth = [Math]::Round(($textBoxServerName.Location.X + $textBoxServerName.Width + 40 * $scaleX))
+
+
+# Ticket number Label
+$ticketNumberLabel = New-Object System.Windows.Forms.Label
+$ticketNumberLabel.Location = New-Object System.Drawing.Point($labelServerName.Location.X, ($labelServerName.Location.Y + $labelServerName.Height + $verticalPadding))
+$ticketNumberLabel.Size = $labelServerName.Size
+$ticketNumberLabel.Text = "Ticket Number:"
+$ticketNumberLabel.Font = $labelServerName.Font
+$toolTip.SetToolTip($ticketNumberLabel, "Enter the ticket number associated with this operation.")
+
+# Ticket number TextBox
+$ticketNumberTextBox = New-Object System.Windows.Forms.TextBox
+$ticketNumberTextBox.Location = New-Object System.Drawing.Point($textBoxServerName.Location.X, $ticketNumberLabel.Location.Y)
+$ticketNumberTextBox.Size = $textBoxServerName.Size
+$ticketNumberTextBox.Font = $textBoxServerName.Font
+$ticketNumberTextBox.Add_KeyDown({
+    param($sender, $e)
+    if ($e.Control -and $e.KeyCode -eq [System.Windows.Forms.Keys]::A) {
+        # Select all text in the ComboBox
+        $ticketNumberTextBox.SelectAll()
+        $e.SuppressKeyPress = $true
+    }
+    elseif ($e.Control -and $e.KeyCode -eq [System.Windows.Forms.Keys]::C) {
+        # Copy selected text to clipboard
+        if ($ticketNumberTextBox.SelectedText) {
+            [System.Windows.Forms.Clipboard]::SetText($ticketNumberTextBox.SelectedText)
+        } else {
+            [System.Windows.Forms.Clipboard]::SetText($ticketNumberTextBox.Text)
+        }
+        $e.SuppressKeyPress = $true
+    }
+})
+
 # OK Button
 $okButton = New-Object System.Windows.Forms.Button
-#$okButton.Location = New-Object System.Drawing.Point(110, 100)
-$okButton.Size = New-Object System.Drawing.Size(80, 30)
+$okButton.Size = New-Object System.Drawing.Size([Math]::Round(80 * $scaleX), [Math]::Round(30 * $scaleY))
 $okButton.Text = "OK"
 $okButton.Add_Click({
     try {
         $serverName = $textBoxServerName.Text.Trim()
+        $ticketNumber = $ticketNumberTextBox.Text
 
-        if ([string]::IsNullOrEmpty($serverName)) {
+        if ([string]::IsNullOrEmpty($serverName) -or [string]::IsNullOrEmpty($ticketNumber)) {
             [System.Windows.Forms.MessageBox]::Show(
-                "Please enter server name.", 
+                "Please enter server name and ticket number.", 
                 "Warning", 
                 [System.Windows.Forms.MessageBoxButtons]::OK, 
                 [System.Windows.Forms.MessageBoxIcon]::Warning
@@ -935,41 +971,64 @@ $okButton.Add_Click({
 
 # Exit Button
 $cancelButton = New-Object System.Windows.Forms.Button
-#$cancelButton.Location = New-Object System.Drawing.Point(210, 100)
-$cancelButton.Size = New-Object System.Drawing.Size(80, 30)
+$cancelButton.Size = $okButton.Size
 $cancelButton.Text = "Cancel"
 $cancelButton.BackColor = [System.Drawing.Color]::LightCoral
 $cancelButton.Add_Click({
     $main_form.Close()
-    Remove-Session}
+    Remove-Session
+}
 )
 
 # Calculate horizontal positions for centered alignment
 $buttonWidth = $okButton.Size.Width
 $spaceBetween = 25
 $totalWidth = ($buttonWidth * 2) + $spaceBetween
-$startX = ($main_form.ClientSize.Width - $totalWidth) / 2
+$startX = ($mainFormWidth - $totalWidth) / 2
 
 # Position buttons
-$okButton.Location = New-Object System.Drawing.Point($startX, 80)
-$cancelButton.Location = New-Object System.Drawing.Point(($startX + $buttonWidth + $spaceBetween), 80)
+$okButton.Location = New-Object System.Drawing.Point($startX, ($ticketNumberLabel.Location.Y + $ticketNumberLabel.Height + $verticalPadding))
+$cancelButton.Location = New-Object System.Drawing.Point(($startX + $buttonWidth + $spaceBetween), $okButton.Location.Y)
 
 # Status label
 $statusLabel = New-Object System.Windows.Forms.Label
-$statusLabel.AutoSize = $false  # Set to false to enable manual sizing
-$statusLabel.Size = New-Object System.Drawing.Size(370, 50)  # Width, Height
-$statusLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
-$statusLabel.Location = New-Object System.Drawing.Point(20, 110)
-$statusLabel.MaximumSize = New-Object System.Drawing.Size(370, 0)  # Set maximum width, 0 height for auto-height
-$statusLabel.MinimumSize = New-Object System.Drawing.Size(370, 50)  # Set minimum size
-$main_form.Controls.Add($statusLabel)
+$statusLabel.AutoSize = $true  # Important:  Let the label size itself to the text
+$statusLabel_width = $statusLabel.PreferredWidth # get the actual width of the label based on the text
+$label_x = ($main_form.ClientSize.Width - $statusLabel_width) / 2  # Center horizontally
+$label_y = $cancelButton.Location.Y + $cancelButton.Height + $verticalPadding
+$statusLabel.Location = New-Object System.Drawing.Point($label_x, ($label_y + 10))  # Add some vertical padding
 
+# Main Form Length Calculation
+$mainFormLength = [Math]::Round($statusLabel.Location.Y + $statusLabel.Height + $verticalPadding + 50*$scaleY)
+
+# Main Form
+$main_form = New-Object System.Windows.Forms.Form
+$main_form.Text = "Windows Performance Issue - $CurrentUser"
+$main_form.Size = New-Object System.Drawing.Size($mainFormWidth, $mainFormLength)
+$main_form.StartPosition = "CenterScreen"
+$main_form.FormBorderStyle = 'FixedSingle'  # Or 'FixedDialog'
+$main_form.MaximizeBox = $false
+$main_form.TopMost = $false  # Keep form on top
+$main_form.KeyPreview = $true  # Important: This allows the form to receive key events before controls
+$main_form.Add_KeyDown({
+    param($sender, $e)
+    if ($e.KeyCode -eq [System.Windows.Forms.Keys]::Escape) {
+        $cancelButton.PerformClick()
+    }
+    if ($e.KeyCode -eq [System.Windows.Forms.Keys]::Enter) {
+        $okButton.PerformClick()
+    }
+})
 
 # Add components to form
 $main_form.Controls.Add($labelServerName)
 $main_form.Controls.Add($textBoxServerName)
+$main_form.Controls.Add($ticketNumberLabel)
+$main_form.Controls.Add($ticketNumberTextBox)
 $main_form.Controls.Add($okButton)
 $main_form.Controls.Add($cancelButton)
+$main_form.Controls.Add($statusLabel)
+
 
 # Show form
 if ($null -eq $env:UNIT_TEST) {

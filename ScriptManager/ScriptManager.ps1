@@ -177,20 +177,31 @@ function Get-BitwardenAuthentication {
         Update-StatusLabel -text "Already logged in to Bitwarden CLI."
     }
 
-    $env:BW_PASSWORD = "#q+m:ZcQjhQ.M7q"
-    Update-StatusLabel -text "Unlocking Bitwarden CLI session..."
-    # Capture the session key
-    $session = bw unlock --passwordenv BW_PASSWORD
-    $sessionKey = $session | Select-String -Pattern 'export BW_SESSION=' | ForEach-Object { ($_ -split '"')[1] }
-    if (-not $sessionKey) {
-        # Alternative extraction if pattern differs:
-        $sessionKey = ($session | Select-String -Pattern 'BW_SESSION=') -replace '.*BW_SESSION="([^"]+)".*','$1'
-        }
-    $env:BW_SESSION = $sessionKey
-
     # Synchronize the Bitwarden vault
     Update-StatusLabel -text "Synchronizing Bitwarden vault..."
-    bw sync --session $env:BW_SESSION
+    bw sync
+
+    $env:BW_PASSWORD = "#q+m:ZcQjhQ.M7q"
+    
+    # Capture the session key
+    Update-StatusLabel -text "Unlocking Bitwarden CLI session..."
+    $sessionKey = bw unlock --passwordenv BW_PASSWORD --raw
+    if ($sessionKey) {
+        $env:BW_SESSION = $sessionKey
+    } else {
+        Write-Log "Failed to unlock Bitwarden CLI session." -Level "Error"
+        [System.Windows.Forms.MessageBox]::Show(
+            "Failed to unlock Bitwarden CLI session.",
+            "Unlock Error",
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Error
+        )
+        $bitwarden_form.Close()  # Close the Bitwarden form
+        $bitwarden_form.Dispose()  # Close the Bitwarden form
+        return
+    }
+
+    
 
     $itemList = bw list items --session $env:BW_SESSION | ConvertFrom-Json
     $item = $itemList | Where-Object { $_.name -eq "adm credentials" }
@@ -227,20 +238,32 @@ function Get-BitwardenAuthentication {
         return
     }
 
+    bw logout --session $env:BW_SESSION
+
     $ADM_UserName = $username
     $ADM_Password = ConvertTo-SecureString -String $password -AsPlainText -Force
     $script:ADM_Credential = New-Object System.Management.Automation.PSCredential($ADM_UserName, $ADM_Password)
 
     Update-StatusLabel -text "Script Manager is ready to use."
     # Logout the Bitwarden session
-    bw logout --session $env:BW_SESSION | Out-Null
+    
     Start-Sleep -Seconds 1
 }
+
+# Get screen resolution
+$screen = Get-WmiObject -Class Win32_VideoController
+$screenWidth = $screen.CurrentHorizontalResolution
+$screenHeight = $screen.CurrentVerticalResolution
+# Set scaling factors based on an assumed design size (e.g., 1920x1080)
+$designWidth = 1920
+$designHeight = 1080
+$scaleX = $screenWidth / $designWidth
+$scaleY = $screenHeight / $designHeight
     
 # Bitwarden form
 $bitwarden_form = New-Object System.Windows.Forms.Form
 $bitwarden_form.Text = "Script Manager - Checking"
-$bitwarden_form.Size = New-Object System.Drawing.Size(410, 120)
+$bitwarden_form.Size = New-Object System.Drawing.Size([Math]::Round(410 * $scaleX) , [Math]::Round(120 * $scaleY))  # Adjust size based on screen resolution
 $bitwarden_form.StartPosition = "CenterScreen"
 $bitwarden_form.FormBorderStyle = 'FixedSingle'  # Or 'FixedDialog'
 $bitwarden_form.MaximizeBox = $false
@@ -248,11 +271,9 @@ $bitwarden_form.MaximizeBox = $false
 # Status label
 $statusLabel = New-Object System.Windows.Forms.Label
 $statusLabel.AutoSize = $true  # Important:  Let the label size itself to the text
-$statusLabel.Font = New-Object System.Drawing.Font($statusLabel.Font.FontFamily, 11)
+$statusLabel.Font = New-Object System.Drawing.Font($statusLabel.Font.FontFamily, [Math]::Round(11* $scaleY))  # Adjust font size based on screen resolution
 $statusLabel_width = $statusLabel.PreferredWidth # get the actual width of the label based on the text
-$label_x = ($bitwarden_form.ClientSize.Width - $statusLabel_width) / 2  # Center horizontally
-$label_y = 40  # Top padding
-$statusLabel.Location = New-Object System.Drawing.Point($label_x, $label_y)
+$statusLabel.Location = New-Object System.Drawing.Point([Math]::Round(([Math]::Round($bitwarden_form.Size.Width / 2) - $statusLabel_width) * $scaleX), [Math]::Round(([Math]::Round(($bitwarden_form.Size.Height / 2) - $statusLabel.PreferredHeight)) * $scaleY))
 
   # Initially hidden until the check is done
 $bitwarden_form.Controls.Add($statusLabel)
@@ -266,7 +287,7 @@ $bitwarden_form.Add_Shown({
 # Create the main form
 $main_form = New-Object System.Windows.Forms.Form
 $main_form.Text = "Script Manager - $CurrentUser"
-$main_form.Size = New-Object System.Drawing.Size(400, 190)
+$main_form.Size = New-Object System.Drawing.Size([Math]::Round(400 * $scaleX), [Math]::Round(190*$scaleY))  # Adjust size based on screen resolution
 $main_form.StartPosition = "CenterScreen"
 # Prevent resizing
 $main_form.FormBorderStyle = 'FixedSingle'  # Or 'FixedDialog'
@@ -277,28 +298,28 @@ $label = New-Object System.Windows.Forms.Label
 # Calculate horizontal center
 $label.AutoSize = $true  # Important:  Let the label size itself to the text
 $label.Text = "Choose a script to execute"
-$label.Font = New-Object System.Drawing.Font("Arial", 11, [System.Drawing.FontStyle]::Bold)
+$label.Font = New-Object System.Drawing.Font("Arial", [Math]::Round(11 * $scaleY), [System.Drawing.FontStyle]::Bold)
 $label_width = $label.PreferredWidth # get the actual width of the label based on the text
 $label_x = ($main_form.ClientSize.Width - $label_width) / 2  # Center horizontally
 $label_y = 25  # Top padding
-$label.Location = New-Object System.Drawing.Point($label_x, $label_y)
+$label.Location = New-Object System.Drawing.Point([Math]::Round($label_x * $scaleX), [Math]::Round($label_y * $scaleY))
 #$label.Size = New-Object System.Drawing.Size(300, 30) #No need to specify size, as AutoSize set to true
 $main_form.Controls.Add($label)
 
 # Create a ComboBox (dropdown) and set its properties
 $comboBox = New-Object System.Windows.Forms.ComboBox
 #$comboBox.Location = New-Object System.Drawing.Point(110, 50)  # Centered horizontally - REMOVE THIS LINE
-$comboBox.Size = New-Object System.Drawing.Size (200, 25) # set the size of combobox
-$comboBox.Items.AddRange(@('Heartbeat','Low Free Space','Performance Issue'))  # Add items to the dropdown
+$comboBox.Size = New-Object System.Drawing.Size ([Math]::Round(200 * $scaleX), [Math]::Round(25 * $scaleY)) # set the size of combobox
+$comboBox.Items.AddRange(@('Heartbeat','Low Free Space','Windows Performance'))  # Add items to the dropdown
 $comboBox.DropDownStyle = 'DropDown' # Allow text editing in the ComboBox
 # Calculate the horizontal center for the ComboBox
 $combobox_width = $comboBox.Size.Width
 $combobox_x = ($main_form.ClientSize.Width - $combobox_width) / 2
 $combobox_y = 50 # set padding from top
-$comboBox.Location = New-Object System.Drawing.Point($combobox_x, $combobox_y) #positioning of combobox
+$comboBox.Location = New-Object System.Drawing.Point([Math]::Round($combobox_x * $scaleX), [Math]::Round($combobox_y * $scaleY))
 # Set the font size (keep the default font family)
 $defaultFont = $comboBox.Font  # Get the default font
-$comboBox.Font = New-Object System.Drawing.Font($defaultFont.FontFamily, 11)  # Change only the size to 12
+$comboBox.Font = New-Object System.Drawing.Font($defaultFont.FontFamily, [Math]::Round(11 * $scaleY))  # Change only the size to 12
 $comboBox.Text = "------------------------------"
 # Enable AutoComplete functionality
 $comboBox.AutoCompleteMode = 'SuggestAppend'  # Suggest matching items and append the rest
@@ -330,7 +351,7 @@ $comboBox.Add_KeyDown({
 $okButton = New-Object System.Windows.Forms.Button
 $okButton.Text = 'OK'
 #$okButton.Location = New-Object System.Drawing.Point(120, 100) # Positioning below the dropdown
-$okButton.Size = New-Object System.Drawing.Size(80, 30)  # Fixed size for consistency
+$okButton.Size = New-Object System.Drawing.Size([Math]::Round(80 * $scaleX), [Math]::Round(30 * $scaleY))  # Fixed size for consistency
 
 
 # Add Click event  to execute the selected script using a switch statement
@@ -351,8 +372,8 @@ $okButton.Add_Click({
         "Low Free Space" {
             . (Join-Path $PSScriptRoot "..\Scripts\LowFreeSpace\LowFreeSpace.ps1") -ADM_Credential $script:ADM_Credential
         }
-        "Performance Issue" {
-            . (Join-Path $PSScriptRoot "..\Scripts\PerformanceIssue\PerformanceIssue.ps1") -ADM_Credential $script:ADM_Credential
+        "Windows Performance" {
+            . (Join-Path $PSScriptRoot "..\Scripts\WindowsPerformance\WindowsPerformance.ps1") -ADM_Credential $script:ADM_Credential
         }
         default {
             [System.Windows.Forms.MessageBox]::Show(
@@ -369,7 +390,7 @@ $okButton.Add_Click({
 $cancelButton = New-Object System.Windows.Forms.Button
 $cancelButton.Text = 'Cancel'
 #$cancelButton.Location = New-Object System.Drawing.Point(220, 100) # Positioning next to the OK button
-$cancelButton.Size = New-Object System.Drawing.Size(80, 30)  # Fixed size matching OK button
+$cancelButton.Size = New-Object System.Drawing.Size([Math]::Round(80 * $scaleX), [Math]::Round(30 * $scaleY))  # Fixed size matching OK button
 $cancelButton.BackColor = [System.Drawing.Color]::LightCoral
 $cancelButton.Add_Click({ $main_form.Dispose() })  # Close the form when Cancel is clicked
 
@@ -380,14 +401,13 @@ $totalWidth = ($buttonWidth * 2) + $spaceBetween
 $startX = ($main_form.ClientSize.Width - $totalWidth) / 2
 
 # Position buttons
-$okButton.Location = New-Object System.Drawing.Point($startX, 100)
-$cancelButton.Location = New-Object System.Drawing.Point(($startX + $buttonWidth + $spaceBetween), 100)
+$okButton.Location = New-Object System.Drawing.Point([Math]::Round($startX * $scaleX), [Math]::Round(100 * $scaleY))
+$cancelButton.Location = New-Object System.Drawing.Point([Math]::Round(($startX + $buttonWidth + $spaceBetween) * $scaleX), [Math]::Round(100 * $scaleY))
 
 # Add controls to the form
 $main_form.Controls.Add($comboBox)
 $main_form.Controls.Add($okButton)
 $main_form.Controls.Add($cancelButton)
-
 
 # Show the form as a dialog
 $bitwarden_form.ShowDialog()
@@ -396,16 +416,7 @@ $bitwarden_form.ShowDialog()
 if ($script:ADM_Credential) {
     # Show the main form after Bitwarden authentication
     $main_form.ShowDialog()
-} else {
-    # If ADM_Credential is not set, show an error message
-    [System.Windows.Forms.MessageBox]::Show(
-        "Failed to retrieve ADM_Credential from Bitwarden.",
-        "Error",
-        [System.Windows.Forms.MessageBoxButtons]::OK,
-        [System.Windows.Forms.MessageBoxIcon]::Error
-    )
 }
-
 
 
 

@@ -1149,9 +1149,9 @@ function Remove-Session {
 }
 
 # Get screen resolution
-$screen = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
-$screenWidth = $screen.Width
-$screenHeight = $screen.Height
+$screen = Get-WmiObject -Class Win32_VideoController
+$screenWidth = $screen.CurrentHorizontalResolution
+$screenHeight = $screen.CurrentVerticalResolution
 # Set scaling factors based on an assumed design size (e.g., 1920x1080)
 $designWidth = 1920
 $designHeight = 1080
@@ -1159,7 +1159,7 @@ $scaleX = $screenWidth / $designWidth
 $scaleY = $screenHeight / $designHeight
 
 # Vertical padding between objects
-$verticalPadding = 7
+$verticalPadding = 7 * $scaleY
 
 # Create ToolTip object
 $toolTip = New-Object System.Windows.Forms.ToolTip

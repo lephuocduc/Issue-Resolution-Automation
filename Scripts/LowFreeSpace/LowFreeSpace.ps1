@@ -72,6 +72,13 @@ Param(
     [System.Management.Automation.PSCredential]$ADM_Credential
 )
 
+# Temporary workaround for testing
+if (-not $ADM_Credential) {
+    $userName = "user1"
+    $password = ConvertTo-SecureString "Leduc123" -AsPlainText -Force
+    $ADM_Credential = New-Object System.Management.Automation.PSCredential($userName, $password)
+}
+
 # Get current user
 $CurrentUser = ([System.Security.Principal.WindowsIdentity]::GetCurrent().Name).Split('\')[1]
 
@@ -88,7 +95,7 @@ function Write-Log {
 
     # Create directory if needed (more efficient check)
     if (-not [System.IO.Directory]::Exists($LogDirectory)) {
-        [System.IO.Directory]::CreateDirectory($LogDirectory) | Out-Null
+        [System.IO.Directory]::CreateDirectory($LogDirectory) | Out-Null -ErrorAction SilentlyContinue
     }
 
     # Generate all date strings in a single call
@@ -98,7 +105,7 @@ function Write-Log {
     $timestamp = $currentDate.ToString("dd-MM-yyyy HH:mm:ss")
 
     # Construct and write log entry
-    "$timestamp [$Level] $Message" | Out-File -FilePath $LogPath -Append -Encoding UTF8
+    "$timestamp [$Level] $Message" | Out-File -FilePath $LogPath -Append -Encoding UTF8 -ErrorAction SilentlyContinue
 }
 
 
@@ -199,14 +206,14 @@ function Get-Session {
                     
                     # Add server if not already present
                     if ($serverName -notin $hostList) {
-                        Set-Item WSMan:\localhost\Client\TrustedHosts -Value $serverName -Concatenate -Force
+                        Set-Item WSMan:\localhost\Client\TrustedHosts -Value $serverName -Concatenate -Force -ErrorAction SilentlyContinue
                     }
                 }
         }
         $Credential = $ADM_Credential
         try {
             
-            $session = New-PSSession -ComputerName $serverName -Credential $Credential -ErrorAction Continue
+            $session = New-PSSession -ComputerName $serverName -Credential $Credential -ErrorAction SilentlyContinue
             if ($null -eq $session) {
                 Write-Log "Failed to create session for $serverName. Retrying..." "Warning"
                 [System.Windows.Forms.MessageBox]::Show(
@@ -221,7 +228,7 @@ function Get-Session {
             return $session
         } catch {
                 $errorDetails = "Exception: $($_.Exception.GetType().FullName)`nMessage: $($_.Exception.Message)`nStackTrace: $($_.ScriptStackTrace)"
-                Write-Log "Failed to create session for $ServerName on attempt $retryCount. Error: $errorDetails" "Error"
+                Write-Log "Error creating session for `$serverName: $errorDetails" "Error"
                 Update-StatusLabel -text "Failed to create session for $serverName."
             }
     }
@@ -1011,25 +1018,7 @@ function Export-DiskReport {
 
         $html | Out-File -FilePath $reportPath -Force
 
-        if (Test-Path -Path $reportPath) {
-            Write-Log "Disk report exported successfully to $reportPath"
-            [System.Windows.Forms.MessageBox]::Show(
-                "The report has been exported to $reportPath.", 
-                "Information", 
-                [System.Windows.Forms.MessageBoxButtons]::OK, 
-                [System.Windows.Forms.MessageBoxIcon]::Information
-            )
-            Start-Process -FilePath $reportPath
-        } else {
-            $errorDetails = "Exception: $($_.Exception.GetType().FullName)`nMessage: $($_.Exception.Message)`nStackTrace: $($_.ScriptStackTrace)"
-            Write-Log "Failed to export disk report: $errorDetails" "Error"
-            [System.Windows.Forms.MessageBox]::Show(
-                "Failed to export the report. Please check the log file for details.", 
-                "Error", 
-                [System.Windows.Forms.MessageBoxButtons]::OK, 
-                [System.Windows.Forms.MessageBoxIcon]::Error
-            )
-        }
+        return $reportPath
     } catch {
         $errorDetails = "Exception: $($_.Exception.GetType().FullName)`nMessage: $($_.Exception.Message)`nStackTrace: $($_.ScriptStackTrace)"
         Write-Log "Error exporting disk report for $diskName on $serverName': $errorDetails" "Error"
@@ -1060,37 +1049,62 @@ function Write-EventLogEntry {
         [System.Management.Automation.Runspaces.PSSession]$Session
     )
 
-    # Define the remote script block
+    # Define the remote script block with verification
     $scriptBlock = {
         param ($LogName, $Source, $EventID, $EntryType, $Message)
 
-        # Helper function Write-Log omitted here for brevity; add if you want logging inside remote session
-
-        # Handle source existence
-        if (-not [System.Diagnostics.EventLog]::SourceExists($Source)) {
-            try {
-                New-EventLog -LogName $LogName -Source $Source -ErrorAction Stop
-            }
-            catch {
-                # You can add logging or output here, e.g. Write-Error
-                Write-Error "Failed to create event source '$Source' in log '$LogName': $_"
-                return
-            }
+        $result = @{
+            Success = $false
+            Error = $null
         }
 
-        # Write event
         try {
+            # Handle source existence
+            if (-not [System.Diagnostics.EventLog]::SourceExists($Source)) {
+                try {
+                    New-EventLog -LogName $LogName -Source $Source -ErrorAction Stop
+                }
+                catch {
+                    $result.Error = "Failed to create event source '$Source' in log '$LogName': $_"
+                    return $result
+                }
+            }
+
+            # Get timestamp before writing for verification
+            $timeBeforeWrite = Get-Date
+
+            # Write event
             Write-EventLog -LogName $LogName -Source $Source -EventId $EventID -EntryType $EntryType -Message $Message
+
+            # Verify the event was written
+            Start-Sleep -Milliseconds 500  # Allow time for event to be written
+            $newEvent = Get-EventLog -LogName $LogName -Source $Source -Newest 1 |
+                Where-Object { 
+                    $_.TimeGenerated -ge $timeBeforeWrite -and 
+                    $_.EventID -eq $EventID -and 
+                    $_.EntryType -eq $EntryType
+                }
+
+            if ($newEvent) {
+                $result.Success = $true
+            } else {
+                $result.Error = "Event log entry not found after writing"
+            }
         }
         catch {
-            Write-Error "Failed to write event to log '$LogName' with source '$Source': $_"
+            $result.Error = "Failed to write/verify event to log '$LogName' with source '$Source': $_"
         }
+
+        return $result
     }
 
-    # Invoke the script block remotely with parameters
-    Invoke-Command -Session $Session -ScriptBlock $scriptBlock -ArgumentList $LogName, $Source, $EventID, $EntryType, $Message
-}
+    # Invoke the script block remotely and get the result
+    $result = Invoke-Command -Session $Session -ScriptBlock $scriptBlock -ArgumentList $LogName, $Source, $EventID, $EntryType, $Message
 
+    if (-not $result.Success) {
+        Write-Log "Error writing event log entry: $($result.Error)" "Error"
+    }
+}
 
 function Update-StatusLabel {
     param(
@@ -1122,7 +1136,6 @@ function Remove-Session {
         # Check if session exists and is still open before removing it
         if ($session -and $session.State -eq "Open") {
             Remove-PSSession -Session $session
-            Write-Log "Session closed successfully"
         }
         else {
             Write-Log "No session to close or session already closed" "Info"
@@ -1339,7 +1352,7 @@ $okButton.Add_Click({
                 $topRoot = $null
                 $topUsers = $null
 
-                if ($After.FreePercentage -lt 50) {
+                if ($After.FreePercentage -lt 10) {
                     Update-StatusLabel -text "Free space still low. Identifying top items..."
                     $topRoot = Get-TopItems -session $session -path "$($diskName):\" -exclude @("Windows", "Program Files", "Program Files (x86)", "ProgramData","Users") -topN 10
                     $topUsers = Get-TopItems -session $session -path "$($diskName):\Users" -topN 10
@@ -1352,11 +1365,15 @@ $okButton.Add_Click({
                     [System.Windows.Forms.MessageBoxIcon]::Information
                 )
 
-                Export-DiskReport -serverName $serverName -diskName $diskName `
+                # Export disk report
+                $reportPath = Export-DiskReport -serverName $serverName -diskName $diskName `
                     -diskInfo $After -beforeDiskInfo $Before `
                     -systemCacheLog $clearSystemCache `
                     -iisLogCleanupLog $clearIISLogs `
                     -topUsers $topUsers -topRoot $topRoot
+                
+                # Write Windows Event Log Entry on the remote server
+                $eventMessage = "User: $CurrentUser`n" + "Ticket Number: $ticketNumber`n" + "Message: C drive cleanup performed. Free space is now $($freePercentageDisk)%.`n"
             } else {
                 Update-StatusLabel -text "Getting disk information and top items..."
                 $diskInfo = Get-DiskSpaceDetails -session $session -diskName $diskName
@@ -1371,17 +1388,43 @@ $okButton.Add_Click({
                     [System.Windows.Forms.MessageBoxIcon]::Information
                 )
 
-                Export-DiskReport -serverName $serverName -diskName $diskName `
-                    -diskInfo $diskInfo -topItems $topItems
-                
-                # Write Windows Event Log Entry on the remote server
+                $reportPath = Export-DiskReport -serverName $serverName -diskName $diskName `
+                    -diskInfo $diskInfo -topItems $topItems           
 
+                # Write Windows Event Log Entry on the remote server
+                $eventMessage = "User: $CurrentUser`n" + "Ticket Number: $ticketNumber`n" + "Message: Disk $($diskName) analysis performed. Free space is now $($freePercentageDisk)%.`n"
             }
+
+            # Check if report was successfully created
+            if ($reportPath) {
+                [System.Windows.Forms.MessageBox]::Show(
+                    "Disk report exported to $reportPath", 
+                    "Success", 
+                    [System.Windows.Forms.MessageBoxButtons]::OK, 
+                    [System.Windows.Forms.MessageBoxIcon]::Information
+                )
+                Update-StatusLabel -text "Low free space analysis completed."
+                Start-Process -FilePath $reportPath -ErrorAction SilentlyContinue
+            } else {
+                [System.Windows.Forms.MessageBox]::Show(
+                    "Failed to export disk report.", 
+                    "Error", 
+                    [System.Windows.Forms.MessageBoxButtons]::OK, 
+                    [System.Windows.Forms.MessageBoxIcon]::Error
+                )
+            }
+
+            Write-EventLogEntry -LogName "Application" -Source "DiskAnalysisScript" `
+                    -EventID 1002 -EntryType "Information" `
+                    -Message $eventMessage -Session $session
+            
+            Update-StatusLabel -text "Disk analysis completed successfully."
             $main_form.Close()
             Remove-Session
         } catch {
             [System.Windows.Forms.MessageBox]::Show($_.Exception.Message, "Error")
-            Write-Log "Error in OK button click event: $_" "Error"
+            Write-Log "Error during disk analysis: $_" "Error"
+            Remove-Session
         }
     } catch {
         [System.Windows.Forms.MessageBox]::Show($_.Exception.Message, "Error")

@@ -12,6 +12,13 @@ Param(
     [System.Management.Automation.PSCredential]$ADM_Credential
 )
 
+# Temporary workaround for testing
+if (-not $ADM_Credential) {
+    $userName = "user1"
+    $password = ConvertTo-SecureString "Leduc123" -AsPlainText -Force
+    $ADM_Credential = New-Object System.Management.Automation.PSCredential($userName, $password)
+}
+
 # Get current user
 $CurrentUser = ([System.Security.Principal.WindowsIdentity]::GetCurrent().Name).Split('\')[1]
 
@@ -47,57 +54,46 @@ function Get-Session {
         [Parameter(Mandatory = $false)]
         [PSCredential]$Credential = $null
     )
-    $retryCount = 0
-    $maxRetries = 3
     try {
         if (Get-PSProvider -PSProvider WSMan -ErrorAction SilentlyContinue) {
             $currentTrustedHosts = (Get-Item WSMan:\localhost\Client\TrustedHosts -ErrorAction SilentlyContinue).Value
             # Skip update if wildcard exists
-            if ($currentTrustedHosts -ne "*") {
-                Write-Log "Updating TrustedHosts for $serverName"
-                # Get current list as array
-                $hostList = if (-not [string]::IsNullOrEmpty($currentTrustedHosts)) {
-                    $currentTrustedHosts -split ',' | ForEach-Object { $_.Trim() }
-                } else {
-                    @()
+                if ($currentTrustedHosts -ne "*") {
+                    Write-Log "Updating TrustedHosts for $serverName"
+                    # Get current list as array
+                    $hostList = if (-not [string]::IsNullOrEmpty($currentTrustedHosts)) {
+                        $currentTrustedHosts -split ',' | ForEach-Object { $_.Trim() }
+                    } else {
+                        @()
+                    }
+                    
+                    # Add server if not already present
+                    if ($serverName -notin $hostList) {
+                        Set-Item WSMan:\localhost\Client\TrustedHosts -Value $serverName -Concatenate -Force -ErrorAction SilentlyContinue
+                    }
                 }
-                
-                # Add server if not already present
-                if ($serverName -notin $hostList) {
-                    Set-Item WSMan:\localhost\Client\TrustedHosts -Value $serverName -Concatenate -Force
-                    Write-Log "Updated TrustedHosts to include $serverName"
-                }
-            } else {
-                Write-Log "TrustedHosts already set to wildcard '*', skipping update for $serverName"
-            }
         }
-        do {
-            Write-Log "Attempting to create session for $serverName (Attempt $($retryCount + 1) of $maxRetries)"
-            $retryCount++
-            $Credential = Get-Credential -Message "Enter credentials for $ServerName (Attempt $($retryCount) of $MaxRetries)"
-            if ($null -eq $Credential -or $retryCount -ge $maxRetries) {
-                Write-Log "Session creation canceled or retry limit reached for $serverName" "Error"
-                Update-StatusLabel -text "Session creation canceled or retry limit reached for $serverName"
-                return $null
+        $Credential = $ADM_Credential
+        try {
+            
+            $session = New-PSSession -ComputerName $serverName -Credential $Credential -ErrorAction SilentlyContinue
+            if ($null -eq $session) {
+                Write-Log "Failed to create session for $serverName. Retrying..." "Warning"
+                [System.Windows.Forms.MessageBox]::Show(
+                    "Failed to create session for $serverName. Please check the credentials.",
+                    "Warning",
+                    [System.Windows.Forms.MessageBoxButtons]::OK,
+                    [System.Windows.Forms.MessageBoxIcon]::Warning
+                )
+                return
             }
-            try {
-                
-                $session = New-PSSession -ComputerName $serverName -Credential $credential -ErrorAction Stop
-                Write-Log "Session created successfully for $serverName"
-                Update-StatusLabel -text "Session created successfully for $serverName"
-                return $session
-            } catch {
-                if ($retryCount -ge $maxRetries) {
-                    Write-Log "Failed to create session for $serverName after $maxRetries attempts: $_" "Error"
-                    Update-StatusLabel -text "Failed to create session for $serverName after $maxRetries attempts."
-                    return $null
-                }else {
-                    $errorDetails = "Exception: $($_.Exception.GetType().FullName)`nMessage: $($_.Exception.Message)`nStackTrace: $($_.ScriptStackTrace)"
-                    Write-Log "Failed to create session for $ServerName on attempt $retryCount. Error: $errorDetails" "Error"
-                    Update-StatusLabel -text "Failed to create session for $serverName."
-                }
+            Update-StatusLabel -text "Session created successfully for $serverName"
+            return $session
+        } catch {
+                $errorDetails = "Exception: $($_.Exception.GetType().FullName)`nMessage: $($_.Exception.Message)`nStackTrace: $($_.ScriptStackTrace)"
+                Write-Log "Failed to create session for $ServerName on attempt $retryCount. Error: $errorDetails" "Error"
+                Update-StatusLabel -text "Failed to create session for $serverName."
             }
-        } while ($true)
     }
     catch {
         $errorDetails = "Exception: $($_.Exception.GetType().FullName)`nMessage: $($_.Exception.Message)`nStackTrace: $($_.ScriptStackTrace)"
@@ -514,7 +510,7 @@ function Get-PerformanceMetrics {
 
         # Collect performance samples
         for ($i = 1; $i -le $Samples; $i++) {
-            Update-StatusLabel "Collecting sample $i of $Samples with interval $Interval seconds..."
+            Update-StatusLabel -text "Collecting sample $i of $Samples with interval $Interval seconds."
 
             $sampleResult = Invoke-Command -Session $Session -ScriptBlock $sampleScriptBlock -ArgumentList @(
                 $previousCpuTimes,
@@ -783,6 +779,87 @@ function Test-ReportFileCreation {
     }
 }
 
+function Write-EventLogEntry {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$LogName,
+        
+        [Parameter(Mandatory=$true)]
+        [string]$Source,
+        
+        [Parameter(Mandatory=$true)]
+        [ValidateRange(0,65535)]
+        [int]$EventID,
+        
+        [Parameter(Mandatory=$true)]
+        [ValidateSet('Information','Warning','Error')]
+        [string]$EntryType,
+        
+        [Parameter(Mandatory=$true)]
+        [string]$Message,
+
+        [Parameter(Mandatory=$true)]
+        [System.Management.Automation.Runspaces.PSSession]$Session
+    )
+
+    # Define the remote script block with verification
+    $scriptBlock = {
+        param ($LogName, $Source, $EventID, $EntryType, $Message)
+
+        $result = @{
+            Success = $false
+            Error = $null
+        }
+
+        try {
+            # Handle source existence
+            if (-not [System.Diagnostics.EventLog]::SourceExists($Source)) {
+                try {
+                    New-EventLog -LogName $LogName -Source $Source -ErrorAction Stop
+                }
+                catch {
+                    $result.Error = "Failed to create event source '$Source' in log '$LogName': $_"
+                    return $result
+                }
+            }
+
+            # Get timestamp before writing for verification
+            $timeBeforeWrite = Get-Date
+
+            # Write event
+            Write-EventLog -LogName $LogName -Source $Source -EventId $EventID -EntryType $EntryType -Message $Message
+
+            # Verify the event was written
+            Start-Sleep -Milliseconds 500  # Allow time for event to be written
+            $newEvent = Get-EventLog -LogName $LogName -Source $Source -Newest 1 |
+                Where-Object { 
+                    $_.TimeGenerated -ge $timeBeforeWrite -and 
+                    $_.EventID -eq $EventID -and 
+                    $_.EntryType -eq $EntryType
+                }
+
+            if ($newEvent) {
+                $result.Success = $true
+            } else {
+                $result.Error = "Event log entry not found after writing"
+            }
+        }
+        catch {
+            $result.Error = "Failed to write/verify event to log '$LogName' with source '$Source': $_"
+        }
+
+        return $result
+    }
+
+    # Invoke the script block remotely and get the result
+    $result = Invoke-Command -Session $Session -ScriptBlock $scriptBlock -ArgumentList $LogName, $Source, $EventID, $EntryType, $Message
+
+    if (-not $result.Success) {
+        Write-Log "Error writing event log entry: $($result.Error)" "Error"
+    }
+}
+
 # Get screen resolution
 $screen = Get-WmiObject -Class Win32_VideoController -ErrorAction Continue
 $screenWidth = $screen.CurrentHorizontalResolution
@@ -931,7 +1008,7 @@ $okButton.Add_Click({
             $uptime = Get-SystemUptime -ServerName $serverName -Session $session
 
             Update-StatusLabel -text "Collecting performance metrics for $serverName..."
-            $metrics = Get-PerformanceMetrics -Session $session -Samples 3 -Interval 60
+            $metrics = Get-PerformanceMetrics -Session $session -Samples 2 -Interval 1
 
             Update-StatusLabel -text "Processing performance data for $serverName..."
             $topCPU = Get-TopCPUProcesses -PerformanceData $metrics -TopCount 5
@@ -946,6 +1023,8 @@ $okButton.Add_Click({
                     [System.Windows.Forms.MessageBoxButtons]::OK,
                     [System.Windows.Forms.MessageBoxIcon]::Information
                 )
+                Update-StatusLabel -text "Completed performance analysis for $serverName."
+                Start-Process -FilePath $dashboardFile -ErrorAction SilentlyContinue
             } else {
                 [System.Windows.Forms.MessageBox]::Show(
                     "Failed to generate performance dashboard.",
@@ -955,12 +1034,22 @@ $okButton.Add_Click({
                 )
             }
 
+            # Write event log entry
+            $eventMessage = "User: $CurrentUser`n" + "Ticket Number: $ticketNumber`n" + "Message: Performance analysis completed for $serverName. CPU usage: $($metrics.SystemMetrics.AvgCPU)%. Memory usage: $($metrics.SystemMetrics.AvgMemoryPercent)% ($([math]::Round($metrics.SystemMetrics.AvgMemoryBytes / 1GB, 2)) GB)`n" + "`nTop CPU Processes:`n$($topCPU | Out-String)`nTop Memory Processes:`n$($topMemory | Out-String)"
+            Write-EventLogEntry -LogName "Application" `
+                                -Source "PerformanceAnalysisScript" `
+                                -EventID 1000 `
+                                -EntryType "Information" `
+                                -Message $eventMessage `
+                                -Session $session
+
             $main_form.Close()
             Remove-Session
         }
         catch {
             [System.Windows.Forms.MessageBox]::Show($_.Exception.Message, "Error")
-            Write-Log "Error in OK button click event: $_" "Error"
+            Write-Log "Error during performance analysis: $_" "Error"
+            Remove-Session
         }
     } catch {
         [System.Windows.Forms.MessageBox]::Show($_.Exception.Message, "Error")

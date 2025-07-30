@@ -203,36 +203,27 @@ function Get-Session {
                     }
                 }
         }
-        do {
-            $Credential = $ADM_Credential
-            try {
-                
-                $session = New-PSSession -ComputerName $serverName -Credential $Credential -ErrorAction Continue
-                if ($null -eq $session) {
-                    Write-Log "Failed to create session for $serverName. Retrying..." "Warning"
-                    [System.Windows.Forms.MessageBox]::Show(
-                        "Failed to create session for $serverName. Please check the credentials.",
-                        "Warning",
-                        [System.Windows.Forms.MessageBoxButtons]::OK,
-                        [System.Windows.Forms.MessageBoxIcon]::Warning
-                    )
-                    [System.Windows.Forms.Application]::Exit()
-                    return
-                }
-                Update-StatusLabel -text "Session created successfully for $serverName"
-                return $session
-            } catch {
-                if ($retryCount -ge $maxRetries) {
-                    Write-Log "Failed to create session for $serverName after $maxRetries attempts: $_" "Error"
-                    Update-StatusLabel -text "Failed to create session for $serverName after $maxRetries attempts."
-                    return $null
-                }else {
-                    $errorDetails = "Exception: $($_.Exception.GetType().FullName)`nMessage: $($_.Exception.Message)`nStackTrace: $($_.ScriptStackTrace)"
-                    Write-Log "Failed to create session for $ServerName on attempt $retryCount. Error: $errorDetails" "Error"
-                    Update-StatusLabel -text "Failed to create session for $serverName."
-                }
+        $Credential = $ADM_Credential
+        try {
+            
+            $session = New-PSSession -ComputerName $serverName -Credential $Credential -ErrorAction Continue
+            if ($null -eq $session) {
+                Write-Log "Failed to create session for $serverName. Retrying..." "Warning"
+                [System.Windows.Forms.MessageBox]::Show(
+                    "Failed to create session for $serverName. Please check the credentials.",
+                    "Warning",
+                    [System.Windows.Forms.MessageBoxButtons]::OK,
+                    [System.Windows.Forms.MessageBoxIcon]::Warning
+                )
+                return
             }
-        } while ($true)
+            Update-StatusLabel -text "Session created successfully for $serverName"
+            return $session
+        } catch {
+                $errorDetails = "Exception: $($_.Exception.GetType().FullName)`nMessage: $($_.Exception.Message)`nStackTrace: $($_.ScriptStackTrace)"
+                Write-Log "Failed to create session for $ServerName on attempt $retryCount. Error: $errorDetails" "Error"
+                Update-StatusLabel -text "Failed to create session for $serverName."
+            }
     }
     catch {
         $errorDetails = "Exception: $($_.Exception.GetType().FullName)`nMessage: $($_.Exception.Message)`nStackTrace: $($_.ScriptStackTrace)"
@@ -1300,7 +1291,7 @@ $okButton.Add_Click({
         $session = Get-Session -serverName $serverName
         if ($null -eq $session) {
             [System.Windows.Forms.MessageBox]::Show(
-                "Session creation canceled or retry limit reached.", 
+                "Failed to create a session with server '$serverName'.", 
                 "Error", 
                 [System.Windows.Forms.MessageBoxButtons]::OK, 
                 [System.Windows.Forms.MessageBoxIcon]::Error

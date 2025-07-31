@@ -176,32 +176,34 @@ function Get-BitwardenAuthentication {
     } else {
         Update-StatusLabel -text "Already logged in to Bitwarden CLI."
     }
+    
+    $env:BW_PASSWORD = "#q+m:ZcQjhQ.M7q"
+   
+    # Check if the session is not already unlocked
+    $sessionStatus = bw status --session $env:BW_SESSION | ConvertFrom-Json
+    if ($sessionStatus.status -ne "unlocked") {
+        # Capture the session key
+        Update-StatusLabel -text "Unlocking Bitwarden CLI session..."
+        $sessionKey = bw unlock --passwordenv BW_PASSWORD --raw
+        if ($sessionKey) {
+            $env:BW_SESSION = $sessionKey
+        } else {
+            Write-Log "Failed to unlock Bitwarden CLI session." -Level "Error"
+            [System.Windows.Forms.MessageBox]::Show(
+                "Failed to unlock Bitwarden CLI session.",
+                "Unlock Error",
+                [System.Windows.Forms.MessageBoxButtons]::OK,
+                [System.Windows.Forms.MessageBoxIcon]::Error
+            )
+            $bitwarden_form.Close()  # Close the Bitwarden form
+            $bitwarden_form.Dispose()  # Close the Bitwarden form
+            return
+        }
+    }       
 
     # Synchronize the Bitwarden vault
     Update-StatusLabel -text "Synchronizing Bitwarden vault..."
     bw sync
-
-    $env:BW_PASSWORD = "#q+m:ZcQjhQ.M7q"
-    
-    # Capture the session key
-    Update-StatusLabel -text "Unlocking Bitwarden CLI session..."
-    $sessionKey = bw unlock --passwordenv BW_PASSWORD --raw
-    if ($sessionKey) {
-        $env:BW_SESSION = $sessionKey
-    } else {
-        Write-Log "Failed to unlock Bitwarden CLI session." -Level "Error"
-        [System.Windows.Forms.MessageBox]::Show(
-            "Failed to unlock Bitwarden CLI session.",
-            "Unlock Error",
-            [System.Windows.Forms.MessageBoxButtons]::OK,
-            [System.Windows.Forms.MessageBoxIcon]::Error
-        )
-        $bitwarden_form.Close()  # Close the Bitwarden form
-        $bitwarden_form.Dispose()  # Close the Bitwarden form
-        return
-    }
-
-    
 
     $itemList = bw list items --session $env:BW_SESSION | ConvertFrom-Json
     $item = $itemList | Where-Object { $_.name -eq "adm credentials" }
@@ -214,7 +216,7 @@ function Get-BitwardenAuthentication {
             [System.Windows.Forms.MessageBoxIcon]::Error
         )
         # Logout the Bitwarden session
-        bw logout --session $env:BW_SESSION | Out-Null
+        #bw logout --session $env:BW_SESSION | Out-Null
         $bitwarden_form.Close()  # Close the Bitwarden form
         $bitwarden_form.Dispose()  # Close the Bitwarden form
         return
@@ -232,13 +234,13 @@ function Get-BitwardenAuthentication {
             [System.Windows.Forms.MessageBoxIcon]::Error
         )
         # Logout the Bitwarden session
-        bw logout --session $env:BW_SESSION | Out-Null
+        #bw logout --session $env:BW_SESSION | Out-Null
         $bitwarden_form.Close()  # Close the Bitwarden form
         $bitwarden_form.Dispose()  # Close the Bitwarden form
         return
     }
 
-    bw logout --session $env:BW_SESSION
+    #bw logout --session $env:BW_SESSION
 
     $ADM_UserName = $username
     $ADM_Password = ConvertTo-SecureString -String $password -AsPlainText -Force

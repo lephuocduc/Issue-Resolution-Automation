@@ -34,7 +34,7 @@ function Write-Log {
 
     # Create directory if needed (more efficient check)
     if (-not [System.IO.Directory]::Exists($LogDirectory)) {
-        [System.IO.Directory]::CreateDirectory($LogDirectory) | Out-Null
+        [System.IO.Directory]::CreateDirectory($LogDirectory) | Out-Null -ErrorAction SilentlyContinue
     }
 
     # Generate all date strings in a single call
@@ -44,7 +44,7 @@ function Write-Log {
     $timestamp = $currentDate.ToString("dd-MM-yyyy HH:mm:ss")
 
     # Construct and write log entry
-    "$timestamp [$Level] $Message" | Out-File -FilePath $LogPath -Append -Encoding UTF8
+    "$timestamp [$Level] $Message" | Out-File -FilePath $LogPath -Append -Encoding UTF8 -ErrorAction SilentlyContinue
 }
 
 function Get-Session {

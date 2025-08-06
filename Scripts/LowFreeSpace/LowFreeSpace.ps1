@@ -80,7 +80,7 @@ if (-not $ADM_Credential) {
 }
 
 # Get current user
-$CurrentUser = ([System.Security.Principal.WindowsIdentity]::GetCurrent().Name).Split('\')[1]
+$CurrentUser = ([System.Security.Principal.WindowsIdentity]::GetCurrent().Name)
 
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
@@ -1025,7 +1025,41 @@ function Export-DiskReport {
     }
 }
 
-function Write-EventLogEntry {
+function Write-WindowsEventLog {
+    <#
+    .SYNOPSIS
+    Writes an event log entry to a specified Windows event log on a remote server.
+    
+    .DESCRIPTION
+    This function writes an event log entry to a specified Windows event log on a remote server.
+    It checks if the event source exists, creates it if necessary, and verifies that the event was written successfully.
+
+    .PARAMETER LogName
+    The name of the event log to write to (e.g., "Application", "System").
+
+    .PARAMETER Source
+    The source of the event (e.g., "DiskAnalysisScript").
+
+    .PARAMETER EventID
+    The ID of the event to write.
+
+    .PARAMETER EntryType
+    The type of the event (e.g., "Information", "Warning", "Error").
+
+    .PARAMETER Message
+    The message to include in the event log entry.
+
+    .PARAMETER Session
+    The PSSession object representing the remote session to the server.
+
+    .EXAMPLE
+    Write-WindowsEventLog -LogName "Application" -Source "DiskAnalysisScript" -EventID 1001 -EntryType "Information" -Message "Disk analysis completed successfully." -Session $session
+    This will write an informational event log entry to the Application log on the remote server with the specified source, event ID, and message.
+
+    .NOTES
+    This function requires the remote session to have permissions to write to the specified event log.
+    #>
+    
     [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true)]
@@ -1152,15 +1186,26 @@ function Remove-Session {
     }
 }
 
-# Get screen resolution
-$screen = Get-WmiObject -Class Win32_VideoController
-$screenWidth = $screen.CurrentHorizontalResolution
-$screenHeight = $screen.CurrentVerticalResolution
-# Set scaling factors based on an assumed design size (e.g., 1920x1080)
+# Get all video controller objects
+$screens = Get-WmiObject -Class Win32_VideoController
+
+# Initialize scale factors
+$scaleX = 1
+$scaleY = 1
+
+# Set design resolution
 $designWidth = 1920
 $designHeight = 1080
-$scaleX = $screenWidth / $designWidth
-$scaleY = $screenHeight / $designHeight
+
+# Loop through all video controllers
+foreach ($screen in $screens) {
+    $screenWidth = $screen.CurrentHorizontalResolution
+    $screenHeight = $screen.CurrentVerticalResolution
+    if ($screenWidth -and $screenHeight) {
+        $scaleX = $screenWidth / $designWidth
+        $scaleY = $screenHeight / $designHeight
+    }
+}
 
 # Vertical padding between objects
 $verticalPadding = 7 * $scaleY
@@ -1414,7 +1459,7 @@ $okButton.Add_Click({
                 )
             }
 
-            Write-EventLogEntry -LogName "Application" -Source "DiskAnalysisScript" `
+            Write-WindowsEventLog -LogName "Application" -Source "DiskAnalysisScript" `
                     -EventID 1002 -EntryType "Information" `
                     -Message $eventMessage -Session $session
             

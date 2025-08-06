@@ -20,7 +20,7 @@ if (-not $ADM_Credential) {
 }
 
 # Get current user
-$CurrentUser = ([System.Security.Principal.WindowsIdentity]::GetCurrent().Name).Split('\')[1]
+$CurrentUser = ([System.Security.Principal.WindowsIdentity]::GetCurrent().Name)
 
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
@@ -779,7 +779,7 @@ function Test-ReportFileCreation {
     }
 }
 
-function Write-EventLogEntry {
+function Write-WindowsEventLog {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true)]
@@ -860,15 +860,26 @@ function Write-EventLogEntry {
     }
 }
 
-# Get screen resolution
-$screen = Get-WmiObject -Class Win32_VideoController -ErrorAction Continue
-$screenWidth = $screen.CurrentHorizontalResolution
-$screenHeight = $screen.CurrentVerticalResolution
-# Set scaling factors based on an assumed design size (e.g., 1920x1080)
+# Get all video controller objects
+$screens = Get-WmiObject -Class Win32_VideoController
+
+# Initialize scale factors
+$scaleX = 1
+$scaleY = 1
+
+# Set design resolution
 $designWidth = 1920
 $designHeight = 1080
-$scaleX = $screenWidth / $designWidth
-$scaleY = $screenHeight / $designHeight
+
+# Loop through all video controllers
+foreach ($screen in $screens) {
+    $screenWidth = $screen.CurrentHorizontalResolution
+    $screenHeight = $screen.CurrentVerticalResolution
+    if ($screenWidth -and $screenHeight) {
+        $scaleX = $screenWidth / $designWidth
+        $scaleY = $screenHeight / $designHeight
+    }
+}
 
 # Vertical padding between objects
 $verticalPadding = 7 * $scaleY
@@ -1036,7 +1047,7 @@ $okButton.Add_Click({
 
             # Write event log entry
             $eventMessage = "User: $CurrentUser`n" + "Ticket Number: $ticketNumber`n" + "Message: Performance analysis completed for $serverName. CPU usage: $($metrics.SystemMetrics.AvgCPU)%. Memory usage: $($metrics.SystemMetrics.AvgMemoryPercent)% ($([math]::Round($metrics.SystemMetrics.AvgMemoryBytes / 1GB, 2)) GB)`n" + "`nTop CPU Processes:`n$($topCPU | Out-String)`nTop Memory Processes:`n$($topMemory | Out-String)"
-            Write-EventLogEntry -LogName "Application" `
+            Write-WindowsEventLog -LogName "Application" `
                                 -Source "PerformanceAnalysisScript" `
                                 -EventID 1000 `
                                 -EntryType "Information" `

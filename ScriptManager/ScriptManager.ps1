@@ -24,7 +24,7 @@ Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
 $script:ADM_Credential = $null
-$CurrentUser = ([System.Security.Principal.WindowsIdentity]::GetCurrent().Name).Split('\')[1]
+$CurrentUser = ([System.Security.Principal.WindowsIdentity]::GetCurrent().Name)
 
 
 function Update-StatusLabel {

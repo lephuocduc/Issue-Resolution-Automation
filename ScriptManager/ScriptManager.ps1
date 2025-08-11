@@ -299,15 +299,16 @@ $main_form.MaximizeBox = $false
 
 # Label
 $label = New-Object System.Windows.Forms.Label
-# Calculate horizontal center
-$label.AutoSize = $true  # Important:  Let the label size itself to the text
 $label.Text = "Choose a script to execute"
+$label.AutoSize = $true
 $label.Font = New-Object System.Drawing.Font("Arial", [Math]::Round(11 * $scaleY), [System.Drawing.FontStyle]::Bold)
-$label_width = $label.PreferredWidth # get the actual width of the label based on the text
-$label_x = ($main_form.ClientSize.Width - $label_width) / 2  # Center horizontally
-$label_y = 25  # Top padding
-$label.Location = New-Object System.Drawing.Point([Math]::Round($label_x * $scaleX), [Math]::Round($label_y * $scaleY))
-#$label.Size = New-Object System.Drawing.Size(300, 30) #No need to specify size, as AutoSize set to true
+
+# Calculate centered position (after text & font set)
+$label_width  = $label.PreferredWidth
+$label_height = $label.PreferredHeight
+$label_x = [Math]::Round( ($main_form.ClientSize.Width  - $label_width) / 2 )
+$label_y = [Math]::Round( 25 * $scaleY )
+$label.Location = New-Object System.Drawing.Point($label_x, $label_y)
 $main_form.Controls.Add($label)
 
 # Create a ComboBox (dropdown) and set its properties
@@ -318,9 +319,9 @@ $comboBox.Items.AddRange(@('Heartbeat','Low Free Space','Windows Performance')) 
 $comboBox.DropDownStyle = 'DropDown' # Allow text editing in the ComboBox
 # Calculate the horizontal center for the ComboBox
 $combobox_width = $comboBox.Size.Width
-$combobox_x = ($main_form.ClientSize.Width - $combobox_width) / 2
-$combobox_y = 50 # set padding from top
-$comboBox.Location = New-Object System.Drawing.Point([Math]::Round($combobox_x * $scaleX), [Math]::Round($combobox_y * $scaleY))
+$combobox_x = [Math]::Round(($main_form.ClientSize.Width - $combobox_width) / 2)
+$combobox_y = [Math]::Round( 50 * $scaleY ) # set padding from top
+$comboBox.Location = New-Object System.Drawing.Point($combobox_x, $combobox_y)
 # Set the font size (keep the default font family)
 $defaultFont = $comboBox.Font  # Get the default font
 $comboBox.Font = New-Object System.Drawing.Font($defaultFont.FontFamily, [Math]::Round(11 * $scaleY))  # Change only the size to 12
@@ -400,13 +401,13 @@ $cancelButton.Add_Click({ $main_form.Dispose() })  # Close the form when Cancel 
 
 # Calculate horizontal positions for centered alignment
 $buttonWidth = $okButton.Size.Width
-$spaceBetween = 25
+$spaceBetween = 25 * $scaleX  # Space between buttons
 $totalWidth = ($buttonWidth * 2) + $spaceBetween
 $startX = ($main_form.ClientSize.Width - $totalWidth) / 2
 
 # Position buttons
-$okButton.Location = New-Object System.Drawing.Point([Math]::Round($startX * $scaleX), [Math]::Round(100 * $scaleY))
-$cancelButton.Location = New-Object System.Drawing.Point([Math]::Round(($startX + $buttonWidth + $spaceBetween) * $scaleX), [Math]::Round(100 * $scaleY))
+$okButton.Location = New-Object System.Drawing.Point($startX, [Math]::Round(100 * $scaleY))
+$cancelButton.Location = New-Object System.Drawing.Point(($startX + $buttonWidth + $spaceBetween), [Math]::Round(100 * $scaleY))
 
 # Add controls to the form
 $main_form.Controls.Add($comboBox)

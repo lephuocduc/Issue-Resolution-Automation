@@ -442,6 +442,11 @@ function Get-PerformanceMetrics {
             # First pass: map instance names to PIDs
             $counterData.CounterSamples | Where-Object { $_.Path -like "*\ID Process" } | ForEach-Object {
                 $pidMap[$_.InstanceName] = [int]$_.CookedValue
+                # Expected output:
+                # $pidMap = @{
+                #   "ProcessA" = 1234
+                #   "ProcessB" = 5678
+                # }
             }
             
             # Second pass: map PIDs to CPU values
@@ -450,9 +455,19 @@ function Get-PerformanceMetrics {
                 if ($pidMap.ContainsKey($instance) -and $instance -notin @('_Total', 'Idle')) {
                     $processid = $pidMap[$instance]
                     $cpuMap[$processid] = [math]::Round($_.CookedValue, 2)
+                    # Expected output:
+                    # $cpuMap = @{
+                    #   1234 = 12.34
+                    #   5678 = 45.67
+                    # }
                 }
             }
             $cpuUsageMap = $cpuMap
+            # Expected output:
+            # $cpuUsageMap = @{
+            #   1234 = 12.34
+            #   5678 = 45.67
+            # }
         }
 
         # Collect process data
@@ -496,11 +511,12 @@ function Get-PerformanceMetrics {
         $ownerCache = @{}
 
         # Collect performance samples
+        Update-StatusLabel -text "Collecting performance metrics for $Samples samples with $Interval seconds interval."
         for ($i = 1; $i -le $Samples; $i++) {
             $sampleResult = Invoke-Command -Session $Session -ScriptBlock $sampleScriptBlock -ArgumentList $totalMemory, $ownerCache
             
-            $cpuSamples.Add($sampleResult.CpuSample)
-            $memorySamples.Add($sampleResult.MemorySample)
+            $cpuSamples.Add($sampleResult.CpuSample) # Add CPU sample to collection
+            $memorySamples.Add($sampleResult.MemorySample) # Add memory sample to collection
             $ownerCache = $sampleResult.OwnerCache  # Preserve owner cache between samples
 
             # Aggregate process data across samples
@@ -515,11 +531,18 @@ function Get-PerformanceMetrics {
                         TotalMemoryBytes = 0
                         SampleCount     = 0
                     }
+                    # Expected output:
+                    # $processAggregates = @{
+                    #   1234 = [PSCustomObject]@{ PID = 1234; ProcessName = "ProcessA"; User = "User1"; TotalCPU = 0; TotalMemoryBytes = 0; SampleCount = 0 }
+                    #   5678 = [PSCustomObject]@{ PID = 5678; ProcessName = "ProcessB"; User = "User2"; TotalCPU = 0; TotalMemoryBytes = 0; SampleCount = 0 }
+                    # }
                 }
                 $agg = $processAggregates[$procId]
                 $agg.TotalCPU += $_.CPU
                 $agg.TotalMemoryBytes += $_.MemoryBytes
                 $agg.SampleCount++
+
+                # $agg is used to accumulate CPU and memory usage for each process across samples
             }
 
             if ($i -lt $Samples) { Start-Sleep -Seconds $Interval }
@@ -539,7 +562,7 @@ function Get-PerformanceMetrics {
                 AvgCPU        = [math]::Round($_.TotalCPU / $_.SampleCount, 2)
                 AvgMemoryBytes = [math]::Round($_.TotalMemoryBytes / $_.SampleCount, 0)
             }
-        } | Where-Object { $_.AvgCPU -ge 1 -or $_.AvgMemoryBytes -ge 10MB }
+        }
 
         return [PSCustomObject]@{
             SystemMetrics = [PSCustomObject]@{
@@ -552,7 +575,8 @@ function Get-PerformanceMetrics {
         }
 
     } catch {
-        Write-Error "Error collecting performance metrics: $_"
+        Update-StatusLabel -text "Error collecting performance metrics: $_"
+        Write-Log "Error collecting performance metrics: $_" "Error"
         throw
     }
 }

@@ -511,8 +511,8 @@ function Get-PerformanceMetrics {
         $ownerCache = @{}
 
         # Collect performance samples
-        Update-StatusLabel -text "Collecting performance metrics for $Samples samples with $Interval seconds interval."
         for ($i = 1; $i -le $Samples; $i++) {
+            Update-StatusLabel -text "Collecting sample $i of $Samples with $Interval seconds interval."
             $sampleResult = Invoke-Command -Session $Session -ScriptBlock $sampleScriptBlock -ArgumentList $totalMemory, $ownerCache
             
             $cpuSamples.Add($sampleResult.CpuSample) # Add CPU sample to collection
@@ -1015,7 +1015,7 @@ $okButton.Add_Click({
             $uptime = Get-SystemUptime -ServerName $serverName -Session $session
 
             Update-StatusLabel -text "Collecting performance metrics for $serverName..."
-            $metrics = Get-PerformanceMetrics -Session $session -Samples 2 -Interval 2
+            $metrics = Get-PerformanceMetrics -Session $session -Samples 3 -Interval 2
 
             Update-StatusLabel -text "Processing performance data for $serverName..."
             $topCPU = Get-TopCPUProcesses -PerformanceData $metrics -TopCount 5

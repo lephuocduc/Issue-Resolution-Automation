@@ -415,11 +415,11 @@ function Get-PerformanceMetrics {
     # Scriptblock to collect performance samples
     $sampleScriptBlock = {
         param(
-            $previousCpuTimes,
-            $totalMemory,
-            $numberOfCores,
-            $previousTimestamp,
-            $ownerCache
+            $previousCpuTimes, # Previous CPU times for processes
+            $totalMemory, # Total physical memory in bytes
+            $numberOfCores, # Number of CPU cores
+            $previousTimestamp, # Timestamp of the previous sample
+            $ownerCache # Cache for process owners
         )
 
         # Function to get process owner (cached)
@@ -434,27 +434,28 @@ function Get-PerformanceMetrics {
         }
 
         # Get system metrics
-        $cpuSample = (Get-Counter -Counter "\Processor(_Total)\% Processor Time" -ErrorAction Stop).CounterSamples.CookedValue
-        $available = (Get-Counter -Counter "\Memory\Available Bytes" -ErrorAction Stop).CounterSamples.CookedValue
+        $cpuSample = (Get-Counter -Counter "\Processor(_Total)\% Processor Time" -ErrorAction Stop).CounterSamples.CookedValue # CPU usage percentage 
+        $available = (Get-Counter -Counter "\Memory\Available Bytes" -ErrorAction Stop).CounterSamples.CookedValue # Available memory in bytes
         $usedMemory = $totalMemory - $available
-        $memorySample = [math]::Round(($usedMemory / $totalMemory) * 100, 2)
+        $memorySample = [math]::Round(($usedMemory / $totalMemory) * 100, 2) # Memory usage percentage
 
-        # Get processes >1MB working set
+        # Get processes >10 MB working set
         $currentProcesses = Get-Process | Where-Object { $_.Id -ne 0 -and $_.WorkingSet64 -gt 10MB }
         $currentCpuTimes = @{}
         $processData = @()
         $sampleStartTime = [datetime]::Now
 
-        # Calculate actual interval since last sample
+        # Calculate actual interval since last sample, this is used for CPU usage calculation
         $actualInterval = if ($previousTimestamp) {
             ($sampleStartTime - $previousTimestamp).TotalSeconds
         } else {
             $null
         }
 
+        # Process data collection
         foreach ($process in $currentProcesses) {
-            $processID = $process.Id
-            $currentCpu = $process.TotalProcessorTime.TotalSeconds
+            $processID = $process.Id # Get process ID
+            $currentCpu = $process.TotalProcessorTime.TotalSeconds # Get current CPU time in seconds
             $currentCpuTimes[$processID] = $currentCpu
 
             # CPU usage calculation (requires previous sample)

@@ -421,7 +421,12 @@ function Get-PerformanceMetrics {
             param($ProcessId)
             try {
                 $cimProcess = Get-CimInstance -ClassName Win32_Process -Filter "ProcessId = $ProcessId"
-                return ($cimProcess | Invoke-CimMethod -MethodName GetOwner).User
+                $owner = $cimProcess | Invoke-CimMethod -MethodName GetOwner
+                if ($null -eq $owner) {
+                    return "Unknown"
+                } else {
+                    return "$($owner.Domain)\$($owner.User)"
+                }
             } catch {
                 return "Unknown"
             }
@@ -653,13 +658,18 @@ function Show-PerformanceDashboard {
         foreach ($p in $TopCPU) {
             $pMemGB = [math]::Round($p.AvgMemoryBytes / 1GB, 1)
             $pMemPercent = [math]::Round(($p.AvgMemoryBytes / $SystemMetrics.TotalMemoryBytes) * 100, 1)
-            $output += ("{0}. {1} ({2})`t- {3}%`t- {4}GB ({5}%)`t- {6}" -f $i++,
+            
+            # Format each component with fixed-width spacing
+            $line = ("{0}. {1} {2}  - {3}  - {4}GB ({5}%)  - {6}" -f 
+                ($i++).ToString().PadLeft(2),
                 ($p.ProcessName).PadRight(15),
-                $p.PID,
-                ($p.AvgCPU).ToString().PadLeft(5),
-                $pMemGB.ToString("0.0"),
-                $pMemPercent,
+                "($($p.PID))".PadRight(8),  # PID in parentheses with padding
+                ($p.AvgCPU.ToString("0.00") + "%").PadLeft(7),
+                $pMemGB.ToString("0.0").PadLeft(4),
+                $pMemPercent.ToString("0.0").PadLeft(4),
                 $p.User)
+            
+            $output += $line
         }
         
         $output += ("=" * 60)
@@ -670,13 +680,18 @@ function Show-PerformanceDashboard {
         foreach ($p in $TopMemory) {
             $pMemGB = [math]::Round($p.AvgMemoryBytes / 1GB, 1)
             $pMemPercent = [math]::Round(($p.AvgMemoryBytes / $SystemMetrics.TotalMemoryBytes) * 100, 1)
-            $output += ("{0}. {1} ({2})`t- {3}%`t- {4}GB ({5}%)`t- {6}" -f $i++,
+            
+            # Format each component with fixed-width spacing
+            $line = ("{0}. {1} {2}  - {3}  - {4}GB ({5}%)  - {6}" -f 
+                ($i++).ToString().PadLeft(2),
                 ($p.ProcessName).PadRight(15),
-                $p.PID,
-                ($p.AvgCPU).ToString().PadLeft(5),
-                $pMemGB.ToString("0.0"),
-                $pMemPercent,
+                "($($p.PID))".PadRight(8),  # PID in parentheses with padding
+                ($p.AvgCPU.ToString("0.00") + "%").PadLeft(7),
+                $pMemGB.ToString("0.0").PadLeft(4),
+                $pMemPercent.ToString("0.0").PadLeft(4),
                 $p.User)
+            
+            $output += $line
         }
         
         $output += ("=" * 60)

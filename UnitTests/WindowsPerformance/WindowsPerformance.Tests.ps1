@@ -28,17 +28,12 @@ Describe "Get System Uptime Function Tests" {
 }
 
 # Unit Tests for Get Performance Metrics Function
-Describe "Get Performance Metrics Function Tests" {
-# https://grok.com/chat/4949530a-41a7-473c-b551-ccf06fda80e9
-# Test that the function correctly invokes the static scriptblock to fetch total physical memory and number of processor cores from the remote session
+Describe "Get-PerformanceMetrics" {
+    Context "When session parameter is invalid" {
+        It "Should throw an error when session is not a valid PSSession" {
+            New-MockObject -Type System.Management.Automation.Runspaces.PSSession
+            { Get-PerformanceMetrics -Session $null} | Should -Throw
+        }
+    }
 
-# Test that the loop runs exactly $Samples times, invoking the sample scriptblock each time
-
-# For each sample, confirm that CPU percentage (\Processor(_Total)\% Processor Time) and memory usage (calculated from \Memory\Available Bytes) are collected correctly
-
-# Ensure processes with WorkingSet64 > 10MB (excluding PID 0) are fetched
-
-# Confirm that process owners are fetched
-
-# 
 }

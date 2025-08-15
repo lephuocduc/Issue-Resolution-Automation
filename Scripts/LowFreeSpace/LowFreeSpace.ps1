@@ -3,6 +3,7 @@
 # Author:      Duc Le
 # Version:     1.0
 # Date:        April 15, 2025 
+
 # Release History:
 #   1.0 - Initial release with disk cleanup, IIS log compression, and detailed reporting
 
@@ -24,6 +25,7 @@
 # - Local write permissions for report generation (C:\temp directory)
 
 # PARAMETERS
+# - ADM_Credential: PowerShell credential object for administrative access to remote servers (optional, defaults to current user credentials if not provided)
 # - ServerName: The hostname or IP address of the remote server to analyze or clean
 # - DiskName: The drive letter to process (e.g., "C" for system drive cleanup, "D" for data drive analysis)
 

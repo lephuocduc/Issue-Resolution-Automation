@@ -2,10 +2,55 @@
 # Name:        PerformanceIssue.ps1
 # Author:      Duc Le
 # Version:     1.0
-# Date:        June 24, 2025
+# Date:        August 10, 2025
+
+# Release History:
+# 1.0 - Author: Duc Le - Initial release with basic functionality to check server availability, collect performance metrics, and display a dashboard.
 
 # DESCRIPTION
 # This script creates a Windows Forms application that allows users to enter a server name, the script will then:
+# 1. Check if the server is reachable via WinRM, ping, and DNS resolution.
+# 2. If reachable, it will create a PowerShell session to the server.
+# 3. Collect system uptime and performance metrics (CPU, memory, processes).
+# 4. Display the results in a dashboard format.
+# 5. Log all actions and errors to a log file.
+
+# REQUIREMENTS
+# - PowerShell 5.1 or later
+# - Admin privileges to create PowerShell sessions on remote servers
+# - Local write permissions to the log directory (default: C:\temp)
+
+# PARAMETERS
+# - ADM_Credential: Optional PSCredential object for admin credentials. If not provided, a default user and password will be used for testing.
+# - ServerName: Mandatory string parameter for the server name to connect to.
+
+# FUNCTIONS:
+# - Write-Log: Logs messages to a specified log file.
+# - Get-Session: Creates a PowerShell session to the specified server.
+# - Test-ServerAvailability: Tests the availability of the server via WinRM, ping, and DNS resolution.
+# - Update-StatusLabel: Updates the status label in the Windows Form.
+# - Get-SystemUptime: Retrieves the system uptime from the remote server.
+# - Get-PerformanceMetrics: Collects performance metrics from the remote server.
+# - Get-TopCPUProcesses: Returns the top CPU-consuming processes.
+# - Get-TopMemoryProcesses: Returns the top memory-consuming processes.
+# - Show-PerformanceDashboard: Displays the performance dashboard in a Windows Form.
+# - Remove-Session: Closes the PowerShell session and cleans up resources.
+# - Test-ReportFileCreation: Tests the creation of a report file in the specified log directory.
+# - Write-WindowsEventLog: Writes an event log entry to the Windows Event Log.
+# - Get-VideoControllers: Retrieves video controller information to determine screen resolution and scaling factors.
+# - Get-ProcessOwner: Retrieves the owner of a process by its ID, with caching for performance.
+
+# OUTPUT
+# - A Windows Form application that displays the server's uptime, performance metrics, and top processes.
+# - A log file in C:\temp directory with all actions and errors.
+# - A report file in the same directory with performance metrics and process information.
+
+# EXAMPLE USAGE
+# 1. Open PowerShell as Administrator.
+# 2. Run the script: .\PerformanceIssue.ps1
+# 3. Enter the server name when prompted.
+# 4. The script will check server availability, create a session, collect metrics, and display the dashboard.
+# 5. The log file will be created in C:\temp with all actions and errors.
 
 Param(
     [Parameter(Mandatory= $false)]
@@ -295,11 +340,6 @@ function Get-PerformanceMetrics {
             # First pass: map instance names to PIDs
             $counterData.CounterSamples | Where-Object { $_.Path -like "*\ID Process" } | ForEach-Object {
                 $pidMap[$_.InstanceName] = [int]$_.CookedValue
-                # Expected output:
-                # $pidMap = @{
-                #   "ProcessA" = 1234
-                #   "ProcessB" = 5678
-                # }
             }
             
             # Second pass: map PIDs to CPU values
@@ -308,19 +348,9 @@ function Get-PerformanceMetrics {
                 if ($pidMap.ContainsKey($instance) -and $instance -notin @('_Total', 'Idle')) {
                     $processid = $pidMap[$instance]
                     $cpuMap[$processid] = [math]::Round($_.CookedValue, 2)
-                    # Expected output:
-                    # $cpuMap = @{
-                    #   1234 = 12.34
-                    #   5678 = 45.67
-                    # }
                 }
             }
             $cpuUsageMap = $cpuMap
-            # Expected output:
-            # $cpuUsageMap = @{
-            #   1234 = 12.34
-            #   5678 = 45.67
-            # }
         }
 
         # Collect process data
@@ -384,18 +414,11 @@ function Get-PerformanceMetrics {
                         TotalMemoryBytes = 0
                         SampleCount     = 0
                     }
-                    # Expected output:
-                    # $processAggregates = @{
-                    #   1234 = [PSCustomObject]@{ PID = 1234; ProcessName = "ProcessA"; User = "User1"; TotalCPU = 0; TotalMemoryBytes = 0; SampleCount = 0 }
-                    #   5678 = [PSCustomObject]@{ PID = 5678; ProcessName = "ProcessB"; User = "User2"; TotalCPU = 0; TotalMemoryBytes = 0; SampleCount = 0 }
-                    # }
                 }
                 $agg = $processAggregates[$procId]
                 $agg.TotalCPU += $_.CPU
                 $agg.TotalMemoryBytes += $_.MemoryBytes
                 $agg.SampleCount++
-
-                # $agg is used to accumulate CPU and memory usage for each process across samples
             }
 
             if ($i -lt $Samples) { Start-Sleep -Seconds $Interval }
@@ -417,6 +440,22 @@ function Get-PerformanceMetrics {
             }
         }
 
+        # Group processes by ProcessName and User, summing averages
+        $groupedSummary = @()
+        $groups = $processSummary | Group-Object ProcessName, User
+        foreach ($group in $groups) {
+            $pids = $group.Group.PID
+            $representativePID = ($pids | Measure-Object -Minimum).Minimum
+            $pidDisplay = $representativePID.ToString()
+            $groupedSummary += [PSCustomObject]@{
+                ProcessName    = $group.Group[0].ProcessName
+                User           = $group.Group[0].User
+                AvgCPU         = [math]::Round(($group.Group | Measure-Object AvgCPU -Sum).Sum, 2)
+                AvgMemoryBytes = [math]::Round(($group.Group | Measure-Object AvgMemoryBytes -Sum).Sum, 0)
+                PID            = $pidDisplay
+            }
+        }
+
         return [PSCustomObject]@{
             SystemMetrics = [PSCustomObject]@{
                 AvgCPU           = $avgCPU
@@ -424,7 +463,7 @@ function Get-PerformanceMetrics {
                 AvgMemoryBytes   = $avgMemoryBytes
                 TotalMemoryBytes = $totalMemory
             }
-            ProcessMetrics = $processSummary
+            ProcessMetrics = $groupedSummary
         }
 
     } catch {

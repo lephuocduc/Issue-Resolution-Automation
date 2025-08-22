@@ -367,4 +367,60 @@ Describe "Test Get-TopMemoryProcesses" {
     }
 }
 
+<#
+Describe "Write-WindowsEventLog Tests" {
+    BeforeAll {
+        # Create a mock session object
+        $mockSession = New-MockObject -Type System.Management.Automation.Runspaces.PSSession
+
+        # Mock Write-Log to suppress real calls
+        Mock Write-Log {}
+
+        # Mock Start-Sleep to avoid delays
+        Mock Start-Sleep {}
+
+        # Mock Test-EventLogSourceExists to simulate source not existing
+        Mock Test-EventLogSourceExists { return $false }
+
+        # Mock New-EventLog so no real event log is created
+        Mock New-EventLog {}
+
+        # Mock Write-EventLog to simulate writing event
+        Mock Write-EventLog {}
+
+        # Mock Get-EventLog to return event matching the criteria
+        Mock Get-EventLog {
+            return [PSCustomObject]@{
+                TimeGenerated = Get-Date
+                EventID = 1000
+                EntryType = "Information"
+            }
+        }
+
+        # Mock Invoke-Command to run the script block locally and pass arguments
+        Mock Invoke-Command {
+            param($Session, $ScriptBlock, $ArgumentList)
+            & $ScriptBlock @ArgumentList
+        }
+    }
+
+    Context "When event source does not exist" {
+        It "Should create new event source and write event log" {
+            # Call the function with mocks enabled
+            Write-WindowsEventLog -Session $mockSession -LogName "Application" -Source "TestSource" -EventID 1000 -EntryType "Information" -Message "Test message"
+
+            # Assert New-EventLog was called once to create source
+            Assert-MockCalled New-EventLog -Times 1 -ParameterFilter {
+                $Source -eq "TestSource" -and $LogName -eq "Application"
+            }
+
+            # Assert Write-EventLog was called once to write event
+            Assert-MockCalled Write-EventLog -Times 1 -ParameterFilter {
+                $Source -eq "TestSource" -and $LogName -eq "Application" -and $EventID -eq 1000 -and $EntryType -eq "Information"
+            }
+        }
+    }
+}
+#>
+
 $env:UNIT_TEST = $null

@@ -22,8 +22,38 @@ $env:UNIT_TEST = "true"
 # Load the script to be tested 
 . "$PSScriptRoot/../../Scripts/WindowsPerformance/WindowsPerformance.ps1"
 
+Describe "Test Get-SystemUptime" {
+    BeforeAll {
+        $mockSession = New-MockObject -Type System.Management.Automation.Runspaces.PSSession
+        $ServerName = "TestServer"
 
-Describe "Get-PerformanceMetrics" {
+        $sampleData = @{
+            ServerName = $ServerName
+            Days = 5
+            Hours = 12
+            Minutes = 30
+        }
+    }
+
+    It "Throws error if session is null" {
+        { Get-SystemUptime -ServerName $null -Session $null } | Should -Throw
+    }
+
+    It "Returns uptime in correct format" {
+        Mock Invoke-Command {
+            return $sampleData
+        }
+
+        $result = Get-SystemUptime -ServerName $ServerName -Session $mockSession
+
+        $result.ServerName | Should -Be $ServerName
+        $result.Days | Should -Be 5
+        $result.Hours | Should -Be 12
+        $result.Minutes | Should -Be 30
+    }
+}
+
+Describe "Test Get-PerformanceMetrics" {
     BeforeAll {
 
         # Mock external functions that are not core to the logic
@@ -241,6 +271,99 @@ Describe "Get-PerformanceMetrics" {
             $group2.AvgMemoryBytes | Should -Be 1500000
             $group2.PID | Should -Be '501'
         }
+    }
+}
+
+Describe "Test Get-TopCPUProcesses" {
+    BeforeEach{
+        $sampleData = @{
+            SystemMetrics = @{
+                AvgCPU = 55.0
+                AvgMemoryPercent = 45.0
+                AvgMemoryBytes = 3865470566
+                TotalMemoryBytes = 8589934592
+            }
+            ProcessMetrics = @(
+                [PSCustomObject]@{ ProcessName = 'proc1'; User = 'User1'; AvgCPU = 25.0; AvgMemoryBytes = 2500000; PID = '100' },
+                [PSCustomObject]@{ ProcessName = 'proc2'; User = 'User2'; AvgCPU = 12.0; AvgMemoryBytes = 2000000; PID = '200' },
+                [PSCustomObject]@{ ProcessName = 'proc3'; User = 'User3'; AvgCPU = 15.0; AvgMemoryBytes = 1500000; PID = '300' },
+                [PSCustomObject]@{ ProcessName = 'proc4'; User = 'User4'; AvgCPU = 50.0; AvgMemoryBytes = 1000000; PID = '400' },
+                [PSCustomObject]@{ ProcessName = 'proc5'; User = 'User5'; AvgCPU = 5.0; AvgMemoryBytes = 500000; PID = '500' },
+                [PSCustomObject]@{ ProcessName = 'proc6'; User = 'User6'; AvgCPU = 8.0; AvgMemoryBytes = 800000; PID = '600' }
+            )
+        }
+    }
+
+    It "Returns top CPU processes with TopCount 2" {
+        $result = Get-TopCPUProcesses -PerformanceData $sampleData -TopCount 2
+
+        $result.Count | Should -Be 2
+        $result[0].ProcessName | Should -Be 'proc4'
+        $result[0].AvgCPU | Should -Be 50.0
+        $result[0].User | Should -Be 'User4'
+        $result[0].PID | Should -Be '400'
+        $result[1].ProcessName | Should -Be 'proc1'
+        $result[1].AvgCPU | Should -Be 25.0
+        $result[1].User | Should -Be 'User1'
+        $result[1].PID | Should -Be '100'
+    }
+
+    It "Returns top CPU processes with TopCount 5" {
+        $result = Get-TopCPUProcesses -PerformanceData $sampleData -TopCount 5
+
+        $result.Count | Should -Be 5
+        $result[0].ProcessName | Should -Be 'proc4'
+        $result[1].ProcessName | Should -Be 'proc1'
+        $result[2].ProcessName | Should -Be 'proc3'
+        $result[3].ProcessName | Should -Be 'proc2'
+        $result[4].ProcessName | Should -Be 'proc6'
+    }
+
+}
+
+Describe "Test Get-TopMemoryProcesses" {
+    BeforeEach{
+        $sampleData = @{
+            SystemMetrics = @{
+                AvgCPU = 55.0
+                AvgMemoryPercent = 45.0
+                AvgMemoryBytes = 3865470566
+                TotalMemoryBytes = 8589934592
+            }
+            ProcessMetrics = @(
+                [PSCustomObject]@{ ProcessName = 'proc1'; User = 'User1'; AvgCPU = 25.0; AvgMemoryBytes = 2500000; PID = '100' },
+                [PSCustomObject]@{ ProcessName = 'proc2'; User = 'User2'; AvgCPU = 12.0; AvgMemoryBytes = 2000000; PID = '200' },
+                [PSCustomObject]@{ ProcessName = 'proc3'; User = 'User3'; AvgCPU = 15.0; AvgMemoryBytes = 1500000; PID = '300' },
+                [PSCustomObject]@{ ProcessName = 'proc4'; User = 'User4'; AvgCPU = 50.0; AvgMemoryBytes = 1000000; PID = '400' },
+                [PSCustomObject]@{ ProcessName = 'proc5'; User = 'User5'; AvgCPU = 5.0; AvgMemoryBytes = 500000; PID = '500' },
+                [PSCustomObject]@{ ProcessName = 'proc6'; User = 'User6'; AvgCPU = 8.0; AvgMemoryBytes = 800000; PID = '600' }
+            )
+        }
+    }
+
+    It "Returns top memory processes with TopCount 2" {
+        $result = Get-TopMemoryProcesses -PerformanceData $sampleData -TopCount 2
+
+        $result.Count | Should -Be 2
+        $result[0].ProcessName | Should -Be 'proc1'
+        $result[0].AvgMemoryBytes | Should -Be 2500000
+        $result[0].User | Should -Be 'User1'
+        $result[0].PID | Should -Be '100'
+        $result[1].ProcessName | Should -Be 'proc2'
+        $result[1].AvgMemoryBytes | Should -Be 2000000
+        $result[1].User | Should -Be 'User2'
+        $result[1].PID | Should -Be '200'
+    }
+
+    It "Returns top memory processes with TopCount 5" {
+        $result = Get-TopMemoryProcesses -PerformanceData $sampleData -TopCount 5
+
+        $result.Count | Should -Be 5
+        $result[0].ProcessName | Should -Be 'proc1'
+        $result[1].ProcessName | Should -Be 'proc2'
+        $result[2].ProcessName | Should -Be 'proc3'
+        $result[3].ProcessName | Should -Be 'proc4'
+        $result[4].ProcessName | Should -Be 'proc6'
     }
 }
 

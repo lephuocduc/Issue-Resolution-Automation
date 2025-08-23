@@ -712,7 +712,8 @@ function Write-WindowsEventLog {
 
         try {
             # Handle source existence
-            if (-not [System.Diagnostics.EventLog]::SourceExists($Source)) {
+            $exists = @(Get-EventLog -LogName $LogName -Source $Source -Newest 1 -ErrorAction SilentlyContinue).Count -gt 0
+            if (-not $exists) {
                 try {
                     New-EventLog -LogName $LogName -Source $Source -ErrorAction Stop
                 }
@@ -723,19 +724,19 @@ function Write-WindowsEventLog {
             }
 
             # Get timestamp before writing for verification
-            $timeBeforeWrite = Get-Date
+            $timeBeforeWrite = Get-Date -Format "dd-MMM-yy h:mm:ss tt"
 
             # Write event
             Write-EventLog -LogName $LogName -Source $Source -EventId $EventID -EntryType $EntryType -Message $Message
 
             # Verify the event was written
             Start-Sleep -Milliseconds 500  # Allow time for event to be written
-            $newEvent = Get-EventLog -LogName $LogName -Source $Source -Newest 1 |
+            $newEvent = @(Get-EventLog -LogName $LogName -Source $Source -Newest 1 |
                 Where-Object { 
                     $_.TimeGenerated -ge $timeBeforeWrite -and 
                     $_.EventID -eq $EventID -and 
                     $_.EntryType -eq $EntryType
-                }
+                }).Count -gt 0
 
             if ($newEvent) {
                 $result.Success = $true

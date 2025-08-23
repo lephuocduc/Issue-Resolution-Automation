@@ -367,60 +367,221 @@ Describe "Test Get-TopMemoryProcesses" {
     }
 }
 
-<#
-Describe "Write-WindowsEventLog Tests" {
+
+Describe "Write-WindowsEventLog" {
     BeforeAll {
-        # Create a mock session object
+        Mock Write-Log { }
+    }
+
+    BeforeEach {
+        $testLogName = "Application"
+        $testSource = "TestSource"
+        $testEventID = 100
+        $testEntryType = "Information"
+        $testMessage = "Test message"
         $mockSession = New-MockObject -Type System.Management.Automation.Runspaces.PSSession
+        $fixedTime = Get-Date "23-Aug-25 9:49:03 PM"
 
-        # Mock Write-Log to suppress real calls
-        Mock Write-Log {}
+        $params = @{
+            LogName = $testLogName
+            Source = $testSource
+            EventID = $testEventID
+            EntryType = $testEntryType
+            Message = $testMessage
+            Session = $mockSession
+        }
+    }
 
-        # Mock Start-Sleep to avoid delays
-        Mock Start-Sleep {}
+    It "Throws when LogName is not provided" {
+        { Write-WindowsEventLog -LogName $null -Source $testSource -EventID $testEventID -EntryType $testEntryType -Message $testMessage -Session $mockSession } | Should -Throw
+    }
 
-        # Mock Test-EventLogSourceExists to simulate source not existing
-        Mock Test-EventLogSourceExists { return $false }
+    It "Throws when Source is not provided" {
+        { Write-WindowsEventLog -Source $null -LogName $testLogName -EventID $testEventID -EntryType $testEntryType -Message $testMessage -Session $mockSession } | Should -Throw
+    }
 
-        # Mock New-EventLog so no real event log is created
-        Mock New-EventLog {}
+    It "Throws when EventID is not provided" {
+        { Write-WindowsEventLog -EventID $null -LogName $testLogName -Source $testSource -EntryType $testEntryType -Message $testMessage -Session $mockSession } | Should -Throw
+    }
 
-        # Mock Write-EventLog to simulate writing event
-        Mock Write-EventLog {}
+    It "Throws when EntryType is not provided" {
+        { Write-WindowsEventLog -EntryType $null -LogName $testLogName -Source $testSource -EventID $testEventID -Message $testMessage -Session $mockSession } | Should -Throw
+    }
 
-        # Mock Get-EventLog to return event matching the criteria
+    It "Throws when Message is not provided" {
+        { Write-WindowsEventLog -Message $null -LogName $testLogName -Source $testSource -EventID $testEventID -EntryType $testEntryType -Session $mockSession } | Should -Throw
+    }
+
+    It "Throws when Session is not provided" {
+        { Write-WindowsEventLog -Session $null -LogName $testLogName -Source $testSource -EventID $testEventID -EntryType $testEntryType -Message $testMessage } | Should -Throw
+    }
+
+    It "Succeeds when source exists, write and verify work" {
+        $mockEventCalls = 0
+        Mock Get-Date { $fixedTime }
         Mock Get-EventLog {
-            return [PSCustomObject]@{
-                TimeGenerated = Get-Date
-                EventID = 1000
-                EntryType = "Information"
+            $mockEventCalls++
+            if ($mockEventCalls -eq 1) {
+                # Existence check: source exists
+                return @([pscustomobject]@{})
+            } elseif ($mockEventCalls -eq 2) {
+                # Verification: return matching event
+                return @([pscustomobject]@{
+                    TimeGenerated = $fixedTime.AddMilliseconds(600)
+                    EventID = $testEventID
+                    EntryType = $testEntryType
+                })
             }
         }
-
-        # Mock Invoke-Command to run the script block locally and pass arguments
+        Mock Write-EventLog { }
+        Mock New-EventLog { }
+        Mock Start-Sleep { }
         Mock Invoke-Command {
-            param($Session, $ScriptBlock, $ArgumentList)
+            param ($Session, $ScriptBlock, $ArgumentList)
+            & $ScriptBlock @ArgumentList
+
+            return @{ Success = $true; Error = $null }
+        }
+        
+
+        Write-WindowsEventLog @params
+
+        Assert-MockCalled Invoke-Command -Times 1 -Exactly
+        Assert-MockCalled Get-EventLog -Times 2 -Exactly
+        Assert-MockCalled New-EventLog -Times 0
+        Assert-MockCalled Write-EventLog -Times 1 -Exactly
+        Assert-MockCalled Write-Log -Times 0
+    }
+
+    It "Succeeds when source does not exist, creates successfully, write and verify work" {
+        $mockEventCalls = 0
+        Mock Get-Date { $fixedTime }
+        Mock Get-EventLog {
+            $mockEventCalls++
+            if ($mockEventCalls -eq 1) {
+                # Existence check: source does not exist
+                return @()
+            } elseif ($mockEventCalls -eq 2) {
+                # Verification: return matching event
+                return @([pscustomobject]@{
+                    TimeGenerated = $fixedTime.AddMilliseconds(600)
+                    EventID = 100
+                    EntryType = "Information"
+                })
+            }
+        }
+        Mock Write-EventLog { }
+        Mock New-EventLog { }
+        Mock Start-Sleep { }
+        Mock Invoke-Command {
+            param ($Session, $ScriptBlock, $ArgumentList)
+            & $ScriptBlock @ArgumentList
+
+            return @{ Success = $true; Error = $null }
+        }
+        Mock Write-Log { }
+
+        Write-WindowsEventLog @params
+
+        Assert-MockCalled Invoke-Command -Times 1 -Exactly
+        Assert-MockCalled Get-EventLog -Times 2 -Exactly
+        Assert-MockCalled New-EventLog -Times 1 -Exactly
+        Assert-MockCalled Write-EventLog -Times 1 -Exactly
+        Assert-MockCalled Start-Sleep -Times 1 -Exactly -ParameterFilter { $Milliseconds -eq 500 }
+        Assert-MockCalled Write-Log -Times 0
+    }
+
+    It "Fails and logs error when creating source fails" {
+        $mockEventCalls = 0
+        Mock Get-Date { $fixedTime }
+        Mock Get-EventLog {
+            $mockEventCalls++
+            if ($mockEventCalls -eq 1) {
+                return @()
+            }
+        }
+        Mock Write-EventLog { }
+        Mock New-EventLog { throw }
+        Mock Start-Sleep { }
+        Mock Invoke-Command {
+            param ($Session, $ScriptBlock, $ArgumentList)
             & $ScriptBlock @ArgumentList
         }
+        Mock Write-Log { }
+
+        Write-WindowsEventLog @params
+
+        Assert-MockCalled Invoke-Command -Times 1 -Exactly
+        Assert-MockCalled Get-EventLog -Times 1 -Exactly
+        Assert-MockCalled New-EventLog -Times 1 -Exactly
+        Assert-MockCalled Write-EventLog -Times 0
+        Assert-MockCalled Start-Sleep -Times 0
+        Assert-MockCalled Write-Log -Times 1 -Exactly -ParameterFilter { $Message -like "*Failed to create event source*" -and $Level -eq "Error" }
     }
 
-    Context "When event source does not exist" {
-        It "Should create new event source and write event log" {
-            # Call the function with mocks enabled
-            Write-WindowsEventLog -Session $mockSession -LogName "Application" -Source "TestSource" -EventID 1000 -EntryType "Information" -Message "Test message"
-
-            # Assert New-EventLog was called once to create source
-            Assert-MockCalled New-EventLog -Times 1 -ParameterFilter {
-                $Source -eq "TestSource" -and $LogName -eq "Application"
-            }
-
-            # Assert Write-EventLog was called once to write event
-            Assert-MockCalled Write-EventLog -Times 1 -ParameterFilter {
-                $Source -eq "TestSource" -and $LogName -eq "Application" -and $EventID -eq 1000 -and $EntryType -eq "Information"
+    It "Fails and logs error when writing event fails" {
+        $mockEventCalls = 0
+        Mock Get-Date { $fixedTime }
+        Mock Get-EventLog {
+            $mockEventCalls++
+            if ($mockEventCalls -eq 1) {
+                return @([pscustomobject]@{})
             }
         }
+        Mock Write-EventLog { throw }
+        Mock New-EventLog { }
+        Mock Start-Sleep { }
+        Mock Invoke-Command {
+            param ($Session, $ScriptBlock, $ArgumentList)
+            & $ScriptBlock @ArgumentList
+        }
+        Mock Write-Log { }
+
+        Write-WindowsEventLog @params
+
+        Assert-MockCalled Invoke-Command -Times 1 -Exactly
+        Assert-MockCalled Get-EventLog -Times 1 -Exactly
+        Assert-MockCalled New-EventLog -Times 0
+        Assert-MockCalled Write-EventLog -Times 1 -Exactly
+        Assert-MockCalled Start-Sleep -Times 0
+        Assert-MockCalled Write-Log -Times 1 -Exactly -ParameterFilter { $Message -like "*Failed to write/verify event*" -and $Level -eq "Error" }
+    }
+
+    It "Fails and logs error when verification fails" {
+        $mockEventCalls = 0
+        Mock Get-Date { $fixedTime }
+        Mock Get-EventLog {
+            $mockEventCalls++
+            if ($mockEventCalls -eq 1) {
+                return @([pscustomobject]@{})
+            } elseif ($mockEventCalls -eq 2) {
+                # Verification: return non-matching event
+                return @([pscustomobject]@{
+                    TimeGenerated = $fixedTime.AddMilliseconds(600)
+                    EventID = 999
+                    EntryType = "Information"
+                })
+            }
+        }
+        Mock Write-EventLog { }
+        Mock New-EventLog { }
+        Mock Start-Sleep { }
+        Mock Invoke-Command {
+            param ($Session, $ScriptBlock, $ArgumentList)
+            & $ScriptBlock @ArgumentList
+        }
+        Mock Write-Log { }
+
+        Write-WindowsEventLog @params
+
+        Assert-MockCalled Invoke-Command -Times 1 -Exactly
+        Assert-MockCalled Get-EventLog -Times 2 -Exactly
+        Assert-MockCalled New-EventLog -Times 0
+        Assert-MockCalled Write-EventLog -Times 1 -Exactly
+        Assert-MockCalled Start-Sleep -Times 1 -Exactly -ParameterFilter { $Milliseconds -eq 500 }
+        Assert-MockCalled Write-Log -Times 1 -Exactly -ParameterFilter { $Message -like "*Event log entry not found after writing*" -and $Level -eq "Error" }
     }
 }
-#>
+
 
 $env:UNIT_TEST = $null

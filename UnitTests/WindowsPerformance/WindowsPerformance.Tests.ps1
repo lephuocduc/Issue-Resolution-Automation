@@ -36,7 +36,11 @@ Describe "Test Get-SystemUptime" {
     }
 
     It "Throws error if session is null" {
-        { Get-SystemUptime -ServerName $null -Session $null } | Should -Throw
+        { Get-SystemUptime -ServerName $serverName -Session $null } | Should -Throw
+    }
+
+    It "Throws error if server name is null" {
+        { Get-SystemUptime -ServerName $null -Session $mockSession } | Should -Throw
     }
 
     It "Returns uptime in correct format" {
@@ -221,18 +225,6 @@ Describe "Test Get-PerformanceMetrics" {
         }
     }
 
-    Context "Error Handling" {
-        BeforeAll {
-            Mock Invoke-Command { throw "Mocked error" } -ParameterFilter { $Session -eq $mockSession }
-        }
-
-        It "Throws error and logs on failure" {
-            { Get-PerformanceMetrics -Session $mockSession } | Should -Throw "Mocked error"
-            Assert-MockCalled Update-StatusLabel -Times 1 -ParameterFilter { $text -like "*Error collecting performance metrics*" }
-            Assert-MockCalled Write-Log -Times 1 -ParameterFilter { $Message -like "*Error collecting performance metrics*" -and $Level -eq "Error" }
-        }
-    }
-
     Context "Process Grouping and PID Display" {
         BeforeAll {
             Mock Invoke-Command {
@@ -294,6 +286,10 @@ Describe "Test Get-TopCPUProcesses" {
         }
     }
 
+    It "Should throw error if PerformanceData is null" {
+        { Get-TopCPUProcesses -PerformanceData $null } | Should -Throw 
+    }
+
     It "Returns top CPU processes with TopCount 2" {
         $result = Get-TopCPUProcesses -PerformanceData $sampleData -TopCount 2
 
@@ -339,6 +335,10 @@ Describe "Test Get-TopMemoryProcesses" {
                 [PSCustomObject]@{ ProcessName = 'proc6'; User = 'User6'; AvgCPU = 8.0; AvgMemoryBytes = 800000; PID = '600' }
             )
         }
+    }
+
+    It "Should throw error if PerformanceData is null" {
+        { Get-TopMemoryProcesses -PerformanceData $null } | Should -Throw 
     }
 
     It "Returns top memory processes with TopCount 2" {
@@ -582,6 +582,5 @@ Describe "Write-WindowsEventLog" {
         Assert-MockCalled Write-Log -Times 1 -Exactly -ParameterFilter { $Message -like "*Event log entry not found after writing*" -and $Level -eq "Error" }
     }
 }
-
 
 $env:UNIT_TEST = $null

@@ -69,6 +69,11 @@ Describe "Test Get-PerformanceMetrics" {
         $mockSession = New-MockObject -Type System.Management.Automation.Runspaces.PSSession
     }
 
+    # Throw error if session is null
+    It "Throws error if session is null" {
+        { Get-PerformanceMetrics -Session $null } | Should -Throw
+    }
+
     Context "Default parameters" {
         BeforeAll {
             # Mock Invoke-Command for static info
@@ -580,6 +585,112 @@ Describe "Write-WindowsEventLog" {
         Assert-MockCalled Write-EventLog -Times 1 -Exactly
         Assert-MockCalled Start-Sleep -Times 1 -Exactly -ParameterFilter { $Milliseconds -eq 500 }
         Assert-MockCalled Write-Log -Times 1 -Exactly -ParameterFilter { $Message -like "*Event log entry not found after writing*" -and $Level -eq "Error" }
+    }
+}
+
+Describe "Show-PerformanceDashboard Function Tests" {
+
+    BeforeAll {
+        # Mock external commands and functions
+        Mock Test-Path { $false } -ParameterFilter { $Path -eq "C:\temp" }
+        Mock New-Item { } -ParameterFilter { $ItemType -eq "Directory" -and $Path -eq "C:\temp" }
+        Mock Write-Log { }
+        Mock Out-Host { }
+        Mock Out-File { }
+        Mock Join-Path { "C:\temp\PerformanceDashboard_TestServer_17092025_120000.txt" }
+        Mock Get-Date {
+            if ($Format -eq "hh:mm tt on MMMM dd, yyyy") {
+                return "12:00 PM on September 17, 2025"
+            } elseif ($Format -eq "ddMMyyyy_HHmmss") {
+                return "17092025_120000"
+            }
+        }
+
+        # Sample input data
+        $uptime = [PSCustomObject]@{
+            ServerName = "TestServer"
+            Days = 5
+            Hours = 3
+            Minutes = 45
+        }
+
+        $topCPU = @(
+            [PSCustomObject]@{ ProcessName = "Process1"; PID = 1234; AvgCPU = 25.5; AvgMemoryBytes = 1073741824; User = "User1" },
+            [PSCustomObject]@{ ProcessName = "Process2"; PID = 5678; AvgCPU = 15.0; AvgMemoryBytes = 536870912; User = "User2" }
+        )
+
+        $topMemory = @(
+            [PSCustomObject]@{ ProcessName = "Process3"; PID = 91011; AvgCPU = 5.0; AvgMemoryBytes = 2147483648; User = "User3" },
+            [PSCustomObject]@{ ProcessName = "Process4"; PID = 121314; AvgCPU = 10.0; AvgMemoryBytes = 1610612736; User = "User4" }
+        )
+
+        $systemMetrics = [PSCustomObject]@{
+            AvgCPU = 30
+            AvgMemoryPercent = 40
+            AvgMemoryBytes = 4294967296  # 4GB
+            TotalMemoryBytes = 10737418240  # 10GB
+        }
+    }
+
+    It "Creates temp directory if it does not exist" {
+        $null = Show-PerformanceDashboard -Uptime $uptime -TopCPU $topCPU -TopMemory $topMemory -SystemMetrics $systemMetrics
+        Assert-MockCalled Test-Path -Times 1 -Exactly -Scope It
+        Assert-MockCalled New-Item -Times 1 -Exactly -Scope It
+    }
+
+    It "Exports output to file successully" {
+        $filePath = Show-PerformanceDashboard -Uptime $uptime -TopCPU $topCPU -TopMemory $topMemory -SystemMetrics $systemMetrics
+        $filePath | Should -Be "C:\temp\PerformanceDashboard_TestServer_17092025_120000.txt"
+        Assert-MockCalled Out-File -Times 1 -Exactly -Scope It
+    }
+
+    Context "Parameter Validation" {
+        It "Requires Uptime parameter" {
+            { Show-PerformanceDashboard -TopCPU $topCPU -TopMemory $topMemory -SystemMetrics $systemMetrics -Uptime $null } | Should -Throw
+        }
+
+        It "Requires TopCPU parameter" {
+            { Show-PerformanceDashboard -Uptime $uptime -TopMemory $topMemory -SystemMetrics $systemMetrics -TopCPU $null} | Should -Throw
+        }
+
+        It "Requires TopMemory parameter" {
+            { Show-PerformanceDashboard -Uptime $uptime -TopCPU $topCPU -SystemMetrics $systemMetrics -TopMemory $null} | Should -Throw
+        }
+
+        It "Requires SystemMetrics parameter" {
+            { Show-PerformanceDashboard -Uptime $uptime -TopCPU $topCPU -TopMemory $topMemory -SystemMetrics $null} | Should -Throw
+        }
+    }
+
+    Context "Output Formatting" {
+        BeforeAll {
+            # To test exact output, we can redirect Out-Host or capture output.
+            # For simplicity, mock Out-Host to collect lines.
+            $script:outputLines = @()
+            Mock Out-Host {
+                param (
+                    [Parameter(ValueFromPipeline = $true)]
+                    $InputObject
+                )
+                $script:outputLines += $InputObject
+            }
+        }
+
+        It "Produces correctly formatted output" {
+            $null = Show-PerformanceDashboard -Uptime $uptime -TopCPU $topCPU -TopMemory $topMemory -SystemMetrics $systemMetrics
+
+            $script:outputLines[0] | Should -Be ("=" * 60)
+            $script:outputLines[1] | Should -Be "SERVER: TestServer | UPTIME: 5 DAYS 3 HOURS 45 MINUTES"
+            $script:outputLines[2] | Should -Be "Data Collected at 12:00 PM on September 17, 2025"
+            $script:outputLines[3] | Should -Be ("=" * 60)
+            $script:outputLines[4] | Should -Be "OVERVIEW:"
+            $script:outputLines[5] | Should -Be "[CPU]: 30%`t[MEM]: 4GB (40%)"
+            # Add more assertions for top processes, etc.
+            # For example:
+            $script:outputLines[9] | Should -Match "1. Process1\s+\(1234\)\s+-\s+25.50%\s+-\s+1.0GB \(10.0%\)\s+-\s+User1"
+            
+            $script:outputLines[14] | Should -Match "1. Process3\s+\(91011\)\s+-\s+5.00%\s+-\s+2.0GB \(20.0%\)\s+-\s+User3"
+        }
     }
 }
 

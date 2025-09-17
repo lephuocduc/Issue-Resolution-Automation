@@ -512,14 +512,15 @@ function Show-PerformanceDashboard {
         [Parameter(Mandatory = $true)]
         [object]$TopMemory,
         [Parameter(Mandatory = $true)]
-        [object]$SystemMetrics
+        [object]$SystemMetrics,
+        [Parameter(Mandatory = $false)]
+        [string]$LogDirectory = "C:\temp"
     )
     
     # Create temp directory if it doesn't exist
-    $tempDir = "C:\temp"
-    if (-not (Test-Path $tempDir)) {
-        New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
-        Write-Log "Created temporary directory: $tempDir" "Info"
+    if (-not (Test-Path $LogDirectory)) {
+        New-Item -ItemType Directory -Path $LogDirectory -Force | Out-Null
+        Write-Log "Created temporary directory: $LogDirectory" "Info"
     }
     
     Write-Log "Generating performance dashboard for $($Uptime.ServerName)" "Info"
@@ -589,9 +590,10 @@ function Show-PerformanceDashboard {
         # Export to file
         $timestamp = Get-Date -Format "ddMMyyyy_HHmmss"
         $fileName = "PerformanceDashboard_$($Uptime.ServerName)_${timestamp}.txt"
-        $filePath = Join-Path $tempDir $fileName
+        $filePath = Join-Path $LogDirectory $fileName
         
-        $output | Out-File -FilePath $filePath -Force
+        $output -join "`n" | Out-File -FilePath $filePath -Force
+        
         Write-Log "Performance dashboard exported to $filePath" "Info"
         
         return $filePath

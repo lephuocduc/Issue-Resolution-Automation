@@ -22,6 +22,98 @@ $env:UNIT_TEST = "true"
 # Load the script to be tested 
 . "$PSScriptRoot/../../Scripts/WindowsPerformance/WindowsPerformance.ps1"
 
+Describe "Test-ServerAvailability Function Tests" {
+
+    BeforeAll {
+        # Mock external functions
+        Mock Update-StatusLabel { }
+        Mock Write-Log { }
+        Mock Test-WSMan { }  # Default to success (no throw)
+    }
+
+    Context "Parameter Validation" {
+        It "Requires ServerName parameter" {
+            { Test-ServerAvailability -ServerName $null} | Should -Throw
+        }
+
+        It "Validates ServerName pattern" {
+            { Test-ServerAvailability -ServerName "invalid@server" } | Should -Throw
+        }
+    }
+
+    Context "WinRM Available" {
+        BeforeAll {
+            Mock Test-WSMan { }  # Success
+        }
+
+        It "Returns correct result when WinRM is available" {
+            $result = Test-ServerAvailability -ServerName "testserver"
+
+            $result.RemotingAvailable | Should -Be $true
+            $result.PingReachable | Should -Be $false
+            $result.DNSResolvable | Should -Be $false
+            $result.ErrorDetails | Should -BeNullOrEmpty
+        }
+    }
+
+    Context "WinRM Unavailable, Ping Reachable" {
+        BeforeAll {
+            Mock Test-WSMan { throw }
+            Mock Test-Connection {
+                [PSCustomObject]@{
+                    Address       = "192.168.1.1"
+                    ResponseTime  = 1
+                    ProtocolAddress = "192.168.1.1"
+                }
+            }
+
+            $result.RemotingAvailable | Should -Be $false
+            $result.PingReachable | Should -Be $true
+            $result.DNSResolvable | Should -Be $false
+        }
+    }
+
+    Context "WinRM Unavailable, Ping Unreachable, DNS Resolvable" {
+        BeforeAll {
+            Mock Test-WSMan { throw }
+            Mock Test-Connection { throw }
+            Mock Resolve-DnsName { 
+                [PSCustomObject]@{
+                    Name       = "testserver"
+                    Type       = "A"
+                    TTL        = 300
+                    section    = "Answer"
+                    IPAddress   = "123.456.789.1"
+                }
+             }
+        }
+
+        It "Returns correct result when DNS resolves but ping fails" {
+            $result = Test-ServerAvailability -ServerName "testserver"
+
+            $result.RemotingAvailable | Should -Be $false
+            $result.PingReachable | Should -Be $false
+            $result.DNSResolvable | Should -Be $true
+        }
+    }
+
+    Context "WinRM Unavailable, Ping Unreachable, DNS Unresolvable" {
+        BeforeAll {
+            Mock Test-WSMan { throw }
+            Mock Test-Connection { throw }
+            Mock Resolve-DnsName { throw }
+        }
+
+        It "Returns correct result when DNS fails" {
+            $result = Test-ServerAvailability -ServerName "testserver"
+
+            $result.RemotingAvailable | Should -Be $false
+            $result.PingReachable | Should -Be $false
+            $result.DNSResolvable | Should -Be $false
+        }
+    }
+}
+
 Describe "Test Get-SystemUptime" {
     BeforeAll {
         $mockSession = New-MockObject -Type System.Management.Automation.Runspaces.PSSession

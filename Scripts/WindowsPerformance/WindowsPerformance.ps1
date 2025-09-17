@@ -183,10 +183,9 @@ function Test-ServerAvailability {
     try {
         Update-StatusLabel -text "Testing ping for $ServerName"
         Write-Log "Testing ping for $ServerName"
-        $ping = [System.Net.NetworkInformation.Ping]::new()
-        $reply = $ping.Send($ServerName, 1000)  # 1 second timeout
-        
-        if ($reply.Status -eq 'Success') {
+        $reply = Test-Connection -ComputerName $ServerName -Count 1 -ErrorAction Stop
+
+        if ($reply.StatusCode -eq 0) {
             $pingFailed = $false
             $result.PingReachable = $true
             Update-StatusLabel -text "Server $ServerName is ping reachable but WinRM is unavailable. Please check WinRM service on the server and the server may be hung."
@@ -206,11 +205,13 @@ function Test-ServerAvailability {
         try {
             Update-StatusLabel -text "Trying to resolve DNS name"
             Write-Log "Trying to resolve DNS name"
-            $null = [System.Net.Dns]::GetHostEntry($ServerName)
-            $result.DNSResolvable = $true
-            $result.ErrorDetails += "; DNS resolution succeeded but ping failed"
-            Update-StatusLabel -text "Server $ServerName is offline."
-            Write-Log "Server $ServerName is offline." "Warning"
+            $dnsResult = Resolve-DnsName -Name $ServerName -ErrorAction Stop
+            if ($dnsResult) {
+                $result.DNSResolvable = $true
+                $result.ErrorDetails += "; DNS resolution succeeded but ping failed"
+                Update-StatusLabel -text "Server $ServerName is offline."
+                Write-Log "Server $ServerName is offline." "Warning"
+            }
         }
         catch {
             $result.DNSResolvable = $false

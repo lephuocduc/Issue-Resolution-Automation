@@ -32,11 +32,11 @@ Describe "Test-ServerAvailability Function Tests" {
     }
 
     Context "Parameter Validation" {
-        It "Requires ServerName parameter" {
+        It "It should throw error if server name is null" {
             { Test-ServerAvailability -ServerName $null} | Should -Throw
         }
 
-        It "Validates ServerName pattern" {
+        It "It should throw error if server name format is invalid" {
             { Test-ServerAvailability -ServerName "invalid@server" } | Should -Throw
         }
     }
@@ -46,7 +46,7 @@ Describe "Test-ServerAvailability Function Tests" {
             Mock Test-WSMan { }  # Success
         }
 
-        It "Returns correct result when WinRM is available" {
+        It "It should return correct result when WinRM is available" {
             $result = Test-ServerAvailability -ServerName "testserver"
 
             $result.RemotingAvailable | Should -Be $true
@@ -67,9 +67,13 @@ Describe "Test-ServerAvailability Function Tests" {
                 }
             }
 
+        It "It should return correct result when ping succeeds but WinRM fails" {
+            $result = Test-ServerAvailability -ServerName "testserver"
+
             $result.RemotingAvailable | Should -Be $false
             $result.PingReachable | Should -Be $true
             $result.DNSResolvable | Should -Be $false
+            }
         }
     }
 
@@ -88,7 +92,7 @@ Describe "Test-ServerAvailability Function Tests" {
              }
         }
 
-        It "Returns correct result when DNS resolves but ping fails" {
+        It "It should return correct result when DNS resolves but ping fails" {
             $result = Test-ServerAvailability -ServerName "testserver"
 
             $result.RemotingAvailable | Should -Be $false
@@ -104,7 +108,7 @@ Describe "Test-ServerAvailability Function Tests" {
             Mock Resolve-DnsName { throw }
         }
 
-        It "Returns correct result when DNS fails" {
+        It "It should return correct result when DNS fails" {
             $result = Test-ServerAvailability -ServerName "testserver"
 
             $result.RemotingAvailable | Should -Be $false
@@ -127,15 +131,15 @@ Describe "Test Get-SystemUptime" {
         }
     }
 
-    It "Throws error if session is null" {
+    It "It should throw error if session is null" {
         { Get-SystemUptime -ServerName $serverName -Session $null } | Should -Throw
     }
 
-    It "Throws error if server name is null" {
+    It "It should throw error if server name is null" {
         { Get-SystemUptime -ServerName $null -Session $mockSession } | Should -Throw
     }
 
-    It "Returns uptime in correct format" {
+    It "It should return uptime in correct format" {
         Mock Invoke-Command {
             return $sampleData
         }
@@ -162,7 +166,7 @@ Describe "Test Get-PerformanceMetrics" {
     }
 
     # Throw error if session is null
-    It "Throws error if session is null" {
+    It "It should throw error if session is null" {
         { Get-PerformanceMetrics -Session $null } | Should -Throw
     }
 
@@ -200,7 +204,7 @@ Describe "Test Get-PerformanceMetrics" {
                 }
             } -ParameterFilter { $Session -eq $mockSession -and $scriptBlock.ToString() -eq $sampleScriptBlock.ToString() }
         }
-        It "Collects metrics with default Samples=2 and Interval=2" {
+        It "It should collect metrics with default Samples=2 and Interval=2" {
             $result = Get-PerformanceMetrics -Session $mockSession -Samples 2 -Interval 2
 
             # Assert system metrics
@@ -259,7 +263,7 @@ Describe "Test Get-PerformanceMetrics" {
             } -ParameterFilter { $Session -eq $mockSession -and $null -ne $ArgumentList }
         }
 
-        It "Collects metrics with Samples=3 and Interval=1" {
+        It "It should collect metrics with Samples=3 and Interval=1" {
             $result = Get-PerformanceMetrics -Session $mockSession -Samples 3 -Interval 1
 
             $result.SystemMetrics.AvgCPU | Should -Be 50.0  # Avg of 40,50,60
@@ -303,7 +307,7 @@ Describe "Test Get-PerformanceMetrics" {
             } -ParameterFilter { $Session -eq $mockSession -and $null -ne $ArgumentList }
         }
 
-        It "Handles single sample correctly" {
+        It "It should handle single sample correctly" {
             $result = Get-PerformanceMetrics -Session $mockSession -Samples 1
 
             $result.SystemMetrics.AvgCPU | Should -Be 75.0
@@ -345,7 +349,7 @@ Describe "Test Get-PerformanceMetrics" {
             } -ParameterFilter { $Session -eq $mockSession -and $null -ne $ArgumentList }
         }
 
-        It "Groups processes by ProcessName and User, sums correctly, and picks min PID" {
+        It "It should group processes by ProcessName and User, sum correctly, and pick min PID" {
             $result = Get-PerformanceMetrics -Session $mockSession -Samples 1
 
             $result.ProcessMetrics.Count | Should -Be 2
@@ -383,11 +387,11 @@ Describe "Test Get-TopCPUProcesses" {
         }
     }
 
-    It "Should throw error if PerformanceData is null" {
+    It "It should throw error if PerformanceData is null" {
         { Get-TopCPUProcesses -PerformanceData $null } | Should -Throw 
     }
 
-    It "Returns top CPU processes with TopCount 2" {
+    It "It should return top CPU processes with TopCount 2" {
         $result = Get-TopCPUProcesses -PerformanceData $sampleData -TopCount 2
 
         $result.Count | Should -Be 2
@@ -401,7 +405,7 @@ Describe "Test Get-TopCPUProcesses" {
         $result[1].PID | Should -Be '100'
     }
 
-    It "Returns top CPU processes with TopCount 5" {
+    It "It should return top CPU processes with TopCount 5" {
         $result = Get-TopCPUProcesses -PerformanceData $sampleData -TopCount 5
 
         $result.Count | Should -Be 5
@@ -434,11 +438,11 @@ Describe "Test Get-TopMemoryProcesses" {
         }
     }
 
-    It "Should throw error if PerformanceData is null" {
+    It "It should throw error if PerformanceData is null" {
         { Get-TopMemoryProcesses -PerformanceData $null } | Should -Throw 
     }
 
-    It "Returns top memory processes with TopCount 2" {
+    It "It should return top memory processes with TopCount 2" {
         $result = Get-TopMemoryProcesses -PerformanceData $sampleData -TopCount 2
 
         $result.Count | Should -Be 2
@@ -489,31 +493,31 @@ Describe "Write-WindowsEventLog" {
         }
     }
 
-    It "Throws when LogName is not provided" {
+    It "It should throw when LogName is not provided" {
         { Write-WindowsEventLog -LogName $null -Source $testSource -EventID $testEventID -EntryType $testEntryType -Message $testMessage -Session $mockSession } | Should -Throw
     }
 
-    It "Throws when Source is not provided" {
+    It "It should  throw when Source is not provided" {
         { Write-WindowsEventLog -Source $null -LogName $testLogName -EventID $testEventID -EntryType $testEntryType -Message $testMessage -Session $mockSession } | Should -Throw
     }
 
-    It "Throws when EventID is not provided" {
+    It "It should throw when EventID is not provided" {
         { Write-WindowsEventLog -EventID $null -LogName $testLogName -Source $testSource -EntryType $testEntryType -Message $testMessage -Session $mockSession } | Should -Throw
     }
 
-    It "Throws when EntryType is not provided" {
+    It "It should throw when EntryType is not provided" {
         { Write-WindowsEventLog -EntryType $null -LogName $testLogName -Source $testSource -EventID $testEventID -Message $testMessage -Session $mockSession } | Should -Throw
     }
 
-    It "Throws when Message is not provided" {
+    It "It should throw when Message is not provided" {
         { Write-WindowsEventLog -Message $null -LogName $testLogName -Source $testSource -EventID $testEventID -EntryType $testEntryType -Session $mockSession } | Should -Throw
     }
 
-    It "Throws when Session is not provided" {
+    It "It should throw when Session is not provided" {
         { Write-WindowsEventLog -Session $null -LogName $testLogName -Source $testSource -EventID $testEventID -EntryType $testEntryType -Message $testMessage } | Should -Throw
     }
 
-    It "Succeeds when source exists, write and verify work" {
+    It "It should succeed when source exists, write and verify work" {
         $mockEventCalls = 0
         Mock Get-Date { $fixedTime }
         Mock Get-EventLog {
@@ -550,7 +554,7 @@ Describe "Write-WindowsEventLog" {
         Assert-MockCalled Write-Log -Times 0
     }
 
-    It "Succeeds when source does not exist, creates successfully, write and verify work" {
+    It "It should succeed when source does not exist, creates successfully, write and verify work" {
         $mockEventCalls = 0
         Mock Get-Date { $fixedTime }
         Mock Get-EventLog {
@@ -588,7 +592,7 @@ Describe "Write-WindowsEventLog" {
         Assert-MockCalled Write-Log -Times 0
     }
 
-    It "Fails and logs error when creating source fails" {
+    It "It should fail and log error when creating source fails" {
         $mockEventCalls = 0
         Mock Get-Date { $fixedTime }
         Mock Get-EventLog {
@@ -616,7 +620,7 @@ Describe "Write-WindowsEventLog" {
         Assert-MockCalled Write-Log -Times 1 -Exactly -ParameterFilter { $Message -like "*Failed to create event source*" -and $Level -eq "Error" }
     }
 
-    It "Fails and logs error when writing event fails" {
+    It "It should fail and log error when writing event fails" {
         $mockEventCalls = 0
         Mock Get-Date { $fixedTime }
         Mock Get-EventLog {
@@ -644,7 +648,7 @@ Describe "Write-WindowsEventLog" {
         Assert-MockCalled Write-Log -Times 1 -Exactly -ParameterFilter { $Message -like "*Failed to write/verify event*" -and $Level -eq "Error" }
     }
 
-    It "Fails and logs error when verification fails" {
+    It "It should fail and log error when verification fails" {
         $mockEventCalls = 0
         Mock Get-Date { $fixedTime }
         Mock Get-EventLog {
@@ -724,32 +728,32 @@ Describe "Show-PerformanceDashboard Function Tests" {
         }
     }
 
-    It "Creates temp directory if it does not exist" {
+    It "It should create temp directory if it does not exist" {
         $null = Show-PerformanceDashboard -Uptime $uptime -TopCPU $topCPU -TopMemory $topMemory -SystemMetrics $systemMetrics
         Assert-MockCalled Test-Path -Times 1 -Exactly -Scope It
         Assert-MockCalled New-Item -Times 1 -Exactly -Scope It
     }
 
-    It "Exports output to file successully" {
+    It "It should export output to file successully" {
         $filePath = Show-PerformanceDashboard -Uptime $uptime -TopCPU $topCPU -TopMemory $topMemory -SystemMetrics $systemMetrics
         $filePath | Should -Be "C:\temp\PerformanceDashboard_TestServer_17092025_120000.txt"
         Assert-MockCalled Out-File -Times 1 -Exactly -Scope It
     }
 
     Context "Parameter Validation" {
-        It "Requires Uptime parameter" {
+        It "It should throw error if Uptime parameter is null" {
             { Show-PerformanceDashboard -TopCPU $topCPU -TopMemory $topMemory -SystemMetrics $systemMetrics -Uptime $null } | Should -Throw
         }
 
-        It "Requires TopCPU parameter" {
+        It "It should throw error if TopCPU parameter is null" {
             { Show-PerformanceDashboard -Uptime $uptime -TopMemory $topMemory -SystemMetrics $systemMetrics -TopCPU $null} | Should -Throw
         }
 
-        It "Requires TopMemory parameter" {
+        It "It should throw error if TopMemory parameter is null" {
             { Show-PerformanceDashboard -Uptime $uptime -TopCPU $topCPU -SystemMetrics $systemMetrics -TopMemory $null} | Should -Throw
         }
 
-        It "Requires SystemMetrics parameter" {
+        It "It should throw error if SystemMetrics parameter is null" {
             { Show-PerformanceDashboard -Uptime $uptime -TopCPU $topCPU -TopMemory $topMemory -SystemMetrics $null} | Should -Throw
         }
     }
@@ -768,7 +772,7 @@ Describe "Show-PerformanceDashboard Function Tests" {
             }
         }
 
-        It "Produces correctly formatted output" {
+        It "It should produce correctly formatted output" {
             $null = Show-PerformanceDashboard -Uptime $uptime -TopCPU $topCPU -TopMemory $topMemory -SystemMetrics $systemMetrics
 
             $script:outputLines[0] | Should -Be ("=" * 60)

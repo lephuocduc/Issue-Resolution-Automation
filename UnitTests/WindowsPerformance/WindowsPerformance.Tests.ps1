@@ -1,3 +1,54 @@
+#Test-ServerAvailability
+# Test case 1: It should throw error if server name is null
+# Test case 2: It should throw error if server name format is invalid
+# Test case 3: It should return correct result when WinRM is available
+# Test case 4: It should return correct result when DNS resolves but ping fails
+# Test case 5: It should return correct result when DNS fails
+
+#Test Get-SystemUptime
+# Test case 1: It should throw error if session is null
+# Test case 2: It should throw error if server name is null
+# Test case 3: It should return uptime in correct format
+
+#Get-PerformanceMetrics
+# Test case 1: It should throw error if session is null
+# Test case 2: It should collect metrics with default Samples=2 and Interval=2
+# Test case 3: It should collect metrics with Samples=3 and Interval=1
+# Test case 4: It should handle single sample correctly
+# Test case 5: It should group processes by ProcessName and User, sum correctly, and pick min PID
+
+#Get-TopCPUProcesses
+# Test case 1: It should throw error if PerformanceData is null
+# Test case 2: It should return top CPU processes with TopCount 2
+# Test case 3: It should return top CPU processes with TopCount 5
+
+#Get-TopMemoryProcesses
+# Test case 1: It should throw error if PerformanceData is null
+# Test case 2: It should return top memory processes with TopCount 2
+# Test case 3: Returns top memory processes with TopCount 5
+
+#Write-WindowsEventLog
+# Test case 1: It should throw when LogName is not provided
+# Test case 2: It should  throw when Source is not provided
+# Test case 3: It should throw when EventID is not provided
+# Test case 4: It should throw when EntryType is not provided
+# Test case 5: It should throw when Message is not provided
+# Test case 6: It should throw when Session is not provided
+# Test case 7: It should succeed when source exists, write and verify work
+# Test case 8: It should succeed when source does not exist, creates successfully, write and verify work
+# Test case 9: It should fail and log error when creating source fails
+# Test case 10: It should fail and log error when writing event fails
+# Test case 11: It should fail and log error when verification fails
+
+#Show-PerformanceDashboard
+# Test case 1: It should create temp directory if it does not exist
+# Test case 2: It should export output to file successully
+# Test case 3: It should throw error if Uptime parameter is null
+# Test case 4: It should throw error if TopCPU parameter is null
+# Test case 5: It should throw error if TopMemory parameter is null
+# Test case 6: It should throw error if SystemMetrics parameter is null
+# Test case 7: It should produce correctly formatted output
+
 # Check for Pester 5.7.1 and exit if not available
 $PesterModule = Get-Module -ListAvailable -Name Pester | Where-Object { $_.Version -eq "5.7.1" }
 if (-not $PesterModule) {

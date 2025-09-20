@@ -29,7 +29,8 @@ Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
 # Import the Get-BitwardenAuthentication module
-Import-Module -Name ".\Get-BitwardenAuthentication.psm1" -Force
+$ModulePath = Join-Path $PSScriptRoot "Modules\Get-BitwardenAuthentication.psm1"
+Import-Module -Name $ModulePath -Force
 
 $script:ADM_Credential = $null
 $CurrentUser = ([System.Security.Principal.WindowsIdentity]::GetCurrent().Name)
@@ -267,7 +268,6 @@ if ($script:ADM_Credential) {
     # Show the main form after Bitwarden authentication
     $main_form.ShowDialog()
 }
-
 
 
 

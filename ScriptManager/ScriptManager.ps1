@@ -29,7 +29,7 @@ Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
 # Import the Get-BitwardenAuthentication module
-Import-Module -Name "$PSScriptRoot\Get-BitwardenAuthentication.psm1" -Force
+Import-Module -Name ".\Get-BitwardenAuthentication.psm1" -Force
 
 $script:ADM_Credential = $null
 $CurrentUser = ([System.Security.Principal.WindowsIdentity]::GetCurrent().Name)

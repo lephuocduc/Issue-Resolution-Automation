@@ -690,7 +690,7 @@ function Get-TopItems {
             
             try {
                 # Convert exclude list to HashSet for O(1) lookups
-                $excludeSet = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+                $excludeSet = New-Object System.Collections.Hashtable ([StringComparer]::OrdinalIgnoreCase)
                 foreach ($item in $exclude) { [void]$excludeSet.Add($item) }
 
                 # Cache for folder sizes

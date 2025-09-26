@@ -146,10 +146,9 @@ function Test-ServerAvailability {
     try {
         Update-StatusLabel -text "Testing ping for $ServerName"
         Write-Log "Testing ping for $ServerName"
-        $ping = [System.Net.NetworkInformation.Ping]::new()
-        $reply = $ping.Send($ServerName, 1000)  # 1 second timeout
-        
-        if ($reply.Status -eq 'Success') {
+        $reply = Test-Connection -ComputerName $ServerName -Count 1 -ErrorAction Stop
+
+        if ($reply.StatusCode -eq 0) {
             $pingFailed = $false
             $result.PingReachable = $true
             Update-StatusLabel -text "Server $ServerName is ping reachable but WinRM is unavailable. Please check WinRM service on the server and the server may be hung."
@@ -169,11 +168,13 @@ function Test-ServerAvailability {
         try {
             Update-StatusLabel -text "Trying to resolve DNS name"
             Write-Log "Trying to resolve DNS name"
-            $null = [System.Net.Dns]::GetHostEntry($ServerName)
-            $result.DNSResolvable = $true
-            $result.ErrorDetails += "; DNS resolution succeeded but ping failed"
-            Update-StatusLabel -text "Server $ServerName is offline."
-            Write-Log "Server $ServerName is offline." "Warning"
+            $dnsResult = Resolve-DnsName -Name $ServerName -ErrorAction Stop
+            if ($dnsResult) {
+                $result.DNSResolvable = $true
+                $result.ErrorDetails += "; DNS resolution succeeded but ping failed"
+                Update-StatusLabel -text "Server $ServerName is offline."
+                Write-Log "Server $ServerName is offline." "Warning"
+            }
         }
         catch {
             $result.DNSResolvable = $false
@@ -295,36 +296,24 @@ function Test-ReportFileCreation {
     try {
         Write-Log "Testing log file creation in: $LogPath"
         
-        # Resolve full path using .NET methods
-        $resolvedPath = [System.IO.Path]::GetFullPath($LogPath)
-        $testFilePath = [System.IO.Path]::Combine($resolvedPath, $TestFile)
+        # Use Join-Path for combining paths
+        $testFilePath = Join-Path -Path $LogPath -ChildPath $TestFile
 
-        # Create directory structure using .NET (faster and more reliable)
-        $testDir = [System.IO.Path]::GetDirectoryName($testFilePath)
-        if (-not [System.IO.Directory]::Exists($testDir)) {
-            [System.IO.Directory]::CreateDirectory($testDir) | Out-Null
+        # Create directory structure if needed
+        if (-not (Test-Path -Path $LogPath -PathType Container)) {
+            New-Item -Path $LogPath -ItemType Directory -Force | Out-Null
         }
 
         # Generate content with UTC timestamp for consistency
-        $utcTimestamp = [System.DateTime]::UtcNow.ToString("o")
+        $utcTimestamp = (Get-Date).ToUniversalTime().ToString("o")
         $testContent = "Log creation test: $utcTimestamp"
 
-        # Use FileStream for atomic write operation
-        try {
-            $stream = [System.IO.File]::OpenWrite($testFilePath)
-            $writer = [System.IO.StreamWriter]::new($stream)
-            $writer.Write($testContent)
-            $writer.Close()
-        }
-        finally {
-            if ($writer) { $writer.Dispose() }
-            if ($stream) { $stream.Dispose() }
-        }
+        # Write content to file
+        Set-Content -Path $testFilePath -Value $testContent -Force
 
-        # Verify file creation using file attributes (faster than Test-Path)
-        $fileInfo = [System.IO.File]::GetAttributes($testFilePath)
-        if (($fileInfo -band [System.IO.FileAttributes]::Archive) -eq [System.IO.FileAttributes]::Archive) {
-            [System.IO.File]::Delete($testFilePath)
+        # Verify file creation
+        if (Test-Path -Path $testFilePath -PathType Leaf) {
+            Remove-Item -Path $testFilePath -Force
             Write-Log "Log file created and verified successfully: $TestFile"
             return $true
         }
@@ -1028,40 +1017,6 @@ function Export-DiskReport {
 }
 
 function Write-WindowsEventLog {
-    <#
-    .SYNOPSIS
-    Writes an event log entry to a specified Windows event log on a remote server.
-    
-    .DESCRIPTION
-    This function writes an event log entry to a specified Windows event log on a remote server.
-    It checks if the event source exists, creates it if necessary, and verifies that the event was written successfully.
-
-    .PARAMETER LogName
-    The name of the event log to write to (e.g., "Application", "System").
-
-    .PARAMETER Source
-    The source of the event (e.g., "DiskAnalysisScript").
-
-    .PARAMETER EventID
-    The ID of the event to write.
-
-    .PARAMETER EntryType
-    The type of the event (e.g., "Information", "Warning", "Error").
-
-    .PARAMETER Message
-    The message to include in the event log entry.
-
-    .PARAMETER Session
-    The PSSession object representing the remote session to the server.
-
-    .EXAMPLE
-    Write-WindowsEventLog -LogName "Application" -Source "DiskAnalysisScript" -EventID 1001 -EntryType "Information" -Message "Disk analysis completed successfully." -Session $session
-    This will write an informational event log entry to the Application log on the remote server with the specified source, event ID, and message.
-
-    .NOTES
-    This function requires the remote session to have permissions to write to the specified event log.
-    #>
-    
     [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true)]
@@ -1096,7 +1051,8 @@ function Write-WindowsEventLog {
 
         try {
             # Handle source existence
-            if (-not [System.Diagnostics.EventLog]::SourceExists($Source)) {
+            $exists = @(Get-EventLog -LogName $LogName -Source $Source -Newest 1 -ErrorAction SilentlyContinue).Count -gt 0
+            if (-not $exists) {
                 try {
                     New-EventLog -LogName $LogName -Source $Source -ErrorAction Stop
                 }
@@ -1107,19 +1063,19 @@ function Write-WindowsEventLog {
             }
 
             # Get timestamp before writing for verification
-            $timeBeforeWrite = Get-Date
+            $timeBeforeWrite = Get-Date -Format "dd-MMM-yy h:mm:ss tt"
 
             # Write event
             Write-EventLog -LogName $LogName -Source $Source -EventId $EventID -EntryType $EntryType -Message $Message
 
             # Verify the event was written
             Start-Sleep -Milliseconds 500  # Allow time for event to be written
-            $newEvent = Get-EventLog -LogName $LogName -Source $Source -Newest 1 |
+            $newEvent = @(Get-EventLog -LogName $LogName -Source $Source -Newest 1 |
                 Where-Object { 
                     $_.TimeGenerated -ge $timeBeforeWrite -and 
                     $_.EventID -eq $EventID -and 
                     $_.EntryType -eq $EntryType
-                }
+                }).Count -gt 0
 
             if ($newEvent) {
                 $result.Success = $true

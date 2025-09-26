@@ -389,8 +389,8 @@ function Get-PerformanceMetrics {
         $totalMemory = $staticResult.TotalMemory
 
         # Initialize data collectors
-        $cpuSamples = [System.Collections.Generic.List[double]]::new()
-        $memorySamples = [System.Collections.Generic.List[double]]::new()
+        $cpuSamples = New-Object System.Collections.Generic.List[double]
+        $memorySamples = New-Object System.Collections.Generic.List[double]
         $processAggregates = @{}
         $ownerCache = @{}
 

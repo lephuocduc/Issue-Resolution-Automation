@@ -48,6 +48,15 @@ function Unprotect-BitwardenConfig {
         return $decryptedContent
     }
     catch {
+        $ErrorMessage = $_.Exception.Message
+
+        # Pop up an error message box
+        [System.Windows.Forms.MessageBox]::Show(
+            "Error: $ErrorMessage",
+            "Decryption Error",
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Error
+        )
         throw
     }
 }

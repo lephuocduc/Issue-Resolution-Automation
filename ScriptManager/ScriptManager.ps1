@@ -43,8 +43,13 @@ function Unprotect-BitwardenConfig {
     )
     
     # Unprotect the encrypted file and convert from JSON
-    $decryptedContent = Unprotect-CmsMessage -Path $ConfigPath | ConvertFrom-Json
-    return $decryptedContent
+    try {
+        $decryptedContent = Unprotect-CmsMessage -Path $ConfigPath | ConvertFrom-Json
+        return $decryptedContent
+    }
+    catch {
+        throw
+    }
 }
 
 # Decrypt the Bitwarden configuration
@@ -106,6 +111,7 @@ $scaleY = 1
 $designWidth = 1920
 $designHeight = 1080
 
+<#
 # Loop through all video controllers
 foreach ($screen in $screens) {
     $screenWidth = $screen.CurrentHorizontalResolution
@@ -114,7 +120,7 @@ foreach ($screen in $screens) {
         $scaleX = $screenWidth / $designWidth
         $scaleY = $screenHeight / $designHeight
     }
-}
+}#>
     
 # Bitwarden form
 $bitwarden_form = New-Object System.Windows.Forms.Form

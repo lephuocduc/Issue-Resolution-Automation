@@ -44,7 +44,6 @@ function Get-BitwardenAuthentication {
         $bwExePath = Join-Path -Path $extractPath -ChildPath "bw.exe"
 
         # Move bw.exe to System32
-        Write-Log "Moving bw.exe from $bwExePath to $destinationPath."
         Move-Item -Path $bwExePath -Destination $destinationPath -Force
 
         # Check if the move was successful

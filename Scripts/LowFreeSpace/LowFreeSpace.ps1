@@ -1199,6 +1199,7 @@ $scaleY = 1
 $designWidth = 1920
 $designHeight = 1080
 
+<#
 # Loop through all video controllers
 foreach ($screen in $screens) {
     $screenWidth = $screen.CurrentHorizontalResolution
@@ -1207,7 +1208,7 @@ foreach ($screen in $screens) {
         $scaleX = $screenWidth / $designWidth
         $scaleY = $screenHeight / $designHeight
     }
-}
+}#>
 
 # Vertical padding between objects
 $verticalPadding = 7 * $scaleY

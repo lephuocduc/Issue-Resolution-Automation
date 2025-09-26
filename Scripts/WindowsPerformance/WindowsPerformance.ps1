@@ -626,60 +626,6 @@ function Remove-Session {
         Write-Log "Form disposed and cleaned up"
     }
 }
-
-function Test-ReportFileCreation {
-    [CmdletBinding()]
-    param(
-        [string]$LogPath = "C:\Temp",
-        [string]$TestFile = "test_$(Get-Date -Format 'ddMMyyyy_HHmmss').html"
-    )
-    
-    try {
-        Write-Log "Testing log file creation in: $LogPath"
-        
-        # Resolve full path using .NET methods
-        $resolvedPath = [System.IO.Path]::GetFullPath($LogPath)
-        $testFilePath = [System.IO.Path]::Combine($resolvedPath, $TestFile)
-
-        # Create directory structure using .NET (faster and more reliable)
-        $testDir = [System.IO.Path]::GetDirectoryName($testFilePath)
-        if (-not [System.IO.Directory]::Exists($testDir)) {
-            [System.IO.Directory]::CreateDirectory($testDir) | Out-Null
-        }
-
-        # Generate content with UTC timestamp for consistency
-        $utcTimestamp = [System.DateTime]::UtcNow.ToString("o")
-        $testContent = "Log creation test: $utcTimestamp"
-
-        # Use FileStream for atomic write operation
-        try {
-            $stream = [System.IO.File]::OpenWrite($testFilePath)
-            $writer = [System.IO.StreamWriter]::new($stream)
-            $writer.Write($testContent)
-            $writer.Close()
-        }
-        finally {
-            if ($writer) { $writer.Dispose() }
-            if ($stream) { $stream.Dispose() }
-        }
-
-        # Verify file creation using file attributes (faster than Test-Path)
-        $fileInfo = [System.IO.File]::GetAttributes($testFilePath)
-        if (($fileInfo -band [System.IO.FileAttributes]::Archive) -eq [System.IO.FileAttributes]::Archive) {
-            [System.IO.File]::Delete($testFilePath)
-            Write-Log "Log file created and verified successfully: $TestFile"
-            return $true
-        }
-
-        throw "File verification failed after write operation"
-    }
-    catch {
-        $errorMsg = "Error creating test file: $($_.Exception.Message)"
-        Write-Log $errorMsg "Error"
-        return $false
-    }
-}
-
 function Write-WindowsEventLog {
     [CmdletBinding()]
     param(
@@ -773,6 +719,7 @@ $scaleY = 1
 $designWidth = 1920
 $designHeight = 1080
 
+<#
 # Loop through all video controllers
 foreach ($screen in $screens) {
     $screenWidth = $screen.CurrentHorizontalResolution
@@ -781,7 +728,7 @@ foreach ($screen in $screens) {
         $scaleX = $screenWidth / $designWidth
         $scaleY = $screenHeight / $designHeight
     }
-}
+}#>
 
 # Vertical padding between objects
 $verticalPadding = 7 * $scaleY
@@ -896,17 +843,7 @@ $okButton.Add_Click({
         $session = Get-Session -serverName $serverName
         if ($null -eq $session) {
             [System.Windows.Forms.MessageBox]::Show(
-                "Session creation canceled or retry limit reached.", 
-                "Error", 
-                [System.Windows.Forms.MessageBoxButtons]::OK, 
-                [System.Windows.Forms.MessageBoxIcon]::Error
-            )
-            return
-        }
-
-        if (-not (Test-ReportFileCreation)) {
-            [System.Windows.Forms.MessageBox]::Show(
-                "Cannot proceed - local log file creation failed", 
+                "Session creation failed.", 
                 "Error", 
                 [System.Windows.Forms.MessageBoxButtons]::OK, 
                 [System.Windows.Forms.MessageBoxIcon]::Error

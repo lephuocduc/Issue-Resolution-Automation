@@ -1,32 +1,17 @@
 function Get-BitwardenAuthentication {
-    <#
-    .SYNOPSIS
-    This function checks if Bitwarden CLI is installed, installs it if not, and authenticates the user using credentials stored in a JSON configuration file.
-
-    .DESCRIPTION
-    The function checks for the presence of Bitwarden CLI. If it is not installed, it downloads and extracts the CLI from GitHub, moves it to the System32 directory, and verifies the installation. 
-    It then reads the Bitwarden configuration from a JSON file, sets environment variables for authentication, and logs in to Bitwarden CLI. 
-    Finally, it retrieves credentials from the Bitwarden vault and returns them as a PSCredential object.
-
-    .PARAMETER ConfigPath
-    The path to the Bitwarden configuration file in JSON format. Default is "$PSScriptRoot\bitwarden.json".
-
-    .PARAMETER version
-    The version of Bitwarden CLI to install. Default is "1.22.1".
-
-    .OUTPUTS
-    Returns a PSCredential object containing the username and password retrieved from Bitwarden.
-
-    .EXAMPLE
-    Get-BitwardenAuthentication -ConfigPath "C:\path\to\bitwarden.json" -version "1.22.1"
-    This example retrieves Bitwarden credentials using the specified configuration file and version of the Bitwarden CLI.    
-    #>
     [CmdletBinding()]
     [OutputType([System.Management.Automation.PSCredential])]
     param (
         [Parameter(ValueFromPipelineByPropertyName)]
-        [string]$ConfigPath = "$PSScriptRoot\bitwarden.json",
-        [string]$version = "1.22.1"
+        [string]$version = "1.22.1",
+        [Parameter(Mandatory=$true)]
+        [string]$clientId,
+        [Parameter(Mandatory=$true)]
+        [string]$clientSecret,
+        [Parameter(Mandatory=$true)]
+        [string]$masterPassword,
+        [Parameter(Mandatory=$true)]
+        [string]$credentialName
     )
 
     # Check if Bitwarden CLI is installed
@@ -78,20 +63,10 @@ function Get-BitwardenAuthentication {
         }
     } # End of Bitwarden CLI installation check
    
-    # Get Bitwarden configuration
-    if ((Test-Path $ConfigPath) -and (Get-Content $ConfigPath)) {
-        $bwConfig = Get-Content $ConfigPath | ConvertFrom-Json
-        if (-not $bwConfig.bitwarden.clientId -or -not $bwConfig.bitwarden.clientSecret -or -not $bwConfig.bitwarden.masterPassword -or -not $bwConfig.bitwarden.credentialName) {
-            throw "Bitwarden configuration file is missing required fields"
-        } else {
-            $env:BW_CLIENTID = $bwConfig.bitwarden.clientId
-            $env:BW_CLIENTSECRET = $bwConfig.bitwarden.clientSecret
-            $env:BW_PASSWORD = $bwConfig.bitwarden.masterPassword
-            $env:BW_CREDENTIALNAME = $bwConfig.bitwarden.credentialName
-        }
-    } else {
-        throw "Bitwarden configuration file not found or is empty."
-    }
+    $env:BW_CLIENTID = $clientId
+    $env:BW_CLIENTSECRET = $clientSecret
+    $env:BW_PASSWORD = $masterPassword
+    $env:BW_CREDENTIALNAME = $credentialName
 
     # Check if BW has been logged in before
     # Run bw status and capture the output

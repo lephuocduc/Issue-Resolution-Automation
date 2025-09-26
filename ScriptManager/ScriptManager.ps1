@@ -24,16 +24,41 @@
 #EXAMPLE
 # Run the script and select "Low Free Space" from the ComboBox to execute the LowFreeSpace.ps1 script.
 
+# Get content of the bitwarden.json file
+
 # Load the necessary assembly for Windows Forms
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
 # Import the Get-BitwardenAuthentication module
-Import-Module -Name "$PSScriptRoot\Modules\Get-BitwardenAuthentication.psm1" -Force
+Import-Module -Name $PSScriptRoot\Modules\Get-BitwardenAuthentication.psm1 -Force
 
 $script:ADM_Credential = $null
 $CurrentUser = ([System.Security.Principal.WindowsIdentity]::GetCurrent().Name)
 
+function Unprotect-BitwardenConfig {
+    param (
+        [Parameter(Mandatory=$true)]
+        [string]$ConfigPath
+    )
+    
+    # Unprotect the encrypted file and convert from JSON
+    $decryptedContent = Unprotect-CmsMessage -Path $ConfigPath | ConvertFrom-Json
+    return $decryptedContent
+}
+
+# Decrypt the Bitwarden configuration
+$DecryptedContent = Unprotect-BitwardenConfig -ConfigPath "$PSScriptRoot/EncryptedBitwarden.json"
+# Extract values
+$clientId = $DecryptedContent.bitwarden.clientId
+$clientSecret = $DecryptedContent.bitwarden.clientSecret
+$masterPassword = $DecryptedContent.bitwarden.masterPassword
+$credentialName = $DecryptedContent.bitwarden.credentialName
+
+# Check if any required value is missing
+if (-not $clientId -or -not $clientSecret -or -not $masterPassword -or -not $credentialName) {
+    throw "One or more Bitwarden configuration values are missing."
+}
 
 function Update-StatusLabel {
     param(
@@ -111,7 +136,8 @@ $bitwarden_form.Controls.Add($statusLabel)
 $bitwarden_form.Add_Shown({
     try {
         # Retrieve the ADM_Credential
-        $script:ADM_Credential = Get-BitwardenAuthentication -ConfigPath "$PSScriptRoot/bitwarden.json" -version "1.22.1"
+        Update-StatusLabel -text "Authenticating with Bitwarden..."
+        $script:ADM_Credential = Get-BitwardenAuthentication -ClientId $clientId -ClientSecret $clientSecret -MasterPassword $masterPassword -CredentialName $credentialName
         $bitwarden_form.Close()  # Close the Bitwarden form after successful authentication
         $bitwarden_form.Dispose()  # Dispose of the Bitwarden form to free resources
     }
@@ -157,7 +183,7 @@ $main_form.Controls.Add($label)
 $comboBox = New-Object System.Windows.Forms.ComboBox
 #$comboBox.Location = New-Object System.Drawing.Point(110, 50)  # Centered horizontally - REMOVE THIS LINE
 $comboBox.Size = New-Object System.Drawing.Size ([Math]::Round(200 * $scaleX), [Math]::Round(25 * $scaleY)) # set the size of combobox
-$comboBox.Items.AddRange(@('Heartbeat','Low Free Space','Windows Performance'))  # Add items to the dropdown
+$comboBox.Items.AddRange(@('Low Free Space','Windows Performance'))  # Add items to the dropdown
 $comboBox.DropDownStyle = 'DropDown' # Allow text editing in the ComboBox
 # Calculate the horizontal center for the ComboBox
 $combobox_width = $comboBox.Size.Width
@@ -213,9 +239,6 @@ $okButton.Add_Click({
             )
             return
         }
-        "Heartbeat" {
-            . (Join-Path $PSScriptRoot "..\Scripts\Heartbeat\Heartbeat.ps1") -ADM_Credential $script:ADM_Credential
-        }
         "Low Free Space" {
             . (Join-Path $PSScriptRoot "..\Scripts\LowFreeSpace\LowFreeSpace.ps1") -ADM_Credential $script:ADM_Credential
         }
@@ -267,6 +290,7 @@ if ($script:ADM_Credential) {
     # Show the main form after Bitwarden authentication
     $main_form.ShowDialog()
 }
+
 
 
 

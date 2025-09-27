@@ -74,12 +74,13 @@ Param(
     [System.Management.Automation.PSCredential]$ADM_Credential
 )
 
+<#
 # Temporary workaround for testing
 if (-not $ADM_Credential) {
     $userName = "user1"
     $password = ConvertTo-SecureString "Leduc123" -AsPlainText -Force
     $ADM_Credential = New-Object System.Management.Automation.PSCredential($userName, $password)
-}
+}#>
 
 # Get current user
 $CurrentUser = ([System.Security.Principal.WindowsIdentity]::GetCurrent().Name)

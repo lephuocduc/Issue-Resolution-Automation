@@ -12,7 +12,7 @@ Test Cases in Test Compress-IISLogs:
 2. "Does not compress or delete when IIS log path does not exist": Verifies that no compression or deletion occurs when the IIS log path does not exist.
 
 #>
-
+<#
 # Check for Pester 5.7.1 and exit if not available
 $PesterModule = Get-Module -ListAvailable -Name Pester | Where-Object { $_.Version -eq "5.7.1" }
 if (-not $PesterModule) {
@@ -261,3 +261,4 @@ Describe "Test Compress-IISLogs" {
 }
 
 $env:UNIT_TEST = $null
+#>

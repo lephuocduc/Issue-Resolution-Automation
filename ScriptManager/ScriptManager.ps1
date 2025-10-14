@@ -31,7 +31,11 @@ Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
 # Import the Get-BitwardenAuthentication module
-Import-Module -Name $PSScriptRoot\Modules\Get-BitwardenAuthentication.psm1 -Force
+Import-Module -Name $PSScriptRoot\Get-BitwardenAuthentication.psm1 -Force
+
+Get-ChildItem -Path (Join-Path $PSScriptRoot "..\Modules") -Filter *.psm1 | ForEach-Object {
+    Import-Module -Name $_.FullName -Force
+}
 
 $script:ADM_Credential = $null
 $CurrentUser = ([System.Security.Principal.WindowsIdentity]::GetCurrent().Name)
@@ -153,6 +157,49 @@ $bitwarden_form.Add_Shown({
         # Retrieve the ADM_Credential
         Update-StatusLabel -text "Authenticating with Bitwarden..."
         $script:ADM_Credential = Get-BitwardenAuthentication -ClientId $clientId -ClientSecret $clientSecret -MasterPassword $masterPassword -CredentialName $credentialName
+        if ($script:ADM_Credential) {       
+            # Get all jump host names from the jumphost.json file
+            $jumpHostsFileContent = Get-Content -Path $PSScriptRoot\"jumphost.json" | ConvertFrom-Json
+            $jumpHosts = $jumpHostsFileContent.DCS.PSObject.Properties.Value
+            if ( -not $jumpHosts -or $jumpHosts.Count -eq 0 ) {
+                Write-Log "No jump hosts found in jumphost.json" -Level "Error"
+                [System.Windows.Forms.MessageBox]::Show(
+                    "No jump hosts found in jumphost.json",
+                    "Error",
+                    [System.Windows.Forms.MessageBoxButtons]::OK,
+                    [System.Windows.Forms.MessageBoxIcon]::Error
+                )
+                exit
+            } else {
+                # Remote session for each jump host on DCS environment and choose the first one
+                $script:JumpHost = $null
+                foreach ($jumpHost in $jumpHosts) {
+                    try {
+                        $session = Get-Session -serverName $jumpHost -Credential $script:ADM_Credential
+                        if ($session) {
+                            $script:JumpHost = $jumpHost
+                            Remove-PSSession -Session $session -ErrorAction SilentlyContinue
+                            break  # Exit the loop if a session is successfully created
+                        }
+                    }
+                    catch {
+                        Write-Log "Failed to create session to `$jumpHost: $_" -Level "Warning"
+                    }
+                }
+        
+                if (-not $script:JumpHost) {
+                    Write-Log "Could not connect to any jump host." -Level "Error"
+                    [System.Windows.Forms.MessageBox]::Show(
+                        "Could not connect to any jump host.",
+                        "Error",
+                        [System.Windows.Forms.MessageBoxButtons]::OK,
+                        [System.Windows.Forms.MessageBoxIcon]::Error
+                    )
+                    $bitwarden_form.Close()
+                    $bitwarden_form.Dispose()  # Dispose of the Bitwarden form to free resources
+                }
+            }
+        }
         $bitwarden_form.Close()  # Close the Bitwarden form after successful authentication
         $bitwarden_form.Dispose()  # Dispose of the Bitwarden form to free resources
     }
@@ -255,7 +302,7 @@ $okButton.Add_Click({
             return
         }
         "Low Free Space" {
-            . (Join-Path $PSScriptRoot "..\Scripts\LowFreeSpace\LowFreeSpace.ps1") -ADM_Credential $script:ADM_Credential
+            . (Join-Path $PSScriptRoot "..\Scripts\LowFreeSpace\LowFreeSpace.ps1") -ADM_Credential $script:ADM_Credential -JumpHost $script:JumpHost
         }
         "Windows Performance" {
             . (Join-Path $PSScriptRoot "..\Scripts\WindowsPerformance\WindowsPerformance.ps1") -ADM_Credential $script:ADM_Credential
@@ -298,59 +345,11 @@ $main_form.Controls.Add($cancelButton)
 $bitwarden_form.ShowDialog()
 
 
-if ($script:ADM_Credential) {
+if ($script:ADM_Credential -and $script:JumpHost) {
     # Close the Bitwarden form after authentication
     $bitwarden_form.Close()
     $bitwarden_form.Dispose()  # Dispose of the Bitwarden form to free resources
+    
     # Show the main form after Bitwarden authentication
     $main_form.ShowDialog()
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

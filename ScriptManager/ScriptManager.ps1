@@ -159,6 +159,7 @@ $bitwarden_form.Add_Shown({
         $script:ADM_Credential = Get-BitwardenAuthentication -ClientId $clientId -ClientSecret $clientSecret -MasterPassword $masterPassword -CredentialName $credentialName
         if ($script:ADM_Credential) {       
             # Get all jump host names from the jumphost.json file
+            # Test if the file exists
             $jumpHostsFileContent = Get-Content -Path $PSScriptRoot\"jumphost.json" | ConvertFrom-Json
             $jumpHosts = $jumpHostsFileContent.DCS.PSObject.Properties.Value
             if ( -not $jumpHosts -or $jumpHosts.Count -eq 0 ) {
@@ -302,7 +303,7 @@ $okButton.Add_Click({
             return
         }
         "Low Free Space" {
-            . (Join-Path $PSScriptRoot "..\Scripts\LowFreeSpace\LowFreeSpace.ps1") -ADM_Credential $script:ADM_Credential
+            . (Join-Path $PSScriptRoot "..\Scripts\LowFreeSpace\LowFreeSpace.ps1") -ADM_Credential $script:ADM_Credential -JumpHost $script:JumpHost
         }
         "Windows Performance" {
             . (Join-Path $PSScriptRoot "..\Scripts\WindowsPerformance\WindowsPerformance.ps1") -ADM_Credential $script:ADM_Credential

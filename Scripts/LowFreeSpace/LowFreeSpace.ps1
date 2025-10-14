@@ -244,7 +244,7 @@ $modulesToImport = @(
     "$PSScriptRoot\..\..\Modules\Write-WindowsEventLog.psm1"
 )
 
-$JumpHostSession = New-PSSession -ComputerName $JumpHost -Credential $ADM_Credential -ErrorAction Stop
+$JumpHostSession = Get-Session -serverName $JumpHost -Credential $ADM_Credential
 
 foreach ($modulePath in $modulesToImport) {
     try {

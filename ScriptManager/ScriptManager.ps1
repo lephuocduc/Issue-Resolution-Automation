@@ -35,6 +35,7 @@ Import-Module -Name $PSScriptRoot\Get-BitwardenAuthentication.psm1 -Force
 
 Get-ChildItem -Path (Join-Path $PSScriptRoot "..\Modules") -Filter *.psm1 | ForEach-Object {
     Import-Module -Name $_.FullName -Force
+    Join-Path $PSScriptRoot "..\Modules\$($_.Name)" | Write-Log -Message "Imported module: $($_.Name)" -Level "Info"
 }
 
 $script:ADM_Credential = $null

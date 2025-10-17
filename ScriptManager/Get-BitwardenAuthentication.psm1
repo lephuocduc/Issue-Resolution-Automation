@@ -1,3 +1,18 @@
+<#
+1. UK team manage the Get-BitwardenAuthentication function and bitwarden.json file.
+2. UK team create a self-signed certificate and import it for users.
+3. UK team encrypt the file with a self-signed certificate, then they send us the encrypted file.
+    
+    ```powershell (an example for creating self-signed certificate and encrypting the file, should use a proper CA certificate in production)
+    New-SelfSignedCertificate -DnsName "RecipientName" -CertStoreLocation "Cert:\CurrentUser\My" -KeyUsage KeyEncipherment,DataEncipherment -Type DocumentEncryptionCert
+    
+    Protect-CmsMessage -To "F0241B779B51B0EA58CC004E079EF52B921994DC" -Path "C:\IssueResolutionAutomation\ScriptManager\bitwarden.json" -OutFile "C:\IssueResolutionAutomation\ScriptManager\EncryptedBitwarden.json"
+    ```
+    
+4. The script will decrypt the file content with certificate and get 4 values from the file like clientid, clientsecret, masterpassword, credentialname. We use them as parameters in Get-BitwardenAuthentication function.
+5. The script get credentials from Bitwarden for server authentication under user context.
+#>
+
 function Get-BitwardenAuthentication {
     [CmdletBinding()]
     [OutputType([System.Management.Automation.PSCredential])]

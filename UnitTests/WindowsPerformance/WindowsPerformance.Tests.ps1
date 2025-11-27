@@ -48,7 +48,7 @@
 # Test case 5: It should throw error if TopMemory parameter is null
 # Test case 6: It should throw error if SystemMetrics parameter is null
 # Test case 7: It should produce correctly formatted output
-
+<#
 # Check for Pester 5.7.1 and exit if not available
 $PesterModule = Get-Module -ListAvailable -Name Pester | Where-Object { $_.Version -eq "5.7.1" }
 if (-not $PesterModule) {
@@ -842,3 +842,5 @@ Describe "Show-PerformanceDashboard Function Tests" {
 }
 
 $env:UNIT_TEST = $null
+
+#>

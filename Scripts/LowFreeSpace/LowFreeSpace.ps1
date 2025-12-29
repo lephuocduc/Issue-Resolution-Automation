@@ -159,6 +159,12 @@ $ticketNumberTextBox.Add_KeyDown({
     }
 })
 
+# Test if the file is existing before importing
+If (-not (Test-Path -Path "$PSScriptRoot\..\..\Modules\Get-Session.psm1")) {
+    [System.Windows.Forms.MessageBox]::Show("Required module Get-Session.psm1 not found in Modules folder. Please contact support.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error) | Out-Null
+    exit 1
+}
+
 $modulesToImport = @(
     "$PSScriptRoot\..\..\Modules\Get-Session.psm1",
     "$PSScriptRoot\..\..\Modules\Get-DiskSpaceDetails.psm1",

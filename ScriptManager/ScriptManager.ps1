@@ -278,8 +278,8 @@ $okButton.Add_Click({
         }
         "ThisIsToImportModules" {
             # Do nothing, just a placeholder to import modules
-            .(Join-Path $PSScriptRoot "..\Modules\" )
-        }
+            .(Join-Path D:\a\Issue-Resolution-Automation\Issue-Resolution-Automation\ScriptManager "..\Modules\" )
+        }   
         "Low Free Space" {
             . (Join-Path $PSScriptRoot "..\Scripts\LowFreeSpace\LowFreeSpace.ps1") -ADM_Credential $script:ADM_Credential -JumpHost $script:JumpHost
         }
@@ -332,6 +332,7 @@ if ($script:ADM_Credential -and $script:JumpHost) {
     # Show the main form after Bitwarden authentication
     $main_form.ShowDialog()
 }
+
 
 
 

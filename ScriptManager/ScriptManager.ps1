@@ -6,7 +6,7 @@ Add-Type -AssemblyName System.Drawing
 Import-Module -Name $PSScriptRoot\Get-BitwardenAuthentication.psm1 -Force
 
 Import-Module "$PSScriptRoot\Get-BitwardenAuthentication" -Force
-Import-Module "..\Modules\Get-Session.psm1" -Force
+Import-Module "Get-Session.psm1" -Force
 Import-Module -Name (Join-Path $PSScriptRoot "..\Modules\Get-Session.psm1") -Force
 Import-Module "$PSScriptRoot\..\Modules\Get-DiskSpaceDetails.psm1" -Force
 Import-Module "$PSScriptRoot\..\Modules\Get-PerformanceMetrics.psm1" -Force

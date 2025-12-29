@@ -58,7 +58,7 @@ function Update-ScriptManagerContent {
         }
         "ThisIsToImportModules" {
             # Do nothing, just a placeholder to import modules
-            .(Join-Path $PSScriptRoot "..\Modules\" )
+            .(Join-Path `$PSScriptRoot "..\Modules\" )
         }   
 "@
 

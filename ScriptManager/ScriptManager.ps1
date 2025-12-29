@@ -2,25 +2,14 @@
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
+. (Join-Path $PSScriptRoot "..\Modules\Get-Session.ps1")
+
 # Import the Get-BitwardenAuthentication module
 Import-Module -Name $PSScriptRoot\Get-BitwardenAuthentication.psm1 -Force
 
 Import-Module "$PSScriptRoot\Get-BitwardenAuthentication" -Force
-Import-Module "Get-Session.psm1" -Force
-Import-Module -Name (Join-Path $PSScriptRoot "..\Modules\Get-Session.psm1") -Force
 Import-Module "$PSScriptRoot\..\Modules\Get-DiskSpaceDetails.psm1" -Force
 Import-Module "$PSScriptRoot\..\Modules\Get-PerformanceMetrics.psm1" -Force
-
-# At top of ScriptManager.ps1, before imports 
-$modulesDir = Split-Path $PSScriptRoot -Parent  # ProjectRoot level
-$modulePath = Join-Path $modulesDir 'Modules'
-if (Test-Path $modulePath) {
-    $env:PSModulePath = "$modulePath;$env:PSModulePath"
-}
-
-# Your existing imports now work:
-Import-Module "$PSScriptRoot\..\Modules\Get-Session.psm1" -Force
-Import-Module "$PSScriptRoot\..\Modules\Get-DiskSpaceDetails.psm1" -Force
 
 <# 
 # Check if the Modules folder is next to us (EXE mode) or one level up (Dev mode)
@@ -174,6 +163,7 @@ $bitwarden_form.Add_Shown({
                 $script:JumpHost = $null
                 foreach ($jumpHost in $jumpHosts) {
                     try {
+                        Import-Module "$PSScriptRoot\..\Modules\Get-Session.ps1" -Force
                         $session = Get-Session -serverName $jumpHost -Credential $script:ADM_Credential
                         if ($session) {
                             $script:JumpHost = $jumpHost

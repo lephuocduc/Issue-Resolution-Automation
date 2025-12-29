@@ -11,7 +11,7 @@ Import-Module -Name (Join-Path $PSScriptRoot "..\Modules\Get-Session.psm1") -For
 Import-Module "$PSScriptRoot\..\Modules\Get-DiskSpaceDetails.psm1" -Force
 Import-Module "$PSScriptRoot\..\Modules\Get-PerformanceMetrics.psm1" -Force
 
-# At top of ScriptManager.ps1, before imports
+# At top of ScriptManager.ps1, before imports 
 $modulesDir = Split-Path $PSScriptRoot -Parent  # ProjectRoot level
 $modulePath = Join-Path $modulesDir 'Modules'
 if (Test-Path $modulePath) {

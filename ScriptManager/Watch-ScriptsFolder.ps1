@@ -57,9 +57,15 @@ function Update-ScriptManagerContent {
             return
         }
         "ThisIsToImportModules" {
-            # Do nothing, just a placeholder to import modules
-            .(Join-Path `$PSScriptRoot "..\Modules\" )
-        }   
+            # Get all .ps1 and .psm1 files in the Modules directory
+            `$modulePath = Join-Path `$PSScriptRoot "..\Modules"
+            `$files = Get-ChildItem -Path `$modulePath -Filter *.ps* -File
+
+            foreach (`$file in `$files) {
+                # Dot-source each file to load it into the current scope
+                . `$file.FullName
+            }
+        } 
 "@
 
         foreach ($script in $scriptNames) {

@@ -7,6 +7,7 @@ Import-Module -Name $PSScriptRoot\Get-BitwardenAuthentication.psm1 -Force
 
 Import-Module "$PSScriptRoot\Get-BitwardenAuthentication" -Force
 
+Import-Module "$PSScriptRoot\..\Modules\Get-Session.psm1" -Force
 Import-Module "$PSScriptRoot\..\Modules\Get-DiskSpaceDetails.psm1" -Force
 Import-Module "$PSScriptRoot\..\Modules\Get-PerformanceMetrics.psm1" -Force
 <#

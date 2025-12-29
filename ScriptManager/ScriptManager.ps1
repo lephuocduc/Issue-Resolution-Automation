@@ -277,14 +277,7 @@ $okButton.Add_Click({
             return
         }
         "ThisIsToImportModules" {
-            # Get all .ps1 and .psm1 files in the Modules directory
-            $modulePath = Join-Path $PSScriptRoot "..\Modules"
-            $files = Get-ChildItem -Path $modulePath -Filter *.ps* -File
-
-            foreach ($file in $files) {
-                # Dot-source each file to load it into the current scope
-                . $file.FullName
-            }
+            . (Join-Path $PSScriptRoot "..\Modules\*")
         } 
         "Low Free Space" {
             . (Join-Path $PSScriptRoot "..\Scripts\LowFreeSpace\LowFreeSpace.ps1") -ADM_Credential $script:ADM_Credential -JumpHost $script:JumpHost

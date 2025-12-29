@@ -68,7 +68,7 @@ jobs:
         shell: pwsh
         run: |
           Copy-Item -Path ".\ScriptManager\icon.ico" -Destination "C:\\icon.ico"
-          $env:PSModulePath = "$PWD\Modules;$env:PSModulePath"
+          Copy-Item -Path ".\Modules\*" -Destination "C:\Program Files\WindowsPowerShell\Modules\"
           Merge-Script -ConfigFile '.\package.psd1' -Verbose   
 
       - name: Commit and Push Executable

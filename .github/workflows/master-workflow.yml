@@ -7,7 +7,7 @@ on:
     paths:
       - 'ScriptManager/ScriptManager.ps1'
       - .github/workflows/master-workflow.yml
-      - 'ScriptManager/package.psd1'
+      - 'package.psd1'
       - 'Scripts/*/*.ps1'
       - 'UnitTests/*/*.Tests.ps1'
       - 'Modules/*.ps*'
@@ -68,7 +68,7 @@ jobs:
         shell: pwsh
         run: |
           Copy-Item -Path ".\ScriptManager\icon.ico" -Destination "C:\\icon.ico"
-          Merge-Script -ConfigFile '.\ScriptManager\package.psd1' -Verbose   
+          Merge-Script -ConfigFile '.\package.psd1' -Verbose   
 
       - name: Commit and Push Executable
         shell: pwsh

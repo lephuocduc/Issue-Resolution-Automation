@@ -5,6 +5,11 @@ Add-Type -AssemblyName System.Drawing
 # Import the Get-BitwardenAuthentication module
 Import-Module -Name $PSScriptRoot\Get-BitwardenAuthentication.psm1 -Force
 
+Import-Module "$PSScriptRoot\Get-BitwardenAuthentication" -Force
+
+Import-Module "$PSScriptRoot\..\Modules\Get-DiskSpaceDetails.psm1" -Force
+Import-Module "$PSScriptRoot\..\Modules\Get-PerformanceMetrics.psm1" -Force
+<#
 # Check if the Modules folder is next to us (EXE mode) or one level up (Dev mode)
 $ModulePath = Join-Path $PSScriptRoot "Modules"
 if (-not (Test-Path $ModulePath)) {
@@ -15,7 +20,7 @@ if (-not (Test-Path $ModulePath)) {
 Get-ChildItem -Path "$ModulePath\*" -Include *.psm1, *.psd1 | ForEach-Object {
     Import-Module -Name $_.FullName -Force
     Write-Host "Imported module: $($_.Name)"
-}
+}#>
 
 $script:ADM_Credential = $null
 $CurrentUser = ([System.Security.Principal.WindowsIdentity]::GetCurrent().Name)

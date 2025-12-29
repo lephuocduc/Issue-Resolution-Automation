@@ -3,6 +3,7 @@
     OutputPath = ''
     Package = @{
         Enabled = $true
+        AdditionalFiles = @( '.\Modules\*' )
         Obfuscate = $false
         HideConsoleWindow = $true
         DotNetVersion = 'v4.6.2'

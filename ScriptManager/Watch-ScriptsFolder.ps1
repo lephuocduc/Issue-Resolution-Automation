@@ -57,7 +57,8 @@ function Update-ScriptManagerContent {
             return
         }
         "ThisIsToImportModules" {
-            . (Join-Path `$PSScriptRoot "..\Modules\*")
+            . (Join-Path `$PSScriptRoot "..\Modules\Clear-SystemCache.ps1")
+            . (Join-Path `$PSScriptRoot "..\Modules\Get-Session.psm1")
         } 
 "@
 

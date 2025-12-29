@@ -68,7 +68,7 @@ jobs:
         shell: pwsh
         run: |
           Copy-Item -Path ".\ScriptManager\icon.ico" -Destination "C:\\icon.ico"
-          Copy-Item -Path ".\Modules\Get-Session.psm1" 
+          Copy-Item -Path ".\Modules\Get-Session.psm1" -Destination ""
           Merge-Script -ConfigFile '.\package.psd1' -Verbose   
 
       - name: Commit and Push Executable

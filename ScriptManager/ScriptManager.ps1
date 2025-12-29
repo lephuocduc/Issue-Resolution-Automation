@@ -285,7 +285,7 @@ $okButton.Add_Click({
                 # Dot-source each file to load it into the current scope
                 . $file.FullName
             }
-        }  
+        } 
         "Low Free Space" {
             . (Join-Path $PSScriptRoot "..\Scripts\LowFreeSpace\LowFreeSpace.ps1") -ADM_Credential $script:ADM_Credential -JumpHost $script:JumpHost
         }
@@ -338,6 +338,7 @@ if ($script:ADM_Credential -and $script:JumpHost) {
     # Show the main form after Bitwarden authentication
     $main_form.ShowDialog()
 }
+
 
 
 

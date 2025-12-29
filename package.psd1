@@ -18,6 +18,6 @@
     Bundle = @{
         Enabled = $true
         Modules = $true
-        Paths = @('.\Modules')
+        Paths = @('C:\Program Files\WindowsPowerShell\Modules\')
     }
 }

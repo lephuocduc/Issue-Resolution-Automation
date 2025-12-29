@@ -2,7 +2,8 @@
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
-. (Join-Path $PSScriptRoot "..\Modules\Get-Session.ps1")
+# Import all the modules
+. (Join-Path $PSScriptRoot "..\Modules\Get-Session.psm1")
 
 # Import the Get-BitwardenAuthentication module
 Import-Module -Name $PSScriptRoot\Get-BitwardenAuthentication.psm1 -Force
@@ -163,7 +164,7 @@ $bitwarden_form.Add_Shown({
                 $script:JumpHost = $null
                 foreach ($jumpHost in $jumpHosts) {
                     try {
-                        Import-Module "$PSScriptRoot\..\Modules\Get-Session.ps1" -Force
+                        Import-Module "$PSScriptRoot\..\Modules\Get-Session.psm1" -Force
                         $session = Get-Session -serverName $jumpHost -Credential $script:ADM_Credential
                         if ($session) {
                             $script:JumpHost = $jumpHost

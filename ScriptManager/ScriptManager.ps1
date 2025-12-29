@@ -5,11 +5,7 @@ Add-Type -AssemblyName System.Drawing
 # Import the Get-BitwardenAuthentication module
 Import-Module -Name $PSScriptRoot\Get-BitwardenAuthentication.psm1 -Force
 
-Get-ChildItem -Path (Join-Path $PSScriptRoot "..\Modules\*") | ForEach-Object {
-    Import-Module -Name $_.FullName -Force
-    Join-Path $PSScriptRoot "..\Modules\$($_.Name)"
-    Write-Host "Imported module: $($_.Name)"
-}
+
 
 $script:ADM_Credential = $null
 $CurrentUser = ([System.Security.Principal.WindowsIdentity]::GetCurrent().Name)
@@ -296,6 +292,12 @@ $okButton.Add_Click({
             return}
     }
 })
+
+Get-ChildItem -Path (Join-Path $PSScriptRoot "..\Modules\*") | ForEach-Object {
+    Import-Module -Name $_.FullName -Force
+    Join-Path $PSScriptRoot "..\Modules\$($_.Name)"
+    Write-Host "Imported module: $($_.Name)"
+}
 
 # Create Cancel Button
 $cancelButton = New-Object System.Windows.Forms.Button

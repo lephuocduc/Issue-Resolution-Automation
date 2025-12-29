@@ -10,6 +10,7 @@ on:
       - 'ScriptManager/package.psd1'
       - 'Scripts/*/*.ps1'
       - 'UnitTests/*/*.Tests.ps1'
+      - 'Modules/*.ps*'
 
 jobs:
   unittest:

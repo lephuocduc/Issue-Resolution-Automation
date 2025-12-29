@@ -256,7 +256,7 @@ $comboBox.Add_KeyDown({
         $e.SuppressKeyPress = $true
     }
 })
-
+ 
 # Create OK Button
 $okButton = New-Object System.Windows.Forms.Button
 $okButton.Text = 'OK'

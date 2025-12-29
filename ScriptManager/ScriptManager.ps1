@@ -5,9 +5,6 @@ Add-Type -AssemblyName System.Drawing
 # Import the Get-BitwardenAuthentication module
 Import-Module -Name $PSScriptRoot\Get-BitwardenAuthentication.psm1 -Force
 
-. (Join-Path $PSScriptRoot "..\Modules\Clear-SystemCache.psm1")
-. (Join-Path $PSScriptRoot "..\Modules\Get-Session.psm1")
-
 # Check if the Modules folder is next to us (EXE mode) or one level up (Dev mode)
 $ModulePath = Join-Path $PSScriptRoot "Modules"
 if (-not (Test-Path $ModulePath)) {
@@ -337,6 +334,7 @@ if ($script:ADM_Credential -and $script:JumpHost) {
     # Show the main form after Bitwarden authentication
     $main_form.ShowDialog()
 }
+
 
 
 

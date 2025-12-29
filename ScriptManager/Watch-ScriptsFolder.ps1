@@ -1,4 +1,3 @@
-<#
 $scriptManagerPath = Join-Path $PSScriptRoot "ScriptManager.ps1"
 $scriptsRootPath = Join-Path $PSScriptRoot "..\Scripts"
 
@@ -57,10 +56,6 @@ function Update-ScriptManagerContent {
             )
             return
         }
-        "ThisIsToImportModules" {
-            . (Join-Path `$PSScriptRoot "..\Modules\Clear-SystemCache.psm1")
-            . (Join-Path `$PSScriptRoot "..\Modules\Get-Session.psm1")
-        } 
 "@
 
         foreach ($script in $scriptNames) {
@@ -100,4 +95,3 @@ function Update-ScriptManagerContent {
 
 # Execute update
 Update-ScriptManagerContent
-#>

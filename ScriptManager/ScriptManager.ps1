@@ -11,12 +11,16 @@ Import-Module -Name (Join-Path $PSScriptRoot "..\Modules\Get-Session.psm1") -For
 Import-Module "$PSScriptRoot\..\Modules\Get-DiskSpaceDetails.psm1" -Force
 Import-Module "$PSScriptRoot\..\Modules\Get-PerformanceMetrics.psm1" -Force
 
-$modulesRoot = Split-Path $PSScriptRoot -Parent  # Goes up one level
-$modulesPath = Join-Path $modulesRoot 'Modules'
-if (Test-Path $modulesPath) {
-    $env:PSModulePath = "$modulesPath;$env:PSModulePath"
-    Get-ChildItem $modulesPath -Directory | Import-Module
+# At top of ScriptManager.ps1, before imports
+$modulesDir = Split-Path $PSScriptRoot -Parent  # ProjectRoot level
+$modulePath = Join-Path $modulesDir 'Modules'
+if (Test-Path $modulePath) {
+    $env:PSModulePath = "$modulePath;$env:PSModulePath"
 }
+
+# Your existing imports now work:
+Import-Module "$PSScriptRoot\..\Modules\Get-Session.psm1" -Force
+Import-Module "$PSScriptRoot\..\Modules\Get-DiskSpaceDetails.psm1" -Force
 
 <# 
 # Check if the Modules folder is next to us (EXE mode) or one level up (Dev mode)

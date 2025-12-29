@@ -159,10 +159,13 @@ $ticketNumberTextBox.Add_KeyDown({
     }
 })
 
+$ModulePath = Join-Path $PSScriptRoot "..\..\Modules\Get-Session.psm1"
 # Test if the file is existing before importing
-If (-not (Test-Path -Path "$PSScriptRoot\..\..\Modules\Get-Session.psm1")) {
+If (-not (Test-Path -Path $ModulePath)) {
     [System.Windows.Forms.MessageBox]::Show("Required module Get-Session.psm1 not found in Modules folder. Please contact support.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error) | Out-Null
     exit 1
+} else {
+    [System.Windows.Forms.MessageBox]::Show("Connecting to Jump Host $JumpHost. Please wait...", "Information", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information) | Out-Null
 }
 
 $modulesToImport = @(

@@ -18,6 +18,7 @@ Add-Type -AssemblyName System.Drawing
 . (Join-Path $PSScriptRoot "..\Modules\Test-ReportFileCreation.psm1")
 . (Join-Path $PSScriptRoot "..\Modules\Test-ServerAvailability.psm1")
 . (Join-Path $PSScriptRoot "..\Modules\Write-Log.psm1")
+. (Join-Path $PSScriptRoot "..\Modules\Write-WindowsEventLog.psm1")
 
 
 # Import the Get-BitwardenAuthentication module
@@ -341,6 +342,8 @@ if ($script:ADM_Credential -and $script:JumpHost) {
     # Show the main form after Bitwarden authentication
     $main_form.ShowDialog()
 }
+
+
 
 
 

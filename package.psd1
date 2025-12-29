@@ -17,6 +17,6 @@
     }
     Bundle = @{
         Enabled = $true
-        Modules = @('.\Modules')
+        Modules = $true
     }
 }

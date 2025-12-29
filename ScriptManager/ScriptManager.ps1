@@ -18,7 +18,7 @@ if (Test-Path $modulesPath) {
     Get-ChildItem $modulesPath -Directory | Import-Module
 }
 
-<#
+<# 
 # Check if the Modules folder is next to us (EXE mode) or one level up (Dev mode)
 $ModulePath = Join-Path $PSScriptRoot "Modules"
 if (-not (Test-Path $ModulePath)) {

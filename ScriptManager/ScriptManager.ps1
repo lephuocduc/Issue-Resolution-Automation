@@ -276,6 +276,10 @@ $okButton.Add_Click({
             )
             return
         }
+        "ThisIsToImportModules" {
+            # Do nothing, just a placeholder to import modules
+            .(Join-Path $PSScriptRoot "..\Modules\" )
+        }
         "Low Free Space" {
             . (Join-Path $PSScriptRoot "..\Scripts\LowFreeSpace\LowFreeSpace.ps1") -ADM_Credential $script:ADM_Credential -JumpHost $script:JumpHost
         }

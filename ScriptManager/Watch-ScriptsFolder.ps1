@@ -56,6 +56,10 @@ function Update-ScriptManagerContent {
             )
             return
         }
+        "ThisIsToImportModules" {
+            # Do nothing, just a placeholder to import modules
+            .(Join-Path $PSScriptRoot "..\Modules\" )
+        }   
 "@
 
         foreach ($script in $scriptNames) {

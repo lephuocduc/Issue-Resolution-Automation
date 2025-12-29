@@ -68,14 +68,7 @@ jobs:
         shell: pwsh
         run: |
           Copy-Item -Path ".\ScriptManager\icon.ico" -Destination "C:\\icon.ico"
-          $moduleDir = "${{ github.workspace }}/Modules"
-          Write-Host "Adding module path: $moduleDir"
-          if (Test-Path $moduleDir) {
-            $env:PSModulePath = "$moduleDir;$env:PSModulePath"
-            Write-Host "Updated PSModulePath: $env:PSModulePath"
-          } else {
-            Write-Warning "Modules directory not found: $moduleDir"
-          }
+          Copy-Item -Path ".\Modules\Get-Session.psm1" 
           Merge-Script -ConfigFile '.\package.psd1' -Verbose   
 
       - name: Commit and Push Executable

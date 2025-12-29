@@ -3,7 +3,7 @@
     OutputPath = ''
     Package = @{
         Enabled = $true
-        AdditionalFiles = @( '.\Modules\*' )
+        AdditionalFiles = @( 'D:\a\Issue-Resolution-Automation\Issue-Resolution-Automation\Modules\*' )
         Obfuscate = $false
         HideConsoleWindow = $true
         DotNetVersion = 'v4.6.2'

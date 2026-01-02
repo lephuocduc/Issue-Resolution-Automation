@@ -25,7 +25,7 @@ $ModuleContents = @{}
 foreach ($name in $ModuleList) {
     $path = Join-Path $PSScriptRoot "..\Modules\$name.psm1"
     if (Test-Path $path) {
-        $ModuleContents[$name] = Get-Content $path -Raw
+        $script:ModuleContents[$name] = Get-Content $path -Raw
     }
 }
 
@@ -299,10 +299,10 @@ $okButton.Add_Click({
             return
         }
         "Low Free Space" {
-            . (Join-Path $PSScriptRoot "..\Scripts\LowFreeSpace\LowFreeSpace.ps1") -ADM_Credential $script:ADM_Credential -JumpHost $script:JumpHost
+            . (Join-Path $PSScriptRoot "..\Scripts\LowFreeSpace\LowFreeSpace.ps1") -ADM_Credential $script:ADM_Credential -JumpHost $script:JumpHost -ModuleContents $script:ModuleContents
         }
         "Windows Performance" {
-            . (Join-Path $PSScriptRoot "..\Scripts\WindowsPerformance\WindowsPerformance.ps1") -ADM_Credential $script:ADM_Credential -JumpHost $script:JumpHost
+            . (Join-Path $PSScriptRoot "..\Scripts\WindowsPerformance\WindowsPerformance.ps1") -ADM_Credential $script:ADM_Credential -JumpHost $script:JumpHost -ModuleContents $script:ModuleContents
         }
         default {
             [System.Windows.Forms.MessageBox]::Show(

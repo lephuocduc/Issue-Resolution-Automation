@@ -2,23 +2,35 @@
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
-# Define the path to the Modules folder
-$moduleFolder = Join-Path $PSScriptRoot "..\Modules"
+## List only the specific modules you want to load
+$ModuleList = @(
+    "Clear-SystemCache.psm1",
+    "Compress-IISLogs.psm1",
+    "Export-DiskReport.psm1",
+    "Get-DiskSpaceDetails.psm1",
+    "Get-PerformanceMetrics.psm1",
+    "Get-Session.psm1",
+    "Get-SystemUptime.psm1",
+    "Get-TopCPUProcesses.psm1",
+    "Get-TopItems.psm1",
+    "Get-TopMemoryProcesses.psm1",
+    "Show-PerformanceDashboard.psm1",
+    "Test-DiskAvailability.psm1",
+    "Test-ReportFileCreation.psm1",
+    "Test-ServerAvailability.psm1",
+    "Write-Log.psm1",
+    "Write-WindowsEventLog.psm1"
+)
 
-# Check if the folder exists before looping (prevents ugly errors)
-if (Test-Path $moduleFolder) {
-    # Get all .psm1 files and dot-source them
-    Get-ChildItem -Path $moduleFolder -Filter "*.psm1" | ForEach-Object {
-        try {
-            . $_.FullName
-        }
-        catch {
-            Write-Warning "Failed to load module: $($_.Name). Error: $($_.Exception.Message)"
-        }
+# Loop through the list and dot-source each one using your path logic
+foreach ($ModuleFile in $ModuleList) {
+    $ModulePath = Join-Path $PSScriptRoot "..\Modules\$ModuleFile"
+    if (Test-Path $ModulePath) {
+        . $ModulePath
     }
-}
-else {
-    Write-Error "Module folder not found at: $moduleFolder"
+    else {
+        Write-Warning "Required module not found: $ModulePath"
+    }
 }
 
 # Import the Get-BitwardenAuthentication module

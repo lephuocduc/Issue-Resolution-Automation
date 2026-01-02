@@ -2,35 +2,27 @@
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
-## List only the specific modules you want to load
-$ModuleList = @(
-    "Clear-SystemCache.psm1",
-    "Compress-IISLogs.psm1",
-    "Export-DiskReport.psm1",
-    "Get-DiskSpaceDetails.psm1",
-    "Get-PerformanceMetrics.psm1",
-    "Get-Session.psm1",
-    "Get-SystemUptime.psm1",
-    "Get-TopCPUProcesses.psm1",
-    "Get-TopItems.psm1",
-    "Get-TopMemoryProcesses.psm1",
-    "Show-PerformanceDashboard.psm1",
-    "Test-DiskAvailability.psm1",
-    "Test-ReportFileCreation.psm1",
-    "Test-ServerAvailability.psm1",
-    "Write-Log.psm1",
-    "Write-WindowsEventLog.psm1"
+# STEP 1: Define the names in a simple list (Array)
+$Modules = @(
+    "Clear-SystemCache", "Compress-IISLogs", "Export-DiskReport",
+    "Get-DiskSpaceDetails", "Get-PerformanceMetrics", "Get-Session",
+    "Get-SystemUptime", "Get-TopCPUProcesses", "Get-TopItems",
+    "Get-TopMemoryProcesses", "Show-PerformanceDashboard", "Test-DiskAvailability",
+    "Test-ReportFileCreation", "Test-ServerAvailability", "Write-Log"
 )
 
-# Loop through the list and dot-source each one using your path logic
-foreach ($ModuleFile in $ModuleList) {
-    $ModulePath = Join-Path $PSScriptRoot "..\Modules\$ModuleFile"
-    if (Test-Path $ModulePath) {
-        . $ModulePath
-    }
-    else {
-        Write-Warning "Required module not found: $ModulePath"
-    }
+# STEP 2: Use ONE loop to do EVERYTHING
+$Global:ModuleContents = @{}
+
+foreach ($Name in $Modules) {
+    # Build the path once
+    $Path = Join-Path $PSScriptRoot "..\Modules\$Name.psm1"
+    
+    # Dot-source for the parent script
+    . $Path
+    
+    # Save the content for the child script (the EXE fix)
+    $Global:ModuleContents[$Name] = Get-Content $Path -Raw
 }
 
 # Import the Get-BitwardenAuthentication module

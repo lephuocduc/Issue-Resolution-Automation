@@ -1,7 +1,8 @@
 # Load the necessary assembly for Windows Forms
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
-
+Import-Module (Join-Path $PSScriptRoot "..\Modules\Clear-SystemCache.psm1") -Force
+<#
 $MyModules = {
     . (Join-Path $PSScriptRoot "..\Modules\Clear-SystemCache.psm1")
     . (Join-Path $PSScriptRoot "..\Modules\Compress-IISLogs.psm1")
@@ -36,7 +37,7 @@ $MyModules.ToString() -split "`n" | ForEach-Object {
             $script:ModuleContents[$Name] = Get-Content $FullPath -Raw
         }
     }
-}
+}#>
 
 # Import the Get-BitwardenAuthentication module
 Import-Module -Name $PSScriptRoot\Get-BitwardenAuthentication.psm1 -Force

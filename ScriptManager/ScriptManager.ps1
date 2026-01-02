@@ -5,27 +5,27 @@ Add-Type -AssemblyName System.Drawing
 # Import all the modules !@#$%^
 $ModuleList = @(
     "Clear-SystemCache.psm1",
-    "Compress-IISLogs.psm1",
-    "Export-DiskReport.psm1",
-    "Get-DiskSpaceDetails.psm1",
-    "Get-PerformanceMetrics.psm1",
-    "Get-Session.psm1",
-    "Get-SystemUptime.psm1",
-    "Get-TopCPUProcesses.psm1",
-    "Get-TopItems.psm1",
-    "Get-TopMemoryProcesses.psm1",
-    "Show-PerformanceDashboard.psm1",
-    "Test-DiskAvailability.psm1",
-    "Test-ReportFileCreation.psm1",
-    "Test-ServerAvailability.psm1",
-    "Write-Log.psm1",
-    "Write-WindowsEventLog.psm1"
+    "Compress-IISLogs",
+    "Export-DiskReport",
+    "Get-DiskSpaceDetails",
+    "Get-PerformanceMetrics",
+    "Get-Session",
+    "Get-SystemUptime",
+    "Get-TopCPUProcesses",
+    "Get-TopItems",
+    "Get-TopMemoryProcesses",
+    "Show-PerformanceDashboard",
+    "Test-DiskAvailability",
+    "Test-ReportFileCreation",
+    "Test-ServerAvailability",
+    "Write-Log",
+    "Write-WindowsEventLog"
 )
 $ModuleContents = @{}
 foreach ($name in $ModuleList) {
-    $path = Join-Path $PSScriptRoot "..\Modules\$name"
+    $path = Join-Path $PSScriptRoot "..\Modules\$name.psm1"
     if (Test-Path $path) {
-        . $path
+        Write-Host "Importing module: $name from $path"
         $script:ModuleContents[$name] = Get-Content $path -Raw
     }
 }

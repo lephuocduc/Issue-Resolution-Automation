@@ -23,7 +23,7 @@ $ModuleList = @(
 )
 $ModuleContents = @{}
 foreach ($name in $ModuleList) {
-    $path = Join-Path $PSScriptRoot "..\Modules\$name.psm1"
+    $path = Join-Path $PSScriptRoot "..\Modules\$name"
     if (Test-Path $path) {
         $script:ModuleContents[$name] = Get-Content $path -Raw
     }

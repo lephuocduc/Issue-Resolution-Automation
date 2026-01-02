@@ -2,8 +2,6 @@
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
-# 1. Wrap your lines in a block. 
-# PowerShell Pro Tools will see these literal paths and bundle them.
 $MyModules = {
     . (Join-Path $PSScriptRoot "..\Modules\Clear-SystemCache.psm1")
     . (Join-Path $PSScriptRoot "..\Modules\Compress-IISLogs.psm1")
@@ -186,6 +184,7 @@ $bitwarden_form.Add_Shown({
                         Import-Module "$PSScriptRoot\..\Modules\Get-Session.psm1" -Force
                         $session = Get-Session -serverName $jumpHost -Credential $script:ADM_Credential
                         if ($session) {
+                            Write-Host $session
                             $script:JumpHost = $jumpHost
                             Remove-PSSession -Session $session -ErrorAction SilentlyContinue
                             break  # Exit the loop if a session is successfully created
@@ -362,79 +361,3 @@ if ($script:ADM_Credential -and $script:JumpHost) {
     # Show the main form after Bitwarden authentication
     $main_form.ShowDialog()
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

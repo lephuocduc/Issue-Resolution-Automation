@@ -18,10 +18,10 @@ if ($ModuleContents) {
         }
         $content | Out-File -FilePath $modulePath -Encoding UTF8 -Force
     }
-    else {
+}else {
         # Show error and exit
         [System.Windows.Forms.MessageBox]::Show("Module contents not provided. Cannot proceed.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error) | Out-Null
-    }
+    
 }
 
 # Temporary workaround for testing

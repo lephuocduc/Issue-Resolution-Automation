@@ -6,6 +6,23 @@ Param(
     [Parameter(Mandatory= $false)]
     [hashtable]$ModuleContents
 )
+#Test if module contents is passed, if not load from disk
+if ($ModuleContents) {
+    # Export all into C:\temp\Modules if yes
+    foreach ($moduleName in $ModuleContents.Keys) {
+        $content = $ModuleContents[$moduleName]
+        $modulePath = "C:\temp\Modules\$moduleName.psm1"
+        $directory = [System.IO.Path]::GetDirectoryName($modulePath)
+        if (-not (Test-Path $directory)) {
+            New-Item -Path $directory -ItemType Directory -Force | Out-Null
+        }
+        $content | Out-File -FilePath $modulePath -Encoding UTF8 -Force
+    }
+    else {
+        # Show error and exit
+        [System.Windows.Forms.MessageBox]::Show("Module contents not provided. Cannot proceed.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error) | Out-Null
+    }
+}
 
 # Temporary workaround for testing
 if (-not $ADM_Credential) {

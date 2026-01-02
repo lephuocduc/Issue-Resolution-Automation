@@ -143,4 +143,4 @@ function Update-ModuleScripts {
 }
 # Execute update
 Update-ChildScripts
-Update-ModuleScripts
+#Update-ModuleScripts

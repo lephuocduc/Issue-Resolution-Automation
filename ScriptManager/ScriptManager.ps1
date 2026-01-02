@@ -3,8 +3,8 @@ Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
 # Import all the modules !@#$%^
-. (Join-Path $PSScriptRoot "..\Modules\Clear-SystemCache.psm1")
-. (Join-Path $PSScriptRoot "..\Modules\Compress-IISLogs.psm1")
+. (Join-Path $PSScriptRoot "..\Modules")
+<#. (Join-Path $PSScriptRoot "..\Modules\Compress-IISLogs.psm1")
 . (Join-Path $PSScriptRoot "..\Modules\Export-DiskReport.psm1")
 . (Join-Path $PSScriptRoot "..\Modules\Get-DiskSpaceDetails.psm1")
 . (Join-Path $PSScriptRoot "..\Modules\Get-PerformanceMetrics.psm1")
@@ -18,7 +18,7 @@ Add-Type -AssemblyName System.Drawing
 . (Join-Path $PSScriptRoot "..\Modules\Test-ReportFileCreation.psm1")
 . (Join-Path $PSScriptRoot "..\Modules\Test-ServerAvailability.psm1")
 . (Join-Path $PSScriptRoot "..\Modules\Write-Log.psm1")
-. (Join-Path $PSScriptRoot "..\Modules\Write-WindowsEventLog.psm1")
+. (Join-Path $PSScriptRoot "..\Modules\Write-WindowsEventLog.psm1")#>
 
 
 # Import the Get-BitwardenAuthentication module

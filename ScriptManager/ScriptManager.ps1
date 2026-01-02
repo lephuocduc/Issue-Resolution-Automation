@@ -2,33 +2,13 @@
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
+$ModuleNames = @("Get-Session", "Get-DiskSpaceDetails", "Export-DiskReport", "Write-Log")
 $ModuleContents = @{}
-# Import all the modules !@#$%^
-$ModuleList = @(
-    "Clear-SystemCache.psm1",
-    "Compress-IISLogs.psm1",
-    "Export-DiskReport.psm1",
-    "Get-DiskSpaceDetails.psm1",
-    "Get-PerformanceMetrics.psm1",
-    "Get-Session.psm1",
-    "Get-SystemUptime.psm1",
-    "Get-TopCPUProcesses.psm1",
-    "Get-TopItems.psm1",
-    "Get-TopMemoryProcesses.psm1",
-    "Show-PerformanceDashboard.psm1",
-    "Test-DiskAvailability.psm1",
-    "Test-ReportFileCreation.psm1",
-    "Test-ServerAvailability.psm1",
-    "Write-Log.psm1",
-    "Write-WindowsEventLog.psm1"
-)
-foreach ($ModuleFile in $ModuleList) {
-    $ModulePath = Join-Path $PSScriptRoot "..\Modules\$ModuleFile"
-    if (Test-Path $ModulePath) {
-        . $ModulePath
-    }
-    else {
-        Write-Warning "Required module not found: $ModulePath"
+
+foreach ($name in $ModuleNames) {
+    $path = Join-Path $PSScriptRoot "..\Modules\$name.psm1"
+    if (Test-Path $path) {
+        $ModuleContents[$name] = Get-Content $path -Raw
     }
 }
 

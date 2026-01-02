@@ -2,14 +2,23 @@
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
-$ModuleNames = @("Get-Session", "Get-DiskSpaceDetails", "Export-DiskReport", "Write-Log")
-$ModuleContents = @{}
+# Define the path to the Modules folder
+$moduleFolder = Join-Path $PSScriptRoot "..\Modules"
 
-foreach ($name in $ModuleNames) {
-    $path = Join-Path $PSScriptRoot "..\Modules\$name.psm1"
-    if (Test-Path $path) {
-        $ModuleContents[$name] = Get-Content $path -Raw
+# Check if the folder exists before looping (prevents ugly errors)
+if (Test-Path $moduleFolder) {
+    # Get all .psm1 files and dot-source them
+    Get-ChildItem -Path $moduleFolder -Filter "*.psm1" | ForEach-Object {
+        try {
+            . $_.FullName
+        }
+        catch {
+            Write-Warning "Failed to load module: $($_.Name). Error: $($_.Exception.Message)"
+        }
     }
+}
+else {
+    Write-Error "Module folder not found at: $moduleFolder"
 }
 
 # Import the Get-BitwardenAuthentication module

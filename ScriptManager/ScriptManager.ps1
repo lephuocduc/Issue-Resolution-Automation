@@ -4,23 +4,33 @@ Add-Type -AssemblyName System.Drawing
 
 $ModuleContents = @{}
 # Import all the modules !@#$%^
-. (Join-Path $PSScriptRoot "..\Modules")
-<#. (Join-Path $PSScriptRoot "..\Modules\Compress-IISLogs.psm1")
-. (Join-Path $PSScriptRoot "..\Modules\Export-DiskReport.psm1")
-. (Join-Path $PSScriptRoot "..\Modules\Get-DiskSpaceDetails.psm1")
-. (Join-Path $PSScriptRoot "..\Modules\Get-PerformanceMetrics.psm1")
-. (Join-Path $PSScriptRoot "..\Modules\Get-Session.psm1")
-. (Join-Path $PSScriptRoot "..\Modules\Get-SystemUptime.psm1")
-. (Join-Path $PSScriptRoot "..\Modules\Get-TopCPUProcesses.psm1")
-. (Join-Path $PSScriptRoot "..\Modules\Get-TopItems.psm1")
-. (Join-Path $PSScriptRoot "..\Modules\Get-TopMemoryProcesses.psm1")
-. (Join-Path $PSScriptRoot "..\Modules\Show-PerformanceDashboard.psm1")
-. (Join-Path $PSScriptRoot "..\Modules\Test-DiskAvailability.psm1")
-. (Join-Path $PSScriptRoot "..\Modules\Test-ReportFileCreation.psm1")
-. (Join-Path $PSScriptRoot "..\Modules\Test-ServerAvailability.psm1")
-. (Join-Path $PSScriptRoot "..\Modules\Write-Log.psm1")
-. (Join-Path $PSScriptRoot "..\Modules\Write-WindowsEventLog.psm1")#>
-
+$ModuleList = @(
+    "Clear-SystemCache.psm1",
+    "Compress-IISLogs.psm1",
+    "Export-DiskReport.psm1",
+    "Get-DiskSpaceDetails.psm1",
+    "Get-PerformanceMetrics.psm1",
+    "Get-Session.psm1",
+    "Get-SystemUptime.psm1",
+    "Get-TopCPUProcesses.psm1",
+    "Get-TopItems.psm1",
+    "Get-TopMemoryProcesses.psm1",
+    "Show-PerformanceDashboard.psm1",
+    "Test-DiskAvailability.psm1",
+    "Test-ReportFileCreation.psm1",
+    "Test-ServerAvailability.psm1",
+    "Write-Log.psm1",
+    "Write-WindowsEventLog.psm1"
+)
+foreach ($ModuleFile in $ModuleList) {
+    $ModulePath = Join-Path $PSScriptRoot "..\Modules\$ModuleFile"
+    if (Test-Path $ModulePath) {
+        . $ModulePath
+    }
+    else {
+        Write-Warning "Required module not found: $ModulePath"
+    }
+}
 
 # Import the Get-BitwardenAuthentication module
 Import-Module -Name $PSScriptRoot\Get-BitwardenAuthentication.psm1 -Force

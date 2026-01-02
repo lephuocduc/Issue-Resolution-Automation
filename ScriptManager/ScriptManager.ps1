@@ -26,8 +26,8 @@ foreach ($ModuleFile in $ModuleList) {
     $ModulePath = Join-Path $PSScriptRoot "..\Modules\$ModuleFile"
     if (Test-Path $ModulePath) {
         . $ModulePath
-        Write-Host "Importing module: $ModuleFile from $ModulePath"
-        $script:ModuleContents[$ModuleFile] = Get-Content $ModulePath -Raw
+        #Write-Host "Importing module: $ModuleFile from $ModulePath"
+        #$script:ModuleContents[$ModuleFile] = Get-Content $ModulePath -Raw
     }
 }
 

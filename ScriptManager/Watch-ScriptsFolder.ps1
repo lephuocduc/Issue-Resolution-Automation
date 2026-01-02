@@ -110,9 +110,8 @@ function Update-ModuleScripts {
         Write-Host "Found $($scriptObjects.Count) module files."
 
         # 2. Build the new import block string
-        # Note: We removed '$($_.Folder)' because your files are not in subfolders.
         $newImportString = $scriptObjects | ForEach-Object {
-            ". (Join-Path `$PSScriptRoot ""..\Modules\$($_.Name)"")"
+            """$($_.Name)"""
         } | Out-String
 
         $newImportString = $newImportString.TrimEnd()

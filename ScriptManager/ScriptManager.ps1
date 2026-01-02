@@ -2,6 +2,7 @@
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
+$ModuleContents = @{}
 # Import all the modules !@#$%^
 $ModuleList = @(
     "Clear-SystemCache.psm1",
@@ -21,12 +22,12 @@ $ModuleList = @(
     "Write-Log.psm1",
     "Write-WindowsEventLog.psm1"
 )
-$ModuleContents = @{}
 foreach ($ModuleFile in $ModuleList) {
     $ModulePath = Join-Path $PSScriptRoot "..\Modules\$ModuleFile"
     if (Test-Path $ModulePath) {
+        . $ModulePath
         Write-Host "Importing module: $ModuleFile from $ModulePath"
-        $script:ModuleContents[$ModuleFile] = Get-Content $path -Raw
+        $script:ModuleContents[$ModuleFile] = Get-Content $ModulePath -Raw
     }
 }
 

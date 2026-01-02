@@ -2,27 +2,42 @@
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
-# STEP 1: Define the names in a simple list (Array)
-$Modules = @(
-    "Clear-SystemCache", "Compress-IISLogs", "Export-DiskReport",
-    "Get-DiskSpaceDetails", "Get-PerformanceMetrics", "Get-Session",
-    "Get-SystemUptime", "Get-TopCPUProcesses", "Get-TopItems",
-    "Get-TopMemoryProcesses", "Show-PerformanceDashboard", "Test-DiskAvailability",
-    "Test-ReportFileCreation", "Test-ServerAvailability", "Write-Log"
-)
+# 1. Wrap your lines in a block. 
+# PowerShell Pro Tools will see these literal paths and bundle them.
+$MyModules = {
+    . (Join-Path $PSScriptRoot "..\Modules\Clear-SystemCache.psm1")
+    . (Join-Path $PSScriptRoot "..\Modules\Compress-IISLogs.psm1")
+    . (Join-Path $PSScriptRoot "..\Modules\Export-DiskReport.psm1")
+    . (Join-Path $PSScriptRoot "..\Modules\Get-DiskSpaceDetails.psm1")
+    . (Join-Path $PSScriptRoot "..\Modules\Get-PerformanceMetrics.psm1")
+    . (Join-Path $PSScriptRoot "..\Modules\Get-Session.psm1")
+    . (Join-Path $PSScriptRoot "..\Modules\Get-SystemUptime.psm1")
+    . (Join-Path $PSScriptRoot "..\Modules\Get-TopCPUProcesses.psm1")
+    . (Join-Path $PSScriptRoot "..\Modules\Get-TopItems.psm1")
+    . (Join-Path $PSScriptRoot "..\Modules\Get-TopMemoryProcesses.psm1")
+    . (Join-Path $PSScriptRoot "..\Modules\Show-PerformanceDashboard.psm1")
+    . (Join-Path $PSScriptRoot "..\Modules\Test-DiskAvailability.psm1")
+    . (Join-Path $PSScriptRoot "..\Modules\Test-ReportFileCreation.psm1")
+    . (Join-Path $PSScriptRoot "..\Modules\Test-ServerAvailability.psm1")
+    . (Join-Path $PSScriptRoot "..\Modules\Write-Log.psm1")
+}
 
-# STEP 2: Use ONE loop to do EVERYTHING
+# 3. LOOP through the text of the block to capture content for the EXE fix
 $Global:ModuleContents = @{}
 
-foreach ($Name in $Modules) {
-    # Build the path once
-    $Path = Join-Path $PSScriptRoot "..\Modules\$Name.psm1"
-    
-    # Dot-source for the parent script
-    . $Path
-    
-    # Save the content for the child script (the EXE fix)
-    $Global:ModuleContents[$Name] = Get-Content $Path -Raw
+# We turn the code block into a list of strings and look for the paths
+$MyModules.ToString() -split "`n" | ForEach-Object {
+    # If the line looks like a Join-Path command...
+    if ($_ -match 'Join-Path \$PSScriptRoot "(.+?)"') {
+        $RelativePath = $Matches[1] # This gets the "..\Modules\..." part
+        $FullPath = Join-Path $PSScriptRoot $RelativePath
+        
+        $Name = [System.IO.Path]::GetFileNameWithoutExtension($FullPath)
+        
+        if (Test-Path $FullPath) {
+            $Global:ModuleContents[$Name] = Get-Content $FullPath -Raw
+        }
+    }
 }
 
 # Import the Get-BitwardenAuthentication module

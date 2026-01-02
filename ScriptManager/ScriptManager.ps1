@@ -4,22 +4,22 @@ Add-Type -AssemblyName System.Drawing
 
 # Import all the modules !@#$%^
 $ModuleList = @(
-    'Clear-SystemCache.psm1',
-    'Compress-IISLogs.psm1',
-    'Export-DiskReport.psm1',
-    'Get-DiskSpaceDetails.psm1',
-    'Get-PerformanceMetrics.psm1',
-    'Get-Session.psm1',
-    'Get-SystemUptime.psm1',
-    'Get-TopCPUProcesses.psm1',
-    'Get-TopItems.psm1',
-    'Get-TopMemoryProcesses.psm1',
-    'Show-PerformanceDashboard.psm1',
-    'Test-DiskAvailability.psm1',
-    'Test-ReportFileCreation.psm1',
-    'Test-ServerAvailability.psm1',
-    'Write-Log.psm1',
-    'Write-WindowsEventLog.psm1'
+    "Clear-SystemCache.psm1",
+    "Compress-IISLogs.psm1",
+    "Export-DiskReport.psm1",
+    "Get-DiskSpaceDetails.psm1",
+    "Get-PerformanceMetrics.psm1",
+    "Get-Session.psm1",
+    "Get-SystemUptime.psm1",
+    "Get-TopCPUProcesses.psm1",
+    "Get-TopItems.psm1",
+    "Get-TopMemoryProcesses.psm1",
+    "Show-PerformanceDashboard.psm1",
+    "Test-DiskAvailability.psm1",
+    "Test-ReportFileCreation.psm1",
+    "Test-ServerAvailability.psm1",
+    "Write-Log.psm1",
+    "Write-WindowsEventLog.psm1"
 )
 $ModuleContents = @{}
 foreach ($name in $ModuleList) {
@@ -350,6 +350,10 @@ if ($script:ADM_Credential -and $script:JumpHost) {
     # Show the main form after Bitwarden authentication
     $main_form.ShowDialog()
 }
+
+
+
+
 
 
 

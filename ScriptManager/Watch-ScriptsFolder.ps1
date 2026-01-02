@@ -106,7 +106,7 @@ function Update-ModuleScripts {
 
         # Build the list: 'Name.psm1', (with trailing commas except last, or just simple list)
         # Note: PowerShell arrays @( ) handle trailing commas fine.
-        $newModuleList = $moduleFiles | ForEach-Object { "    '$($_.Name)'" } 
+        $newModuleList = $moduleFiles | ForEach-Object { "    ""$($_.Name)""" } 
         $joinedModules = ($newModuleList -join ",`r`n")
 
         # 2. Read content

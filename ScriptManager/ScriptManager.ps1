@@ -22,10 +22,10 @@ $MyModules = {
     . (Join-Path $PSScriptRoot "..\Modules\Write-Log.psm1")
 }
 
-# 3. LOOP through the text of the block to capture content for the EXE fix
-$Global:ModuleContents = @{}
+# LOOP through the text of the block to capture content
+$script:ModuleContents = @{}
 
-# We turn the code block into a list of strings and look for the paths
+# Turn the code block into a list of strings and look for the paths
 $MyModules.ToString() -split "`n" | ForEach-Object {
     # If the line looks like a Join-Path command...
     if ($_ -match 'Join-Path \$PSScriptRoot "(.+?)"') {
@@ -35,7 +35,7 @@ $MyModules.ToString() -split "`n" | ForEach-Object {
         $Name = [System.IO.Path]::GetFileNameWithoutExtension($FullPath)
         
         if (Test-Path $FullPath) {
-            $Global:ModuleContents[$Name] = Get-Content $FullPath -Raw
+            $script:ModuleContents[$Name] = Get-Content $FullPath -Raw
         }
     }
 }

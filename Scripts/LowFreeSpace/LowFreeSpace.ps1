@@ -2,7 +2,9 @@ Param(
     [Parameter(Mandatory= $false)]
     [System.Management.Automation.PSCredential]$ADM_Credential,
     [Parameter(Mandatory= $false)]
-    [string]$JumpHost
+    [string]$JumpHost,
+    [Parameter(Mandatory= $false)]
+    [hashtable]$ModuleContents
 )
 
 # Temporary workaround for testing
@@ -181,7 +183,7 @@ $modulesToImport = @(
 
 $JumpHostSession = Get-Session -serverName $JumpHost -Credential $ADM_Credential
 
-foreach ($modulePath in $modulesToImport) {
+<#foreach ($modulePath in $modulesToImport) {
     try {
         # Read the module content
         $moduleContent = Get-Content -Path $modulePath -Raw
@@ -194,6 +196,21 @@ foreach ($modulePath in $modulesToImport) {
             Write-Host "Successfully imported module $moduleName in remote session" -ForegroundColor Green
         } -ArgumentList $moduleContent, ([System.IO.Path]::GetFileNameWithoutExtension($modulePath)) -ErrorAction Stop
     } catch {
+        Write-Host "Error importing module $modulePath : $_" -ForegroundColor Red
+        [System.Windows.Forms.MessageBox]::Show("Error importing module $([System.IO.Path]::GetFileNameWithoutExtension($modulePath)) : $_", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error) | Out-Null
+        exit 1
+    }
+}#>
+
+foreach ($moduleName in $ModuleContents.Keys) {
+    try {
+        $content = $ModuleContents[$moduleName]
+        Invoke-Command -Session $JumpHostSession -ScriptBlock {
+            param($moduleContent)
+            Invoke-Expression -Command $moduleContent
+        } -ArgumentList $content
+    }
+    catch {
         Write-Host "Error importing module $modulePath : $_" -ForegroundColor Red
         [System.Windows.Forms.MessageBox]::Show("Error importing module $([System.IO.Path]::GetFileNameWithoutExtension($modulePath)) : $_", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error) | Out-Null
         exit 1

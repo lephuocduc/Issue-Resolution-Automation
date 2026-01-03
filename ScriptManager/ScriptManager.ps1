@@ -2,6 +2,7 @@
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
+<#
 # Import all the modules !@#$%^
 . (Join-Path $PSScriptRoot "..\Modules\Clear-SystemCache.psm1")
 . (Join-Path $PSScriptRoot "..\Modules\Compress-IISLogs.psm1")
@@ -18,7 +19,9 @@ Add-Type -AssemblyName System.Drawing
 . (Join-Path $PSScriptRoot "..\Modules\Test-ReportFileCreation.psm1")
 . (Join-Path $PSScriptRoot "..\Modules\Test-ServerAvailability.psm1")
 . (Join-Path $PSScriptRoot "..\Modules\Write-Log.psm1")
-. (Join-Path $PSScriptRoot "..\Modules\Write-WindowsEventLog.psm1")
+. (Join-Path $PSScriptRoot "..\Modules\Write-WindowsEventLog.psm1")#>
+
+$localModulesPath = Join-Path -Path $PSScriptRoot -ChildPath "..\Modules"
 
 # Import the Get-BitwardenAuthentication module
 Import-Module -Name $PSScriptRoot\Get-BitwardenAuthentication.psm1 -Force
@@ -162,11 +165,9 @@ $bitwarden_form.Add_Shown({
                 $script:JumpHost = $null
                 foreach ($jumpHost in $jumpHosts) {
                     try {
-                        . (Join-Path $PSScriptRoot "..\Modules\Get-Session.psm1")
                         Import-Module "$PSScriptRoot\..\Modules\Get-Session.psm1" -Force
                         $session = Get-Session -serverName $jumpHost -Credential $script:ADM_Credential
                         if ($session) {
-                            Write-Host $session
                             $script:JumpHost = $jumpHost
                             Remove-PSSession -Session $session -ErrorAction SilentlyContinue
                             break  # Exit the loop if a session is successfully created
@@ -343,6 +344,8 @@ if ($script:ADM_Credential -and $script:JumpHost) {
     # Show the main form after Bitwarden authentication
     $main_form.ShowDialog()
 }
+
+
 
 
 

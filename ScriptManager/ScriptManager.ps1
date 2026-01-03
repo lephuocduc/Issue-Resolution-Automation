@@ -2,14 +2,26 @@
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
+# Import all the modules !@#$%^
+. (Join-Path $PSScriptRoot "..\Modules\Clear-SystemCache.psm1")
+. (Join-Path $PSScriptRoot "..\Modules\Compress-IISLogs.psm1")
+. (Join-Path $PSScriptRoot "..\Modules\Export-DiskReport.psm1")
+. (Join-Path $PSScriptRoot "..\Modules\Get-DiskSpaceDetails.psm1")
+. (Join-Path $PSScriptRoot "..\Modules\Get-PerformanceMetrics.psm1")
+. (Join-Path $PSScriptRoot "..\Modules\Get-Session.psm1")
+. (Join-Path $PSScriptRoot "..\Modules\Get-SystemUptime.psm1")
+. (Join-Path $PSScriptRoot "..\Modules\Get-TopCPUProcesses.psm1")
+. (Join-Path $PSScriptRoot "..\Modules\Get-TopItems.psm1")
+. (Join-Path $PSScriptRoot "..\Modules\Get-TopMemoryProcesses.psm1")
+. (Join-Path $PSScriptRoot "..\Modules\Show-PerformanceDashboard.psm1")
+. (Join-Path $PSScriptRoot "..\Modules\Test-DiskAvailability.psm1")
+. (Join-Path $PSScriptRoot "..\Modules\Test-ReportFileCreation.psm1")
+. (Join-Path $PSScriptRoot "..\Modules\Test-ServerAvailability.psm1")
+. (Join-Path $PSScriptRoot "..\Modules\Write-Log.psm1")
+. (Join-Path $PSScriptRoot "..\Modules\Write-WindowsEventLog.psm1")
+
 # Import the Get-BitwardenAuthentication module
 Import-Module -Name $PSScriptRoot\Get-BitwardenAuthentication.psm1 -Force
-
-Get-ChildItem -Path (Join-Path $PSScriptRoot "..\Modules") -Filter *.psm1 | ForEach-Object {
-    Import-Module -Name $_.FullName -Force
-    Join-Path $PSScriptRoot "..\Modules\$($_.Name)"
-    Write-Host "Imported module: $($_.Name)"
-}
 
 $script:ADM_Credential = $null
 $CurrentUser = ([System.Security.Principal.WindowsIdentity]::GetCurrent().Name)
@@ -150,8 +162,11 @@ $bitwarden_form.Add_Shown({
                 $script:JumpHost = $null
                 foreach ($jumpHost in $jumpHosts) {
                     try {
+                        . (Join-Path $PSScriptRoot "..\Modules\Get-Session.psm1")
+                        Import-Module "$PSScriptRoot\..\Modules\Get-Session.psm1" -Force
                         $session = Get-Session -serverName $jumpHost -Credential $script:ADM_Credential
                         if ($session) {
+                            Write-Host $session
                             $script:JumpHost = $jumpHost
                             Remove-PSSession -Session $session -ErrorAction SilentlyContinue
                             break  # Exit the loop if a session is successfully created
@@ -256,7 +271,7 @@ $comboBox.Add_KeyDown({
         $e.SuppressKeyPress = $true
     }
 })
-
+ 
 # Create OK Button
 $okButton = New-Object System.Windows.Forms.Button
 $okButton.Text = 'OK'
@@ -277,10 +292,10 @@ $okButton.Add_Click({
             return
         }
         "Low Free Space" {
-            . (Join-Path $PSScriptRoot "..\Scripts\LowFreeSpace\LowFreeSpace.ps1") -ADM_Credential $script:ADM_Credential -JumpHost $script:JumpHost
+            . (Join-Path $PSScriptRoot "..\Scripts\LowFreeSpace\LowFreeSpace.ps1") -ADM_Credential $script:ADM_Credential -JumpHost $script:JumpHost -ModuleContents $script:ModuleContents
         }
         "Windows Performance" {
-            . (Join-Path $PSScriptRoot "..\Scripts\WindowsPerformance\WindowsPerformance.ps1") -ADM_Credential $script:ADM_Credential -JumpHost $script:JumpHost
+            . (Join-Path $PSScriptRoot "..\Scripts\WindowsPerformance\WindowsPerformance.ps1") -ADM_Credential $script:ADM_Credential -JumpHost $script:JumpHost -ModuleContents $script:ModuleContents
         }
         default {
             [System.Windows.Forms.MessageBox]::Show(
@@ -328,6 +343,16 @@ if ($script:ADM_Credential -and $script:JumpHost) {
     # Show the main form after Bitwarden authentication
     $main_form.ShowDialog()
 }
+
+
+
+
+
+
+
+
+
+
 
 
 

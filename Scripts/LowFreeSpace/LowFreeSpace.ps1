@@ -2,8 +2,27 @@ Param(
     [Parameter(Mandatory= $false)]
     [System.Management.Automation.PSCredential]$ADM_Credential,
     [Parameter(Mandatory= $false)]
-    [string]$JumpHost
+    [string]$JumpHost,
+    [Parameter(Mandatory= $false)]
+    [hashtable]$ModuleContents
 )
+#Test if module contents is passed, if not load from disk
+if ($ModuleContents) {
+    # Export all into C:\temp\Modules if yes
+    foreach ($moduleName in $ModuleContents.Keys) {
+        $content = $ModuleContents[$moduleName]
+        $modulePath = "C:\temp\Modules\$moduleName.psm1"
+        $directory = [System.IO.Path]::GetDirectoryName($modulePath)
+        if (-not (Test-Path $directory)) {
+            New-Item -Path $directory -ItemType Directory -Force | Out-Null
+        }
+        $content | Out-File -FilePath $modulePath -Encoding UTF8 -Force
+    }
+}else {
+        # Show error and exit
+        [System.Windows.Forms.MessageBox]::Show("Module contents not provided. Cannot proceed.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error) | Out-Null
+    
+}
 
 # Temporary workaround for testing
 if (-not $ADM_Credential) {
@@ -159,7 +178,7 @@ $ticketNumberTextBox.Add_KeyDown({
     }
 })
 
-$modulesToImport = @(
+<#$modulesToImport = @(
     "$PSScriptRoot\..\..\Modules\Get-Session.psm1",
     "$PSScriptRoot\..\..\Modules\Get-DiskSpaceDetails.psm1",
     "$PSScriptRoot\..\..\Modules\Export-DiskReport.psm1",
@@ -171,11 +190,11 @@ $modulesToImport = @(
     "$PSScriptRoot\..\..\Modules\Test-ServerAvailability.psm1",
     "$PSScriptRoot\..\..\Modules\Write-Log.psm1",
     "$PSScriptRoot\..\..\Modules\Write-WindowsEventLog.psm1"
-)
+)#>
 
 $JumpHostSession = Get-Session -serverName $JumpHost -Credential $ADM_Credential
 
-foreach ($modulePath in $modulesToImport) {
+<#foreach ($modulePath in $modulesToImport) {
     try {
         # Read the module content
         $moduleContent = Get-Content -Path $modulePath -Raw
@@ -188,6 +207,21 @@ foreach ($modulePath in $modulesToImport) {
             Write-Host "Successfully imported module $moduleName in remote session" -ForegroundColor Green
         } -ArgumentList $moduleContent, ([System.IO.Path]::GetFileNameWithoutExtension($modulePath)) -ErrorAction Stop
     } catch {
+        Write-Host "Error importing module $modulePath : $_" -ForegroundColor Red
+        [System.Windows.Forms.MessageBox]::Show("Error importing module $([System.IO.Path]::GetFileNameWithoutExtension($modulePath)) : $_", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error) | Out-Null
+        exit 1
+    }
+}#>
+
+foreach ($moduleName in $ModuleContents.Keys) {
+    try {
+        $content = $ModuleContents[$moduleName]
+        Invoke-Command -Session $JumpHostSession -ScriptBlock {
+            param($moduleContent)
+            Invoke-Expression -Command $moduleContent
+        } -ArgumentList $content
+    }
+    catch {
         Write-Host "Error importing module $modulePath : $_" -ForegroundColor Red
         [System.Windows.Forms.MessageBox]::Show("Error importing module $([System.IO.Path]::GetFileNameWithoutExtension($modulePath)) : $_", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error) | Out-Null
         exit 1

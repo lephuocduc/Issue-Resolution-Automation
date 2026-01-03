@@ -54,7 +54,9 @@
 
 Param(
     [Parameter(Mandatory= $false)]
-    [System.Management.Automation.PSCredential]$ADM_Credential
+    [System.Management.Automation.PSCredential]$ADM_Credential,
+    [Parameter(Mandatory= $false)]
+    [string]$JumpHost
 )
 <#
 # Temporary workaround for testing

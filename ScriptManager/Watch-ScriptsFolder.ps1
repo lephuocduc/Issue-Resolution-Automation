@@ -1,5 +1,6 @@
 $scriptManagerPath = Join-Path $PSScriptRoot "ScriptManager.ps1"
 $scriptsRootPath = Join-Path $PSScriptRoot "..\Scripts"
+$modulesPath = Join-Path $PSScriptRoot "..\Modules"
 
 # Helper function to insert spaces before capital letters
 function Split-CamelCase {
@@ -17,7 +18,7 @@ function Split-CamelCase {
     return $result
 }
 
-function Update-ScriptManagerContent {
+function Update-ChildScripts {
     try {
         # Get script names from subfolders
         $scriptNames = Get-ChildItem -Path $scriptsRootPath -Directory | ForEach-Object {
@@ -63,7 +64,7 @@ function Update-ScriptManagerContent {
             $switchCases += @"
 
         "$($script.DisplayName)" {
-            . (Join-Path `$PSScriptRoot "..\Scripts\$($script.Folder)\$($script.Name).ps1") -ADM_Credential `$script:ADM_Credential -JumpHost `$script:JumpHost
+            . (Join-Path `$PSScriptRoot "..\Scripts\$($script.Folder)\$($script.Name).ps1") -ADM_Credential `$script:ADM_Credential -JumpHost `$script:JumpHost -ModuleContents `$script:ModuleContents
         }
 "@
         }
@@ -93,5 +94,53 @@ function Update-ScriptManagerContent {
     }
 }
 
+function Update-ModuleScripts {
+    try {
+        $scriptObjects = Get-ChildItem -Path $modulesPath -Filter "*.psm1" -File | 
+            Select-Object @{
+                Name = 'Name'
+                Expression = { $_.Name } 
+            }
+        
+        if ($scriptObjects.Count -eq 0) {
+            Write-Warning "Still found 0 files. Check that `dev:modulesPath` points to the correct folder."
+            return
+        }
+
+        Write-Host "Found $($scriptObjects.Count) module files."
+
+        # 2. Build the new import block string
+        # Note: We removed '$($_.Folder)' because your files are not in subfolders.
+        $newImportString = $scriptObjects | ForEach-Object {
+            ". (Join-Path `$PSScriptRoot ""..\Modules\$($_.Name)"")"
+        } | Out-String
+
+        $newImportString = $newImportString.TrimEnd()
+
+        # 3. Read content
+        $content = Get-Content $scriptManagerPath -Raw
+
+        # 4. The Regex Logic
+        $marker  = [Regex]::Escape("# Import all the modules !@#$%^")
+        
+        # Pattern: Match marker -> lazily match content -> stop at blank line
+        $pattern = "(?s)($marker).*?(?=\r?\n\s*\r?\n)"
+        
+        $replacement = "`$1`r`n$newImportString"
+
+        if ($content -match $pattern) {
+            $content = $content -replace $pattern, $replacement
+            $content | Set-Content $scriptManagerPath -Force
+            Write-Host "Success: Modules import block updated." -ForegroundColor Green
+        }
+        else {
+            Write-Warning "Could not find the marker '# Import all the modules !@#$%^' followed by a blank line."
+        }
+    }
+    catch {
+        Write-Error "Error updating Module Scripts: $_"
+    }    
+}
 # Execute update
-Update-ScriptManagerContent
+Update-ChildScripts
+Update-ModuleScripts

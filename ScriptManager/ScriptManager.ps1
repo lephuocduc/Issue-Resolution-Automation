@@ -1,8 +1,7 @@
 # Load the necessary assembly for Windows Forms
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
-Import-Module (Join-Path $PSScriptRoot "..\Modules\Clear-SystemCache.psm1") -Force
-<#
+
 $MyModules = {
     . (Join-Path $PSScriptRoot "..\Modules\Clear-SystemCache.psm1")
     . (Join-Path $PSScriptRoot "..\Modules\Compress-IISLogs.psm1")
@@ -21,23 +20,6 @@ $MyModules = {
     . (Join-Path $PSScriptRoot "..\Modules\Write-Log.psm1")
 }
 
-# LOOP through the text of the block to capture content
-$script:ModuleContents = @{}
-
-# Turn the code block into a list of strings and look for the paths
-$MyModules.ToString() -split "`n" | ForEach-Object {
-    # If the line looks like a Join-Path command...
-    if ($_ -match 'Join-Path \$PSScriptRoot "(.+?)"') {
-        $RelativePath = $Matches[1] # This gets the "..\Modules\..." part
-        $FullPath = Join-Path $PSScriptRoot $RelativePath
-        
-        $Name = [System.IO.Path]::GetFileNameWithoutExtension($FullPath)
-        
-        if (Test-Path $FullPath) {
-            $script:ModuleContents[$Name] = Get-Content $FullPath -Raw
-        }
-    }
-}#>
 
 # Import the Get-BitwardenAuthentication module
 Import-Module -Name $PSScriptRoot\Get-BitwardenAuthentication.psm1 -Force

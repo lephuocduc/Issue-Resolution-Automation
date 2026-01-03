@@ -165,14 +165,26 @@ $bitwarden_form.Add_Shown({
                         Import-Module "$PSScriptRoot\..\Modules\Get-Session.psm1" -Force
                         $session = Get-Session -serverName $jumpHost -Credential $script:ADM_Credential
                         if ($session) {
+                            Write-Log "Successfully created session to $jumpHost" -Level "Info"
                             $script:JumpHost = $jumpHost
 
-                            # 1. Define the correct path to your modules
-                            $localModulesPath = Join-Path -Path $PSScriptRoot -ChildPath "..\Modules"
+                            # 1. Define the correct path to modules
+                            $scriptDir = if ($MyInvocation.MyCommand.Path) { 
+                                Split-Path $MyInvocation.MyCommand.Path -Parent 
+                            } else { 
+                                $PSScriptRoot 
+                            }
+                            $localModulesPath = Join-Path $scriptDir "..\Modules"
 
                             # Check if the path actually exists before trying to copy
                             if (-not (Test-Path $localModulesPath)) {
                                 Write-Log "Local modules path '$localModulesPath' does not exist." -Level "Error"
+                                [system.windows.forms.messagebox]::Show(
+                                    "Local modules path '$localModulesPath' does not exist.",
+                                    "Error",
+                                    [System.Windows.Forms.MessageBoxButtons]::OK,
+                                    [System.Windows.Forms.MessageBoxIcon]::Error
+                                )
                                 return
                             }
 

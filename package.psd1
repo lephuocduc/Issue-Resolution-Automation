@@ -18,6 +18,5 @@
     Bundle = @{
         Enabled = $true
         Modules = $true
-        Paths = @('.\Modules')
     }
 }

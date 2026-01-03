@@ -113,6 +113,7 @@ function Update-ModuleScripts {
         # Note: We removed '$($_.Folder)' because your files are not in subfolders.
         $newImportString = $scriptObjects | ForEach-Object {
             ". (Join-Path `$PSScriptRoot ""..\Modules\$($_.Name)"")"
+            "Import-Module ""`$PSScriptRoot\..\Modules\$($_.Name)"" -Force"
         } | Out-String
 
         $newImportString = $newImportString.TrimEnd()
@@ -143,4 +144,4 @@ function Update-ModuleScripts {
 }
 # Execute update
 Update-ChildScripts
-#Update-ModuleScripts
+Update-ModuleScripts

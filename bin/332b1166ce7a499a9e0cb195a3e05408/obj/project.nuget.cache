@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "dgSpecHash": "Rr/zZ1ivDeY=",
+  "success": true,
+  "projectFilePath": "E:\\Automation Project 2\\bin\\332b1166ce7a499a9e0cb195a3e05408\\ScriptManager.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\leduc\\.nuget\\packages\\microsoft.netframework.referenceassemblies\\1.0.3\\microsoft.netframework.referenceassemblies.1.0.3.nupkg.sha512",
+    "C:\\Users\\leduc\\.nuget\\packages\\microsoft.netframework.referenceassemblies.net462\\1.0.3\\microsoft.netframework.referenceassemblies.net462.1.0.3.nupkg.sha512"
+  ],
+  "logs": []
+}

@@ -1,25 +1,40 @@
-<#
 # Load the necessary assembly for Windows Forms
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
 # Import all the modules !@#$%^
 . (Join-Path $PSScriptRoot "..\Modules\Clear-SystemCache.psm1")
+Import-Module "$PSScriptRoot\..\Modules\Clear-SystemCache.psm1" -Force
 . (Join-Path $PSScriptRoot "..\Modules\Compress-IISLogs.psm1")
+Import-Module "$PSScriptRoot\..\Modules\Compress-IISLogs.psm1" -Force
 . (Join-Path $PSScriptRoot "..\Modules\Export-DiskReport.psm1")
+Import-Module "$PSScriptRoot\..\Modules\Export-DiskReport.psm1" -Force
 . (Join-Path $PSScriptRoot "..\Modules\Get-DiskSpaceDetails.psm1")
+Import-Module "$PSScriptRoot\..\Modules\Get-DiskSpaceDetails.psm1" -Force
 . (Join-Path $PSScriptRoot "..\Modules\Get-PerformanceMetrics.psm1")
+Import-Module "$PSScriptRoot\..\Modules\Get-PerformanceMetrics.psm1" -Force
 . (Join-Path $PSScriptRoot "..\Modules\Get-Session.psm1")
+Import-Module "$PSScriptRoot\..\Modules\Get-Session.psm1" -Force
 . (Join-Path $PSScriptRoot "..\Modules\Get-SystemUptime.psm1")
+Import-Module "$PSScriptRoot\..\Modules\Get-SystemUptime.psm1" -Force
 . (Join-Path $PSScriptRoot "..\Modules\Get-TopCPUProcesses.psm1")
+Import-Module "$PSScriptRoot\..\Modules\Get-TopCPUProcesses.psm1" -Force
 . (Join-Path $PSScriptRoot "..\Modules\Get-TopItems.psm1")
+Import-Module "$PSScriptRoot\..\Modules\Get-TopItems.psm1" -Force
 . (Join-Path $PSScriptRoot "..\Modules\Get-TopMemoryProcesses.psm1")
+Import-Module "$PSScriptRoot\..\Modules\Get-TopMemoryProcesses.psm1" -Force
 . (Join-Path $PSScriptRoot "..\Modules\Show-PerformanceDashboard.psm1")
+Import-Module "$PSScriptRoot\..\Modules\Show-PerformanceDashboard.psm1" -Force
 . (Join-Path $PSScriptRoot "..\Modules\Test-DiskAvailability.psm1")
+Import-Module "$PSScriptRoot\..\Modules\Test-DiskAvailability.psm1" -Force
 . (Join-Path $PSScriptRoot "..\Modules\Test-ReportFileCreation.psm1")
+Import-Module "$PSScriptRoot\..\Modules\Test-ReportFileCreation.psm1" -Force
 . (Join-Path $PSScriptRoot "..\Modules\Test-ServerAvailability.psm1")
+Import-Module "$PSScriptRoot\..\Modules\Test-ServerAvailability.psm1" -Force
 . (Join-Path $PSScriptRoot "..\Modules\Write-Log.psm1")
+Import-Module "$PSScriptRoot\..\Modules\Write-Log.psm1" -Force
 . (Join-Path $PSScriptRoot "..\Modules\Write-WindowsEventLog.psm1")
+Import-Module "$PSScriptRoot\..\Modules\Write-WindowsEventLog.psm1" -Force
 
 # Import the Get-BitwardenAuthentication module
 Import-Module -Name $PSScriptRoot\Get-BitwardenAuthentication.psm1 -Force
@@ -121,7 +136,7 @@ foreach ($screen in $screens) {
         $scaleY = $screenHeight / $designHeight
     }
 }#>
-<#    
+
 # Bitwarden form
 $bitwarden_form = New-Object System.Windows.Forms.Form
 $bitwarden_form.Text = "Script Manager - Checking"
@@ -402,411 +417,6 @@ if ($script:ADM_Credential -and $script:JumpHost) {
     # Show the main form after Bitwarden authentication
     $main_form.ShowDialog()
 }
-#>
-
-# Load the necessary assembly for Windows Forms
-Add-Type -AssemblyName System.Windows.Forms
-Add-Type -AssemblyName System.Drawing
-
-# Determine the base directory depending on whether running as script or EXE
-$process = [System.Diagnostics.Process]::GetCurrentProcess()
-$exeFile = $process.MainModule.FileName
-if ($exeFile -match 'powershell\.exe$|pwsh\.exe$') {
-    # Running as a script
-    $baseDir = $PSScriptRoot
-} else {
-    # Running as an EXE
-    $baseDir = [System.IO.Path]::GetDirectoryName($exeFile)
-}
-
-# Set the modules path relative to the base directory
-# Assuming Modules folder is in the same directory as the EXE or script's parent
-$modulesDir = Join-Path $baseDir '..\Modules'
-if (-not (Test-Path $modulesDir)) {
-    # Fallback: try Modules in the same directory (common for bundled EXE)
-    $modulesDir = Join-Path $baseDir 'Modules'
-}
-
-# Import all the modules using the computed path
-. (Join-Path $modulesDir "Clear-SystemCache.psm1")
-. (Join-Path $modulesDir "Compress-IISLogs.psm1")
-. (Join-Path $modulesDir "Export-DiskReport.psm1")
-. (Join-Path $modulesDir "Get-DiskSpaceDetails.psm1")
-. (Join-Path $modulesDir "Get-PerformanceMetrics.psm1")
-. (Join-Path $modulesDir "Get-Session.psm1")
-. (Join-Path $modulesDir "Get-SystemUptime.psm1")
-. (Join-Path $modulesDir "Get-TopCPUProcesses.psm1")
-. (Join-Path $modulesDir "Get-TopItems.psm1")
-. (Join-Path $modulesDir "Get-TopMemoryProcesses.psm1")
-. (Join-Path $modulesDir "Show-PerformanceDashboard.psm1")
-. (Join-Path $modulesDir "Test-DiskAvailability.psm1")
-. (Join-Path $modulesDir "Test-ReportFileCreation.psm1")
-. (Join-Path $modulesDir "Test-ServerAvailability.psm1")
-. (Join-Path $modulesDir "Write-Log.psm1")
-. (Join-Path $modulesDir "Write-WindowsEventLog.psm1")
-
-# Import the Get-BitwardenAuthentication module (adjust path if needed)
-Import-Module -Name (Join-Path $baseDir 'Get-BitwardenAuthentication.psm1') -Force
-
-$script:ADM_Credential = $null
-$CurrentUser = ([System.Security.Principal.WindowsIdentity]::GetCurrent().Name)
-
-function Unprotect-BitwardenConfig {
-    param (
-        [Parameter(Mandatory=$true)]
-        [string]$ConfigPath
-    )
-    
-    # Unprotect the encrypted file and convert from JSON
-    try {
-        $decryptedContent = Unprotect-CmsMessage -Path $ConfigPath | ConvertFrom-Json
-        return $decryptedContent
-    }
-    catch {
-        $ErrorMessage = $_.Exception.Message
-
-        # Pop up an error message box
-        [System.Windows.Forms.MessageBox]::Show(
-            "Error: $ErrorMessage",
-            "Decryption Error",
-            [System.Windows.Forms.MessageBoxButtons]::OK,
-            [System.Windows.Forms.MessageBoxIcon]::Error
-        )
-        throw
-    }
-}
-
-# Decrypt the Bitwarden configuration (adjust path using $baseDir)
-$DecryptedContent = Unprotect-BitwardenConfig -ConfigPath (Join-Path $baseDir 'EncryptedBitwarden.json')
-# Extract values
-$clientId = $DecryptedContent.bitwarden.clientId
-$clientSecret = $DecryptedContent.bitwarden.clientSecret
-$masterPassword = $DecryptedContent.bitwarden.masterPassword
-$credentialName = $DecryptedContent.bitwarden.credentialName
-
-# Check if any required value is missing
-if (-not $clientId -or -not $clientSecret -or -not $masterPassword -or -not $credentialName) {
-    throw "One or more Bitwarden configuration values are missing."
-}
-
-function Update-StatusLabel {
-    param(
-        [Parameter(Mandatory=$true)]
-        [string]$text
-    )
-    
-    $statusLabel.Text = $text
-    $statusLabel_width = $statusLabel.PreferredWidth
-    $label_x = ($bitwarden_form.ClientSize.Width - $statusLabel_width) / 2
-    $statusLabel.Location = New-Object System.Drawing.Point($label_x, $statusLabel.Location.Y)
-    $statusLabel.Refresh()
-}
-
-function Write-Log {
-    param (
-        [string]$Message,
-        [string]$Level = "Info",
-        [string]$LogDirectory = "C:\temp"
-    )
-
-    # Create directory if needed (more efficient check)
-    if (-not [System.IO.Directory]::Exists($LogDirectory)) {
-        [System.IO.Directory]::CreateDirectory($LogDirectory) | Out-Null -ErrorAction SilentlyContinue
-    }
-
-    # Generate all date strings in a single call
-    $currentDate = Get-Date
-    $datePart = $currentDate.ToString("dd-MM-yyyy")
-    $LogPath = Join-Path $LogDirectory "ScriptManager-log-$datePart.log"
-    $timestamp = $currentDate.ToString("dd-MM-yyyy HH:mm:ss")
-
-    # Construct and write log entry
-    "$timestamp [$Level] $Message" | Out-File -FilePath $LogPath -Append -Encoding UTF8 -ErrorAction SilentlyContinue
-}
-
-# Get all video controller objects
-$screens = Get-WmiObject -Class Win32_VideoController
-
-# Initialize scale factors
-$scaleX = 1
-$scaleY = 1
-
-# Set design resolution
-$designWidth = 1920
-$designHeight = 1080
-
-    
-# Bitwarden form
-$bitwarden_form = New-Object System.Windows.Forms.Form
-$bitwarden_form.Text = "Script Manager - Checking"
-$bitwarden_form.Size = New-Object System.Drawing.Size([Math]::Round(410 * $scaleX) , [Math]::Round(120 * $scaleY))  # Adjust size based on screen resolution
-$bitwarden_form.StartPosition = "CenterScreen"
-$bitwarden_form.FormBorderStyle = 'FixedSingle'  # Or 'FixedDialog'
-$bitwarden_form.MaximizeBox = $false
-
-# Status label
-$statusLabel = New-Object System.Windows.Forms.Label
-$statusLabel.AutoSize = $true  # Important:  Let the label size itself to the text
-$statusLabel.Font = New-Object System.Drawing.Font($statusLabel.Font.FontFamily, [Math]::Round(11* $scaleY))  # Adjust font size based on screen resolution
-$statusLabel_width = $statusLabel.PreferredWidth # get the actual width of the label based on the text
-$statusLabel.Location = New-Object System.Drawing.Point([Math]::Round(([Math]::Round($bitwarden_form.Size.Width / 2) - $statusLabel_width) * $scaleX), [Math]::Round(([Math]::Round(($bitwarden_form.Size.Height / 2) - $statusLabel.PreferredHeight)) * $scaleY))
-
-  # Initially hidden until the check is done
-$bitwarden_form.Controls.Add($statusLabel)
-$bitwarden_form.Add_Shown({
-    try {
-        # Retrieve the ADM_Credential
-        Update-StatusLabel -text "Authenticating with Bitwarden..."
-        $script:ADM_Credential = Get-BitwardenAuthentication -ClientId $clientId -ClientSecret $clientSecret -MasterPassword $masterPassword -CredentialName $credentialName
-        if ($script:ADM_Credential) {       
-            # Get all jump host names from the jumphost.json file
-            # Test if the file exists
-            $jumpHostsFileContent = Get-Content -Path (Join-Path $baseDir 'jumphost.json') | ConvertFrom-Json
-            $jumpHosts = $jumpHostsFileContent.DCS.PSObject.Properties.Value
-            if ( -not $jumpHosts -or $jumpHosts.Count -eq 0 ) {
-                Write-Log "No jump hosts found in jumphost.json" -Level "Error"
-                [System.Windows.Forms.MessageBox]::Show(
-                    "No jump hosts found in jumphost.json",
-                    "Error",
-                    [System.Windows.Forms.MessageBoxButtons]::OK,
-                    [System.Windows.Forms.MessageBoxIcon]::Error
-                )
-                exit
-            } else {
-                # Remote session for each jump host on DCS environment and choose the first one
-                $script:JumpHost = $null
-                foreach ($jumpHost in $jumpHosts) {
-                    try {
-                        Import-Module (Join-Path $modulesDir 'Get-Session.psm1') -Force
-                        $session = Get-Session -serverName $jumpHost -Credential $script:ADM_Credential
-                        if ($session) {
-                            $script:JumpHost = $jumpHost
-
-                            # 1. Define the correct path to your modules using $modulesDir
-                            $localModulesPath = $modulesDir
-
-                            # Check if the path actually exists before trying to copy
-                            if (-not (Test-Path $localModulesPath)) {
-                                Write-Log "Local modules path '$localModulesPath' does not exist." -Level "Error"
-                                [system.windows.forms.messagebox]::Show(
-                                    "Local modules path '$localModulesPath' does not exist.",
-                                    "Error",
-                                    [System.Windows.Forms.MessageBoxButtons]::OK,
-                                    [System.Windows.Forms.MessageBoxIcon]::Error
-                                )
-                                return
-                            }
-
-                            # 2. Get all .psm1 files
-                            $moduleFiles = Get-ChildItem -Path $localModulesPath -Filter *.psm1
-
-                            foreach ($file in $moduleFiles) {
-                                $moduleName = $file.BaseName
-                                # Define the destination path on the remote server
-                                $remoteBaseDir = "C:\Program Files\WindowsPowerShell\Modules"
-                                $remoteModuleDir = "$remoteBaseDir\$moduleName"
-                                
-                                Write-Log "Copying module '$moduleName' to $jumpHost`:$remoteModuleDir"
-
-                                # 3. Create the directory on the remote host if it doesn't exist
-                                # We use Invoke-Command because Copy-Item fails if the destination folder isn't there.
-                                Invoke-Command -Session $session -ArgumentList $remoteModuleDir -ScriptBlock {
-                                    param($targetDir)
-                                    if (-not (Test-Path -Path $targetDir)) {
-                                        New-Item -Path $targetDir -ItemType Directory -Force | Out-Null
-                                        Write-Log "Created directory $targetDir on remote host." -Level "Info"
-                                    }
-                                }
-
-                                # 4. Copy the file to the session
-                                # Destination must include the filename because we are copying a file to a folder
-                                try {
-                                    Copy-Item -Path $file.FullName -Destination "$remoteModuleDir\$($file.Name)" -ToSession $session -Force -ErrorAction Stop
-                                    Write-Log "Successfully copied $($file.Name) to $jumpHost`:$remoteModuleDir" -Level "Info"
-                                }
-                                catch {
-                                    Write-Log "Failed to copy $($file.Name) to $jumpHost`:$remoteModuleDir. Error: $_" -Level "Error"
-                                    [System.Windows.Forms.MessageBox]::Show(
-                                        "Error, check logs for details.",
-                                        "Error",
-                                        [System.Windows.Forms.MessageBoxButtons]::OK,
-                                        [System.Windows.Forms.MessageBoxIcon]::Error
-                                    )
-
-                                }
-                            }
-                            Remove-PSSession -Session $session -ErrorAction SilentlyContinue
-                            break  # Exit the loop if a session is successfully created
-                        }
-                    }
-                    catch {
-                        Write-Log "Failed to create session to `$jumpHost: $_" -Level "Warning"
-                    }
-                }
-        
-                if (-not $script:JumpHost) {
-                    Write-Log "Could not connect to any jump host." -Level "Error"
-                    [System.Windows.Forms.MessageBox]::Show(
-                        "Could not connect to any jump host.",
-                        "Error",
-                        [System.Windows.Forms.MessageBoxButtons]::OK,
-                        [System.Windows.Forms.MessageBoxIcon]::Error
-                    )
-                    $bitwarden_form.Close()
-                    $bitwarden_form.Dispose()  # Dispose of the Bitwarden form to free resources
-                }
-            }
-        }
-        $bitwarden_form.Close()  # Close the Bitwarden form after successful authentication
-        $bitwarden_form.Dispose()  # Dispose of the Bitwarden form to free resources
-    }
-    catch {
-        Write-Log "An error occurred during Bitwarden authentication: $_" -Level "Error"
-        [System.Windows.Forms.MessageBox]::Show(
-            "An error occurred during Bitwarden authentication: $_",
-            "Error",
-            [System.Windows.Forms.MessageBoxButtons]::OK,
-            [System.Windows.Forms.MessageBoxIcon]::Error
-        )
-        $bitwarden_form.Close()  # Close the Bitwarden form
-        $bitwarden_form.Dispose()  # Close the Bitwarden form
-    }
-    
-})
-
-#########################################
-# Create the main form
-$main_form = New-Object System.Windows.Forms.Form
-$main_form.Text = "Script Manager - $CurrentUser"
-$main_form.Size = New-Object System.Drawing.Size([Math]::Round(400 * $scaleX), [Math]::Round(190*$scaleY))  # Adjust size based on screen resolution
-$main_form.StartPosition = "CenterScreen"
-# Prevent resizing
-$main_form.FormBorderStyle = 'FixedSingle'  # Or 'FixedDialog'
-$main_form.MaximizeBox = $false
-
-# Label
-$label = New-Object System.Windows.Forms.Label
-$label.Text = "Choose a script to execute"
-$label.AutoSize = $true
-$label.Font = New-Object System.Drawing.Font("Arial", [Math]::Round(11 * $scaleY), [System.Drawing.FontStyle]::Bold)
-
-# Calculate centered position (after text & font set)
-$label_width  = $label.PreferredWidth
-$label_height = $label.PreferredHeight
-$label_x = [Math]::Round( ($main_form.ClientSize.Width  - $label_width) / 2 )
-$label_y = [Math]::Round( 25 * $scaleY )
-$label.Location = New-Object System.Drawing.Point($label_x, $label_y)
-$main_form.Controls.Add($label)
-
-# Create a ComboBox (dropdown) and set its properties
-$comboBox = New-Object System.Windows.Forms.ComboBox
-#$comboBox.Location = New-Object System.Drawing.Point(110, 50)  # Centered horizontally - REMOVE THIS LINE
-$comboBox.Size = New-Object System.Drawing.Size ([Math]::Round(200 * $scaleX), [Math]::Round(25 * $scaleY)) # set the size of combobox
-$comboBox.Items.AddRange(@('Low Free Space','Windows Performance'))  # Add items to the dropdown
-$comboBox.DropDownStyle = 'DropDown' # Allow text editing in the ComboBox
-# Calculate the horizontal center for the ComboBox
-$combobox_width = $comboBox.Size.Width
-$combobox_x = [Math]::Round(($main_form.ClientSize.Width - $combobox_width) / 2)
-$combobox_y = [Math]::Round( 50 * $scaleY ) # set padding from top
-$comboBox.Location = New-Object System.Drawing.Point($combobox_x, $combobox_y)
-# Set the font size (keep the default font family)
-$defaultFont = $comboBox.Font  # Get the default font
-$comboBox.Font = New-Object System.Drawing.Font($defaultFont.FontFamily, [Math]::Round(11 * $scaleY))  # Change only the size to 12
-$comboBox.Text = "------------------------------"
-# Enable AutoComplete functionality
-$comboBox.AutoCompleteMode = 'SuggestAppend'  # Suggest matching items and append the rest
-$comboBox.AutoCompleteSource = 'ListItems'    # Use items from the ComboBox's list for suggestions
-# Add key event handler for Ctrl+A and Ctrl+C
-$comboBox.Add_KeyDown({
-    param($sender, $e)
-    if ($e.Control -and $e.KeyCode -eq [System.Windows.Forms.Keys]::A) {
-        # Select all text in the ComboBox
-        $comboBox.SelectAll()
-        $e.SuppressKeyPress = $true
-    }
-    if ($e.KeyCode -eq [System.Windows.Forms.Keys]::Enter) {
-        $okButton.PerformClick()
-        $e.SuppressKeyPress = $true  # Prevents the "ding" sound
-    }
-    elseif ($e.Control -and $e.KeyCode -eq [System.Windows.Forms.Keys]::C) {
-        # Copy selected text to clipboard
-        if ($comboBox.SelectedText) {
-            [System.Windows.Forms.Clipboard]::SetText($comboBox.SelectedText)
-        } else {
-            [System.Windows.Forms.Clipboard]::SetText($comboBox.Text)
-        }
-        $e.SuppressKeyPress = $true
-    }
-})
- 
-# Create OK Button
-$okButton = New-Object System.Windows.Forms.Button
-$okButton.Text = 'OK'
-#$okButton.Location = New-Object System.Drawing.Point(120, 100) # Positioning below the dropdown
-$okButton.Size = New-Object System.Drawing.Size([Math]::Round(80 * $scaleX), [Math]::Round(30 * $scaleY))  # Fixed size for consistency
 
 
-# Add Click event  to execute the selected script using a switch statement
-$okButton.Add_Click({
-    $selectedValue = $comboBox.Text
-    switch ($selectedValue) {        "------------------------------" {
-            [System.Windows.Forms.MessageBox]::Show(
-                "Please select a script from the dropdown.",
-                "Information",
-                [System.Windows.Forms.MessageBoxButtons]::OK,
-                [System.Windows.Forms.MessageBoxIcon]::Information
-            )
-            return
-        }
-        "Low Free Space" {
-            . (Join-Path $PSScriptRoot "..\Scripts\LowFreeSpace\LowFreeSpace.ps1") -ADM_Credential $script:ADM_Credential -JumpHost $script:JumpHost
-        }
-        "Windows Performance" {
-            . (Join-Path $PSScriptRoot "..\Scripts\WindowsPerformance\WindowsPerformance.ps1") -ADM_Credential $script:ADM_Credential -JumpHost $script:JumpHost
-        }
-        default {
-            [System.Windows.Forms.MessageBox]::Show(
-                "No script is associated with the selection '$selectedValue'.",
-                "Error",
-                [System.Windows.Forms.MessageBoxButtons]::OK,
-                [System.Windows.Forms.MessageBoxIcon]::Error
-            )
-            return}
-    }
-})
 
-# Create Cancel Button
-$cancelButton = New-Object System.Windows.Forms.Button
-$cancelButton.Text = 'Cancel'
-#$cancelButton.Location = New-Object System.Drawing.Point(220, 100) # Positioning next to the OK button
-$cancelButton.Size = New-Object System.Drawing.Size([Math]::Round(80 * $scaleX), [Math]::Round(30 * $scaleY))  # Fixed size matching OK button
-$cancelButton.BackColor = [System.Drawing.Color]::LightCoral
-$cancelButton.Add_Click({ $main_form.Dispose() })  # Close the form when Cancel is clicked
-
-# Calculate horizontal positions for centered alignment
-$buttonWidth = $okButton.Size.Width
-$spaceBetween = 25 * $scaleX  # Space between buttons
-$totalWidth = ($buttonWidth * 2) + $spaceBetween
-$startX = ($main_form.ClientSize.Width - $totalWidth) / 2
-
-# Position buttons
-$okButton.Location = New-Object System.Drawing.Point($startX, [Math]::Round(100 * $scaleY))
-$cancelButton.Location = New-Object System.Drawing.Point(($startX + $buttonWidth + $spaceBetween), [Math]::Round(100 * $scaleY))
-
-# Add controls to the form
-$main_form.Controls.Add($comboBox)
-$main_form.Controls.Add($okButton)
-$main_form.Controls.Add($cancelButton)
-
-# Show the form as a dialog
-$bitwarden_form.ShowDialog()
-
-
-if ($script:ADM_Credential -and $script:JumpHost) {
-    # Close the Bitwarden form after authentication
-    $bitwarden_form.Close()
-    $bitwarden_form.Dispose()  # Dispose of the Bitwarden form to free resources
-    
-    # Show the main form after Bitwarden authentication
-    $main_form.ShowDialog()
-}

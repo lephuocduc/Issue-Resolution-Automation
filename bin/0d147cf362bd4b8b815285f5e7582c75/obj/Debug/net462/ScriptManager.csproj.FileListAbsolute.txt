@@ -1,0 +1,6 @@
+E:\Automation Project 2\bin\0d147cf362bd4b8b815285f5e7582c75\obj\Debug\net462\ScriptManager.csproj.AssemblyReference.cache
+E:\Automation Project 2\bin\0d147cf362bd4b8b815285f5e7582c75\obj\Debug\net462\ScriptManager.GeneratedMSBuildEditorConfig.editorconfig
+E:\Automation Project 2\bin\0d147cf362bd4b8b815285f5e7582c75\obj\Debug\net462\ScriptManager.AssemblyInfoInputs.cache
+E:\Automation Project 2\bin\0d147cf362bd4b8b815285f5e7582c75\obj\Debug\net462\ScriptManager.AssemblyInfo.cs
+E:\Automation Project 2\bin\0d147cf362bd4b8b815285f5e7582c75\obj\Debug\net462\ScriptManager.csproj.CoreCompileInputs.cache
+E:\Automation Project 2\bin\0d147cf362bd4b8b815285f5e7582c75\obj\Debug\net462\ScriptManager.sourcelink.json

@@ -2,7 +2,6 @@
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
-<#
 # Import all the modules !@#$%^
 . (Join-Path $PSScriptRoot "..\Modules\Clear-SystemCache.psm1")
 . (Join-Path $PSScriptRoot "..\Modules\Compress-IISLogs.psm1")
@@ -19,9 +18,7 @@ Add-Type -AssemblyName System.Drawing
 . (Join-Path $PSScriptRoot "..\Modules\Test-ReportFileCreation.psm1")
 . (Join-Path $PSScriptRoot "..\Modules\Test-ServerAvailability.psm1")
 . (Join-Path $PSScriptRoot "..\Modules\Write-Log.psm1")
-. (Join-Path $PSScriptRoot "..\Modules\Write-WindowsEventLog.psm1")#>
-
-$localModulesPath = Join-Path -Path $PSScriptRoot -ChildPath "..\Modules"
+. (Join-Path $PSScriptRoot "..\Modules\Write-WindowsEventLog.psm1")
 
 # Import the Get-BitwardenAuthentication module
 Import-Module -Name $PSScriptRoot\Get-BitwardenAuthentication.psm1 -Force
@@ -169,6 +166,54 @@ $bitwarden_form.Add_Shown({
                         $session = Get-Session -serverName $jumpHost -Credential $script:ADM_Credential
                         if ($session) {
                             $script:JumpHost = $jumpHost
+
+                            # 1. Define the correct path to your modules
+                            $localModulesPath = Join-Path -Path $PSScriptRoot -ChildPath "..\Modules"
+
+                            # Check if the path actually exists before trying to copy
+                            if (-not (Test-Path $localModulesPath)) {
+                                Write-Log "Local modules path '$localModulesPath' does not exist." -Level "Error"
+                                return
+                            }
+
+                            # 2. Get all .psm1 files
+                            $moduleFiles = Get-ChildItem -Path $localModulesPath -Filter *.psm1
+
+                            foreach ($file in $moduleFiles) {
+                                $moduleName = $file.BaseName
+                                # Define the destination path on the remote server
+                                $remoteBaseDir = "C:\Program Files\WindowsPowerShell\Modules"
+                                $remoteModuleDir = "$remoteBaseDir\$moduleName"
+                                
+                                Write-Log "Copying module '$moduleName' to $jumpHost`:$remoteModuleDir"
+
+                                # 3. Create the directory on the remote host if it doesn't exist
+                                # We use Invoke-Command because Copy-Item fails if the destination folder isn't there.
+                                Invoke-Command -Session $session -ArgumentList $remoteModuleDir -ScriptBlock {
+                                    param($targetDir)
+                                    if (-not (Test-Path -Path $targetDir)) {
+                                        New-Item -Path $targetDir -ItemType Directory -Force | Out-Null
+                                        Write-Log "Created directory $targetDir on remote host." -Level "Info"
+                                    }
+                                }
+
+                                # 4. Copy the file to the session
+                                # Destination must include the filename because we are copying a file to a folder
+                                try {
+                                    Copy-Item -Path $file.FullName -Destination "$remoteModuleDir\$($file.Name)" -ToSession $session -Force -ErrorAction Stop
+                                    Write-Log "Successfully copied $($file.Name) to $jumpHost`:$remoteModuleDir" -Level "Info"
+                                }
+                                catch {
+                                    Write-Log "Failed to copy $($file.Name) to $jumpHost`:$remoteModuleDir. Error: $_" -Level "Error"
+                                    [System.Windows.Forms.MessageBox]::Show(
+                                        "Error, check logs for details.",
+                                        "Error",
+                                        [System.Windows.Forms.MessageBoxButtons]::OK,
+                                        [System.Windows.Forms.MessageBoxIcon]::Error
+                                    )
+
+                                }
+                            }
                             Remove-PSSession -Session $session -ErrorAction SilentlyContinue
                             break  # Exit the loop if a session is successfully created
                         }
@@ -293,10 +338,10 @@ $okButton.Add_Click({
             return
         }
         "Low Free Space" {
-            . (Join-Path $PSScriptRoot "..\Scripts\LowFreeSpace\LowFreeSpace.ps1") -ADM_Credential $script:ADM_Credential -JumpHost $script:JumpHost -ModuleContents $script:ModuleContents
+            . (Join-Path $PSScriptRoot "..\Scripts\LowFreeSpace\LowFreeSpace.ps1") -ADM_Credential $script:ADM_Credential -JumpHost $script:JumpHost
         }
         "Windows Performance" {
-            . (Join-Path $PSScriptRoot "..\Scripts\WindowsPerformance\WindowsPerformance.ps1") -ADM_Credential $script:ADM_Credential -JumpHost $script:JumpHost -ModuleContents $script:ModuleContents
+            . (Join-Path $PSScriptRoot "..\Scripts\WindowsPerformance\WindowsPerformance.ps1") -ADM_Credential $script:ADM_Credential -JumpHost $script:JumpHost
         }
         default {
             [System.Windows.Forms.MessageBox]::Show(
@@ -344,6 +389,7 @@ if ($script:ADM_Credential -and $script:JumpHost) {
     # Show the main form after Bitwarden authentication
     $main_form.ShowDialog()
 }
+
 
 
 

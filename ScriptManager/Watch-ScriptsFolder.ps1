@@ -64,7 +64,7 @@ function Update-ChildScripts {
             $switchCases += @"
 
         "$($script.DisplayName)" {
-            . (Join-Path `$PSScriptRoot "..\Scripts\$($script.Folder)\$($script.Name).ps1") -ADM_Credential `$script:ADM_Credential -JumpHost `$script:JumpHost -ModuleContents `$script:ModuleContents
+            . (Join-Path `$PSScriptRoot "..\Scripts\$($script.Folder)\$($script.Name).ps1") -ADM_Credential `$script:ADM_Credential -JumpHost `$script:JumpHost
         }
 "@
         }

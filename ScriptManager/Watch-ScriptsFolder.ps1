@@ -96,45 +96,51 @@ function Update-ChildScripts {
 
 function Update-ModuleScripts {
     try {
-        # 1. Get the module files
-        $moduleFiles = Get-ChildItem -Path $modulesPath -Filter "*.psm1" -File
+        $scriptObjects = Get-ChildItem -Path $modulesPath -Filter "*.psm1" -File | 
+            Select-Object @{
+                Name = 'Name'
+                Expression = { $_.Name } 
+            }
         
-        if (-not $moduleFiles) {
-            Write-Warning "No .psm1 files found in folder."
+        if ($scriptObjects.Count -eq 0) {
+            Write-Warning "Still found 0 files. Check that `dev:modulesPath` points to the correct folder."
             return
         }
 
-        # Build the list: 'Name.psm1', (with trailing commas except last, or just simple list)
-        # Note: PowerShell arrays @( ) handle trailing commas fine.
-        $newModuleList = $moduleFiles | ForEach-Object { "    ""$($_.Name)""" } 
-        $joinedModules = ($newModuleList -join ",`r`n")
+        Write-Host "Found $($scriptObjects.Count) module files."
 
-        # 2. Read content
-        if (-not (Test-Path $scriptManagerPath)) { throw "Path not found." }
+        # 2. Build the new import block string
+        # Note: We removed '$($_.Folder)' because your files are not in subfolders.
+        $newImportString = $scriptObjects | ForEach-Object {
+            ". (Join-Path `$PSScriptRoot ""..\Modules\$($_.Name)"")"
+        } | Out-String
+
+        $newImportString = $newImportString.TrimEnd()
+
+        # 3. Read content
         $content = Get-Content $scriptManagerPath -Raw
 
-        # 3. THE FIX: Using Single Quotes to prevent PowerShell variable expansion
-        # We escape the $ for Regex (\$), but keep the string literal (')
-        $pattern = '(?s)(\$ModuleList\s*=\s*@\()(.*?)(\))'
+        # 4. The Regex Logic
+        $marker  = [Regex]::Escape("# Import all the modules !@#$%^")
         
-        # In the replacement string, we use backticks to escape the $ for PowerShell
-        # so that Regex sees $1 and $3 as backreferences.
-        $replacement = "`$1`r`n$joinedModules`r`n`$3"
+        # Pattern: Match marker -> lazily match content -> stop at blank line
+        $pattern = "(?s)($marker).*?(?=\r?\n\s*\r?\n)"
+        
+        $replacement = "`$1`r`n$newImportString"
 
         if ($content -match $pattern) {
             $content = $content -replace $pattern, $replacement
             $content | Set-Content $scriptManagerPath -Force
-            Write-Host "Success: Updated $($moduleFiles.Count) modules in `$ModuleList." -ForegroundColor Green
+            Write-Host "Success: Modules import block updated." -ForegroundColor Green
         }
         else {
-            Write-Warning "Could not find the array definition: `$ModuleList = @( )"
-            Write-Host "Debug: Ensure your file has exactly: `$ModuleList = @(" -ForegroundColor Gray
+            Write-Warning "Could not find the marker '# Import all the modules !@#$%^' followed by a blank line."
         }
     }
     catch {
-        Write-Error "Error: $($_.Exception.Message)"
+        Write-Error "Error updating Module Scripts: $_"
     }    
 }
 # Execute update
 Update-ChildScripts
-#Update-ModuleScripts
+Update-ModuleScripts

@@ -96,52 +96,48 @@ function Update-ChildScripts {
 
 function Update-ModuleScripts {
     try {
-        $scriptObjects = Get-ChildItem -Path $modulesPath -Filter "*.psm1" -File | 
-            Select-Object @{
-                Name = 'Name'
-                Expression = { $_.Name } 
-            }
-        
-        if ($scriptObjects.Count -eq 0) {
-            Write-Warning "Still found 0 files. Check that `dev:modulesPath` points to the correct folder."
+        if (-not (Test-Path $modulesPath)) {
+            Write-Warning "Modules path '$modulesPath' does not exist."
             return
         }
 
-        Write-Host "Found $($scriptObjects.Count) module files."
+        $moduleNames = Get-ChildItem -Path $modulesPath -Filter '*.psm1' -File |
+                       Sort-Object BaseName |
+                       ForEach-Object { $_.BaseName }
 
-        # 2. Build the new import block string
-        # Note: We removed '$($_.Folder)' because your files are not in subfolders.
-        $newImportString = $scriptObjects | ForEach-Object {
-            ". (Join-Path `$PSScriptRoot ""..\Modules\$($_.Name)"")"
-            "Import-Module ""`$PSScriptRoot\..\Modules\$($_.Name)"" -Force"
-        } | Out-String
+        if (-not $moduleNames -or $moduleNames.Count -eq 0) {
+            Write-Warning "No .psm1 files found in '$modulesPath'."
+            return
+        }
 
-        $newImportString = $newImportString.TrimEnd()
+        # Build array lines with no blank line after the opening '@('
+        $items = $moduleNames | ForEach-Object { "    `"" + $_ + "`"," }
+        # Remove trailing comma from last item for neat formatting
+        $items[-1] = $items[-1].TrimEnd(',')
 
-        # 3. Read content
-        $content = Get-Content $scriptManagerPath -Raw
+        # New block: no blank line immediately after '@('
+        $newBlock = '$modules = @(' + "`r`n" + ($items -join "`r`n") + "`r`n)"
 
-        # 4. The Regex Logic
-        $marker  = [Regex]::Escape("# Import all the modules !@#$%^")
-        
-        # Pattern: Match marker -> lazily match content -> stop at blank line
-        $pattern = "(?s)($marker).*?(?=\r?\n\s*\r?\n)"
-        
-        $replacement = "`$1`r`n$newImportString"
+        # Read file
+        $content = Get-Content -Path $scriptManagerPath -Raw -ErrorAction Stop
 
-        if ($content -match $pattern) {
-            $content = $content -replace $pattern, $replacement
-            $content | Set-Content $scriptManagerPath -Force
-            Write-Host "Success: Modules import block updated." -ForegroundColor Green
+        # Find existing $modules block (singleline / dotall) and replace it safely
+        $moduleBlockPattern = '(?s)\$modules\s*=\s*@\(\s*.*?\s*\)'
+        $match = [regex]::Match($content, $moduleBlockPattern)
+
+        if ($match.Success) {
+            $content = $content.Replace($match.Value, $newBlock)
+            Set-Content -Path $scriptManagerPath -Value $content -Force -Encoding UTF8
+            Write-Host "Success: $scriptManagerPath updated with $($moduleNames.Count) modules." -ForegroundColor Green
         }
         else {
-            Write-Warning "Could not find the marker '# Import all the modules !@#$%^' followed by a blank line."
+            Write-Warning "Could not find a `$modules = @(...)` block to replace in '$scriptManagerPath'."
         }
     }
     catch {
         Write-Error "Error updating Module Scripts: $_"
-    }    
+    }
 }
 # Execute update
 Update-ChildScripts
-#Update-ModuleScripts
+Update-ModuleScripts

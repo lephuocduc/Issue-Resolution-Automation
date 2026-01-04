@@ -1,8 +1,27 @@
-# Load the necessary assembly for Windows Forms
+﻿# Load the necessary assembly for Windows Forms
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
-<#
+# Modules names
+$modules = @(
+    "Clear-SystemCache",
+    "Compress-IISLogs",
+    "Export-DiskReport",
+    "Get-DiskSpaceDetails",
+    "Get-PerformanceMetrics",
+    "Get-Session",
+    "Get-SystemUptime",
+    "Get-TopCPUProcesses",
+    "Get-TopItems",
+    "Get-TopMemoryProcesses",
+    "Show-PerformanceDashboard",
+    "Test-DiskAvailability",
+    "Test-ReportFileCreation",
+    "Test-ServerAvailability",
+    "Write-Log",
+    "Write-WindowsEventLog"
+)
+
 # Import all the modules !@#$%^
 . (Join-Path $PSScriptRoot "..\Modules\Clear-SystemCache.psm1")
 Import-Module "$PSScriptRoot\..\Modules\Clear-SystemCache.psm1" -Force
@@ -36,11 +55,12 @@ Import-Module "$PSScriptRoot\..\Modules\Test-ServerAvailability.psm1" -Force
 Import-Module "$PSScriptRoot\..\Modules\Write-Log.psm1" -Force
 . (Join-Path $PSScriptRoot "..\Modules\Write-WindowsEventLog.psm1")
 Import-Module "$PSScriptRoot\..\Modules\Write-WindowsEventLog.psm1" -Force
-#>
 
-Import-Module ".\Get-Session.psm1" -Force
+$temp = Get-Module -Name "Write-Log" | Select-Object -ExpandProperty Description
+[System.Windows.Forms.MessageBox]::Show("Path of the Write-Log module: $temp","Info",[System.Windows.Forms.MessageBoxButtons]::OK,[System.Windows.Forms.MessageBoxIcon]::Information)
+
 # Import the Get-BitwardenAuthentication module
-Import-Module -Name $PSScriptRoot\Get-BitwardenAuthentication.psm1 -Force
+Import-Module -Name "$PSScriptRoot\Get-BitwardenAuthentication.psm1" -Force
 
 $script:ADM_Credential = $null
 $CurrentUser = ([System.Security.Principal.WindowsIdentity]::GetCurrent().Name)
@@ -420,6 +440,18 @@ if ($script:ADM_Credential -and $script:JumpHost) {
     # Show the main form after Bitwarden authentication
     $main_form.ShowDialog()
 }
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

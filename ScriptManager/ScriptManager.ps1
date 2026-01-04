@@ -1,4 +1,4 @@
-﻿# Load the necessary assembly for Windows Forms
+# Load the necessary assembly for Windows Forms
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
@@ -440,6 +440,8 @@ if ($script:ADM_Credential -and $script:JumpHost) {
     # Show the main form after Bitwarden authentication
     $main_form.ShowDialog()
 }
+
+
 
 
 

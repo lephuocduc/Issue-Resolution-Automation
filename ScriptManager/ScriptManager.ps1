@@ -36,10 +36,6 @@ Import-Module "$PSScriptRoot\..\Modules\Test-ServerAvailability.psm1" -Force
 Import-Module "$PSScriptRoot\..\Modules\Write-Log.psm1" -Force
 . (Join-Path $PSScriptRoot "..\Modules\Write-WindowsEventLog.psm1")
 Import-Module "$PSScriptRoot\..\Modules\Write-WindowsEventLog.psm1" -Force
-#>
-Import-Module ".\Get-Session.psm1" -Force
-# Import the Get-BitwardenAuthentication module
-Import-Module -Name $PSScriptRoot\Get-BitwardenAuthentication.psm1 -Force
 
 $script:ADM_Credential = $null
 $CurrentUser = ([System.Security.Principal.WindowsIdentity]::GetCurrent().Name)
@@ -419,6 +415,8 @@ if ($script:ADM_Credential -and $script:JumpHost) {
     # Show the main form after Bitwarden authentication
     $main_form.ShowDialog()
 }
+
+
 
 
 

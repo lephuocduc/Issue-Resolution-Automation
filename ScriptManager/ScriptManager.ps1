@@ -37,7 +37,7 @@ Import-Module "$PSScriptRoot\..\Modules\Write-Log.psm1" -Force
 . (Join-Path $PSScriptRoot "..\Modules\Write-WindowsEventLog.psm1")
 Import-Module "$PSScriptRoot\..\Modules\Write-WindowsEventLog.psm1" -Force
 #>
-Import-Module "..\Modules\Get-Session.psm1" -Force
+Import-Module ".\Get-Session.psm1" -Force
 # Import the Get-BitwardenAuthentication module
 Import-Module -Name $PSScriptRoot\Get-BitwardenAuthentication.psm1 -Force
 

@@ -3,7 +3,164 @@ Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
 # Content of all modules are copied to the remote jump host before executing any script.
-$Content = @()
+$Content = {
+function Clear-SystemCache {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory)]
+        [System.Management.Automation.Runspaces.PSSession]$session
+    )
+
+    try {
+        Write-Host "Starting to clear system cache"
+        $ScriptBlock = {
+            # Define cache locations and configurations
+            $cacheConfigs = @(
+                @{ 
+                    Name = "Windows Update cache"
+                    Path = "C:\Windows\SoftwareDistribution\Download\*"
+                },
+                @{ 
+                    Name = "Windows Installer patch cache"
+                    Path = "C:\Windows\Installer\$PatchCache$\*"
+                },
+                @{ 
+                    Name = "SCCM cache"
+                    Path = 'C:\Windows\ccmcache\*' 
+                },
+                @{ 
+                    Name = "Windows Temp files"
+                    Path = "C:\Windows\Temp\*"
+                }
+            )
+
+            $daysOld = 5
+            $cutoffDate = (Get-Date).AddDays(-$daysOld)
+
+            # Process all file-based caches
+            foreach ($config in $cacheConfigs) {
+                try {
+                    Write-Host "`nProcessing $($config.Name)..."
+                    
+                    if (-not (Test-Path -Path $config.Path -ErrorAction SilentlyContinue)) {
+                        Write-Host "$($config.Name) not found - Skipping" -ForegroundColor Yellow
+                        continue
+                    }
+
+                    $filesToDelete = Get-ChildItem -Path $config.Path -Recurse -Force -ErrorAction SilentlyContinue |
+                        Where-Object { $_.LastWriteTime -lt $cutoffDate }
+
+                    if (-not $filesToDelete) {
+                        Write-Host "No expired files found in $($config.Name)"
+                        continue
+                    }
+
+                    Write-Host "Found $($filesToDelete.Count) files to delete:"
+                    $successCount = 0
+                    $errorCount = 0
+
+                    foreach ($file in $filesToDelete) {
+                        try {
+                            Remove-Item -Path $file.FullName -Force -Recurse -ErrorAction Stop
+                            Write-Host "  Deleted: $($file.FullName)" -ForegroundColor Green
+                            $successCount++
+                        }
+                        catch {
+                            Write-Host "  Error deleting: $($file.FullName)" -ForegroundColor Red
+                            Write-Host "    Reason: $($_.Exception.Message)" -ForegroundColor Red
+                            $errorCount++
+                        }
+                    }
+                    
+                    Write-Host "`n$($config.Name) results: $successCount deleted, $errorCount errors" -ForegroundColor Cyan
+                }
+                catch {
+                    Write-Host "Error processing $($config.Name): $_" -ForegroundColor Red
+                }
+            }
+
+            # Process Recycle Bin separately
+            try {
+                Write-Host "`nClearing Recycle Bin..."
+                Clear-RecycleBin -Force -ErrorAction Stop
+                Write-Host "Recycle Bin cleared" -ForegroundColor Green
+            }
+            catch {
+                Write-Host "Error clearing Recycle Bin: $_" -ForegroundColor Red
+            }
+        }
+        
+        Invoke-Command -Session $session -ScriptBlock $ScriptBlock
+        Write-Host "`nCache clearing operation completed" -ForegroundColor Cyan
+    }
+    catch {
+        Write-Host "Error clearing system cache: $_" -ForegroundColor Red
+    }
+}
+
+function Compress-IISLogs {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory)]
+        [System.Management.Automation.Runspaces.PSSession]$session,
+        [string]$IISLogPath = "C:\inetpub\logs\LogFiles",
+        [string]$ArchivePath = "C:\inetpub\logs\Archive"
+    )
+
+    try {
+        $ScriptBlock = {
+            param($IISLogPath, $ArchivePath)
+
+            # Ensure the archive directory exists
+            try {
+                if (Test-Path -Path $IISLogPath) {
+                    Write-Host "IIS log path exists: $IISLogPath"
+                    if (-not (Test-Path -Path $ArchivePath)) {
+                        Write-Host "Creating archive path: $ArchivePath"
+                        New-Item -Path $ArchivePath -ItemType Directory -Force | Out-Null
+                    }
+                    else {
+                        Write-Host "Archive path already exists: $ArchivePath"
+                    }
+                    $OldLogs = Get-ChildItem -Path "$IISLogPath\*" -Recurse -Force |
+                        Where-Object { $_.LastWriteTime -lt (Get-Date).AddMonths(-6) }
+
+                    Write-Host "Found $($OldLogs.Count) old log(s) to process"
+
+                    # Then process the files
+                    foreach ($Log in $OldLogs) {                    
+                        try {
+                            $ArchiveFileName = "$ArchivePath\$($Log.Name).zip"
+                            Compress-Archive -Path $Log.FullName -DestinationPath $ArchiveFileName -Update -ErrorAction SilentlyContinue
+                            if (Test-Path -Path $ArchiveFileName) {
+                                Write-Host "Compressed IIS log file: $($Log.FullName) to $ArchiveFileName"
+                                Remove-Item -Path $Log.FullName -Force -Verbose -ErrorAction SilentlyContinue
+                                if ((Test-Path -Path $Log.FullName)) {
+                                    Write-Host "Error removing log file: $($Log.FullName)"
+                                }else {
+                                    Write-Host "Removed log file: $($Log.FullName)"
+                                }
+                            }
+                        } catch {
+                            Write-Host "Error compressing or removing log file: $($Log.FullName). Error: $_"
+                        }
+                    }
+                } else {
+                    Write-Host "IIS log path not found: $IISLogPath"
+                }
+            } catch {
+                return "Error processing Compress-IISLogs: $_"
+            }
+        }
+
+        Invoke-Command -Session $session -ScriptBlock $ScriptBlock -ArgumentList $IISLogPath, $ArchivePath
+    }
+    catch {
+        return "Error executing Compress-IISLogs: $_"
+    }
+}
+
+}
 
 Write-Host $Content
 <#

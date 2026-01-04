@@ -57,9 +57,6 @@ Import-Module "$PSScriptRoot\..\Modules\Write-Log.psm1" -Force
 Import-Module "$PSScriptRoot\..\Modules\Write-WindowsEventLog.psm1" -Force
 #>
 
-$Content = @(Get-Content -Path "$PSScriptRoot\..\Modules\Write-Log.psm1" -ErrorAction Stop)
-[System.Windows.Forms.MessageBox]::Show($Content -join "`r`n")
-
 # Import the Get-BitwardenAuthentication module
 Import-Module "$PSScriptRoot\Get-BitwardenAuthentication.psm1" -Force
 
@@ -441,6 +438,7 @@ if ($script:ADM_Credential -and $script:JumpHost) {
     # Show the main form after Bitwarden authentication
     $main_form.ShowDialog()
 }
+
 
 
 

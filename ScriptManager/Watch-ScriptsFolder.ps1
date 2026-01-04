@@ -138,6 +138,57 @@ function Update-ModuleScripts {
         Write-Error "Error updating Module Scripts: $_"
     }
 }
+
+function New-ScriptPackage {
+    [CmdletBinding()]
+    param()
+
+    # Define paths relative to this script's location ($PSScriptRoot)
+    $OutputFilePath = Join-Path -Path $PSScriptRoot -ChildPath "package.ps1"
+    $ModulesPath    = Join-Path -Path $PSScriptRoot -ChildPath "..\Modules"
+    $MainScriptPath = Join-Path -Path $PSScriptRoot -ChildPath "ScriptManager.ps1"
+
+    Write-Host "Building package at: $OutputFilePath" -ForegroundColor Cyan
+
+    # 1. Initialize package.ps1 with the start of the ScriptBlock
+    '$Content = {' | Set-Content -Path $OutputFilePath -Force
+
+    # 2. Inject all .psm1 modules into the ScriptBlock
+    if (Test-Path -Path $ModulesPath) {
+        $ModuleFiles = Get-ChildItem -Path $ModulesPath -Filter "*.psm1"
+        
+        foreach ($file in $ModuleFiles) {
+            Write-Host "  Bundling module: $($file.Name)" -ForegroundColor Gray
+            
+            # Add a comment for readability in the final file
+            Add-Content -Path $OutputFilePath -Value "`n    # --- Module: $($file.Name) ---"
+            
+            # Append the module content
+            Get-Content -Path $file.FullName | Add-Content -Path $OutputFilePath
+        }
+    }
+    else {
+        Write-Warning "Modules folder not found at: $ModulesPath"
+    }
+
+    # Close the ScriptBlock
+    Add-Content -Path $OutputFilePath -Value "`n}"
+
+    # 3. Append the Main ScriptManager content
+    if (Test-Path -Path $MainScriptPath) {
+        Write-Host "  Appending main script: ScriptManager.ps1" -ForegroundColor Gray
+        
+        Add-Content -Path $OutputFilePath -Value "`n# --- Main Script ---"
+        Get-Content -Path $MainScriptPath | Add-Content -Path $OutputFilePath
+    }
+    else {
+        Write-Error "ScriptManager.ps1 not found at: $MainScriptPath"
+    }
+
+    Write-Host "Build Complete." -ForegroundColor Green
+}
+
 # Execute update
 Update-ChildScripts
 #Update-ModuleScripts
+New-ScriptPackage

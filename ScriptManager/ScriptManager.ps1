@@ -1,4 +1,4 @@
-# Load the necessary assembly for Windows Forms
+﻿# Load the necessary assembly for Windows Forms
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
@@ -59,6 +59,8 @@ Import-Module "$PSScriptRoot\..\Modules\Write-WindowsEventLog.psm1" -Force
 $temp = Get-Module -Name "Write-Log" | Select-Object -ExpandProperty Description
 [System.Windows.Forms.MessageBox]::Show("Path of the Write-Log module: $temp","Info",[System.Windows.Forms.MessageBoxButtons]::OK,[System.Windows.Forms.MessageBoxIcon]::Information)
 
+$temp2= Get-Content (Get-Module -Name "Write-Log").Path
+[System.Windows.Forms.MessageBox]::Show("Content of the Write-Log module:`n $temp2","Info",[System.Windows.Forms.MessageBoxButtons]::OK,[System.Windows.Forms.MessageBoxIcon]::Information)
 # Import the Get-BitwardenAuthentication module
 Import-Module -Name "$PSScriptRoot\Get-BitwardenAuthentication.psm1" -Force
 

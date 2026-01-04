@@ -1,65 +1,12 @@
-﻿# Load the necessary assembly for Windows Forms
+# Load the necessary assembly for Windows Forms
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
-# Modules names
-$modules = @(
-    "Clear-SystemCache",
-    "Compress-IISLogs",
-    "Export-DiskReport",
-    "Get-DiskSpaceDetails",
-    "Get-PerformanceMetrics",
-    "Get-Session",
-    "Get-SystemUptime",
-    "Get-TopCPUProcesses",
-    "Get-TopItems",
-    "Get-TopMemoryProcesses",
-    "Show-PerformanceDashboard",
-    "Test-DiskAvailability",
-    "Test-ReportFileCreation",
-    "Test-ServerAvailability",
-    "Write-Log",
-    "Write-WindowsEventLog"
-)
+# Content of all modules are copied to the remote jump host before executing any script.
+$Content = @()
+
+Write-Host $Content
 <#
-# Import all the modules !@#$%^
-. (Join-Path $PSScriptRoot "..\Modules\Clear-SystemCache.psm1")
-Import-Module "$PSScriptRoot\..\Modules\Clear-SystemCache.psm1" -Force
-. (Join-Path $PSScriptRoot "..\Modules\Compress-IISLogs.psm1")
-Import-Module "$PSScriptRoot\..\Modules\Compress-IISLogs.psm1" -Force
-. (Join-Path $PSScriptRoot "..\Modules\Export-DiskReport.psm1")
-Import-Module "$PSScriptRoot\..\Modules\Export-DiskReport.psm1" -Force
-. (Join-Path $PSScriptRoot "..\Modules\Get-DiskSpaceDetails.psm1")
-Import-Module "$PSScriptRoot\..\Modules\Get-DiskSpaceDetails.psm1" -Force
-. (Join-Path $PSScriptRoot "..\Modules\Get-PerformanceMetrics.psm1")
-Import-Module "$PSScriptRoot\..\Modules\Get-PerformanceMetrics.psm1" -Force
-. (Join-Path $PSScriptRoot "..\Modules\Get-Session.psm1")
-Import-Module "$PSScriptRoot\..\Modules\Get-Session.psm1" -Force
-. (Join-Path $PSScriptRoot "..\Modules\Get-SystemUptime.psm1")
-Import-Module "$PSScriptRoot\..\Modules\Get-SystemUptime.psm1" -Force
-. (Join-Path $PSScriptRoot "..\Modules\Get-TopCPUProcesses.psm1")
-Import-Module "$PSScriptRoot\..\Modules\Get-TopCPUProcesses.psm1" -Force
-. (Join-Path $PSScriptRoot "..\Modules\Get-TopItems.psm1")
-Import-Module "$PSScriptRoot\..\Modules\Get-TopItems.psm1" -Force
-. (Join-Path $PSScriptRoot "..\Modules\Get-TopMemoryProcesses.psm1")
-Import-Module "$PSScriptRoot\..\Modules\Get-TopMemoryProcesses.psm1" -Force
-. (Join-Path $PSScriptRoot "..\Modules\Show-PerformanceDashboard.psm1")
-Import-Module "$PSScriptRoot\..\Modules\Show-PerformanceDashboard.psm1" -Force
-. (Join-Path $PSScriptRoot "..\Modules\Test-DiskAvailability.psm1")
-Import-Module "$PSScriptRoot\..\Modules\Test-DiskAvailability.psm1" -Force
-. (Join-Path $PSScriptRoot "..\Modules\Test-ReportFileCreation.psm1")
-Import-Module "$PSScriptRoot\..\Modules\Test-ReportFileCreation.psm1" -Force
-. (Join-Path $PSScriptRoot "..\Modules\Test-ServerAvailability.psm1")
-Import-Module "$PSScriptRoot\..\Modules\Test-ServerAvailability.psm1" -Force
-. (Join-Path $PSScriptRoot "..\Modules\Write-Log.psm1")
-Import-Module "$PSScriptRoot\..\Modules\Write-Log.psm1" -Force
-. (Join-Path $PSScriptRoot "..\Modules\Write-WindowsEventLog.psm1")
-Import-Module "$PSScriptRoot\..\Modules\Write-WindowsEventLog.psm1" -Force
-#>
-
-$Content = @(Get-Content -Path "$PSScriptRoot\..\Modules\Write-Log.psm1" -ErrorAction Stop)
-[System.Windows.Forms.MessageBox]::Show($Content -join "`r`n")
-
 # Import the Get-BitwardenAuthentication module
 Import-Module "$PSScriptRoot\Get-BitwardenAuthentication.psm1" -Force
 
@@ -160,7 +107,7 @@ foreach ($screen in $screens) {
         $scaleY = $screenHeight / $designHeight
     }
 }#>
-
+<#
 # Bitwarden form
 $bitwarden_form = New-Object System.Windows.Forms.Form
 $bitwarden_form.Text = "Script Manager - Checking"
@@ -440,30 +387,4 @@ if ($script:ADM_Credential -and $script:JumpHost) {
     
     # Show the main form after Bitwarden authentication
     $main_form.ShowDialog()
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+}#>

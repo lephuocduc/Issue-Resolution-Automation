@@ -1219,60 +1219,7 @@ function Write-WindowsEventLog {
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
-# Modules names
-$modules = @(
-    "Clear-SystemCache",
-    "Compress-IISLogs",
-    "Export-DiskReport",
-    "Get-DiskSpaceDetails",
-    "Get-PerformanceMetrics",
-    "Get-Session",
-    "Get-SystemUptime",
-    "Get-TopCPUProcesses",
-    "Get-TopItems",
-    "Get-TopMemoryProcesses",
-    "Show-PerformanceDashboard",
-    "Test-DiskAvailability",
-    "Test-ReportFileCreation",
-    "Test-ServerAvailability",
-    "Write-Log",
-    "Write-WindowsEventLog"
-)
-<#
-# Import all the modules !@#$%^
-. (Join-Path $PSScriptRoot "..\Modules\Clear-SystemCache.psm1")
-Import-Module "$PSScriptRoot\..\Modules\Clear-SystemCache.psm1" -Force
-. (Join-Path $PSScriptRoot "..\Modules\Compress-IISLogs.psm1")
-Import-Module "$PSScriptRoot\..\Modules\Compress-IISLogs.psm1" -Force
-. (Join-Path $PSScriptRoot "..\Modules\Export-DiskReport.psm1")
-Import-Module "$PSScriptRoot\..\Modules\Export-DiskReport.psm1" -Force
-. (Join-Path $PSScriptRoot "..\Modules\Get-DiskSpaceDetails.psm1")
-Import-Module "$PSScriptRoot\..\Modules\Get-DiskSpaceDetails.psm1" -Force
-. (Join-Path $PSScriptRoot "..\Modules\Get-PerformanceMetrics.psm1")
-Import-Module "$PSScriptRoot\..\Modules\Get-PerformanceMetrics.psm1" -Force
-. (Join-Path $PSScriptRoot "..\Modules\Get-Session.psm1")
-Import-Module "$PSScriptRoot\..\Modules\Get-Session.psm1" -Force
-. (Join-Path $PSScriptRoot "..\Modules\Get-SystemUptime.psm1")
-Import-Module "$PSScriptRoot\..\Modules\Get-SystemUptime.psm1" -Force
-. (Join-Path $PSScriptRoot "..\Modules\Get-TopCPUProcesses.psm1")
-Import-Module "$PSScriptRoot\..\Modules\Get-TopCPUProcesses.psm1" -Force
-. (Join-Path $PSScriptRoot "..\Modules\Get-TopItems.psm1")
-Import-Module "$PSScriptRoot\..\Modules\Get-TopItems.psm1" -Force
-. (Join-Path $PSScriptRoot "..\Modules\Get-TopMemoryProcesses.psm1")
-Import-Module "$PSScriptRoot\..\Modules\Get-TopMemoryProcesses.psm1" -Force
-. (Join-Path $PSScriptRoot "..\Modules\Show-PerformanceDashboard.psm1")
-Import-Module "$PSScriptRoot\..\Modules\Show-PerformanceDashboard.psm1" -Force
-. (Join-Path $PSScriptRoot "..\Modules\Test-DiskAvailability.psm1")
-Import-Module "$PSScriptRoot\..\Modules\Test-DiskAvailability.psm1" -Force
-. (Join-Path $PSScriptRoot "..\Modules\Test-ReportFileCreation.psm1")
-Import-Module "$PSScriptRoot\..\Modules\Test-ReportFileCreation.psm1" -Force
-. (Join-Path $PSScriptRoot "..\Modules\Test-ServerAvailability.psm1")
-Import-Module "$PSScriptRoot\..\Modules\Test-ServerAvailability.psm1" -Force
-. (Join-Path $PSScriptRoot "..\Modules\Write-Log.psm1")
-Import-Module "$PSScriptRoot\..\Modules\Write-Log.psm1" -Force
-. (Join-Path $PSScriptRoot "..\Modules\Write-WindowsEventLog.psm1")
-Import-Module "$PSScriptRoot\..\Modules\Write-WindowsEventLog.psm1" -Force
-#>
+$script:ModuleContents = $Content
 
 # Import the Get-BitwardenAuthentication module
 Import-Module "$PSScriptRoot\Get-BitwardenAuthentication.psm1" -Force
@@ -1604,10 +1551,10 @@ $okButton.Add_Click({
             return
         }
         "Low Free Space" {
-            . (Join-Path $PSScriptRoot "..\Scripts\LowFreeSpace\LowFreeSpace.ps1") -ADM_Credential $script:ADM_Credential -JumpHost $script:JumpHost
+            . (Join-Path $PSScriptRoot "..\Scripts\LowFreeSpace\LowFreeSpace.ps1") -ADM_Credential $script:ADM_Credential -JumpHost $script:JumpHost -ModuleContents $script:ModuleContents
         }
         "Windows Performance" {
-            . (Join-Path $PSScriptRoot "..\Scripts\WindowsPerformance\WindowsPerformance.ps1") -ADM_Credential $script:ADM_Credential -JumpHost $script:JumpHost
+            . (Join-Path $PSScriptRoot "..\Scripts\WindowsPerformance\WindowsPerformance.ps1") -ADM_Credential $script:ADM_Credential -JumpHost $script:JumpHost -ModuleContents $script:ModuleContents
         }
         default {
             [System.Windows.Forms.MessageBox]::Show(
@@ -1655,6 +1602,9 @@ if ($script:ADM_Credential -and $script:JumpHost) {
     # Show the main form after Bitwarden authentication
     $main_form.ShowDialog()
 }
+
+
+
 
 
 

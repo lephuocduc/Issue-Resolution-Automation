@@ -6,15 +6,6 @@ Param(
     [Parameter(Mandatory= $false)]
     [hashtable]$ModuleContents
 )
-#Test if module contents is passed, if not load from disk
-if ($ModuleContents) {
-    [System.Windows.Forms.MessageBox]::Show("Module contents provided: $ModuleContents", "Info", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information) | Out-Null
-}else {
-        # Show error and exit
-        [System.Windows.Forms.MessageBox]::Show("Module contents not provided. Cannot proceed.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error) | Out-Null
-    
-}
-
 # Temporary workaround for testing
 if (-not $ADM_Credential) {
     $userName = "automation\adminuser"
@@ -204,20 +195,9 @@ $JumpHostSession = Get-Session -serverName $JumpHost -Credential $ADM_Credential
     }
 }#>
 
-foreach ($moduleName in $ModuleContents.Keys) {
-    try {
-        $content = $ModuleContents[$moduleName]
-        Invoke-Command -Session $JumpHostSession -ScriptBlock {
-            param($moduleContent)
-            Invoke-Expression -Command $moduleContent
-        } -ArgumentList $content
-    }
-    catch {
-        Write-Host "Error importing module $modulePath : $_" -ForegroundColor Red
-        [System.Windows.Forms.MessageBox]::Show("Error importing module $([System.IO.Path]::GetFileNameWithoutExtension($modulePath)) : $_", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error) | Out-Null
-        exit 1
-    }
-}
+# Pass $ModuleContents  to remote session
+#Invoke-Command -ComputerName RemotePC -ScriptBlock $Content -Credential (Get-Credential)
+Invoke-Command -Session $JumpHostSession -ScriptBlock $ModuleContents
 
 # OK Button
 $okButton = New-Object System.Windows.Forms.Button

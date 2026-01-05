@@ -10,6 +10,47 @@ Import-Module "$PSScriptRoot\Get-BitwardenAuthentication.psm1" -Force
 $script:ADM_Credential = $null
 $CurrentUser = ([System.Security.Principal.WindowsIdentity]::GetCurrent().Name)
 
+function Get-Session {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$serverName,
+        [Parameter(Mandatory = $false)]
+        [PSCredential]$Credential = $null
+    )
+    try {
+        if (Get-PSProvider -PSProvider WSMan -ErrorAction SilentlyContinue) {
+            $currentTrustedHosts = (Get-Item WSMan:\localhost\Client\TrustedHosts -ErrorAction SilentlyContinue).Value
+            # Skip update if wildcard exists
+                if ($currentTrustedHosts -ne "*") {
+                    # Get current list as array
+                    $hostList = if (-not [string]::IsNullOrEmpty($currentTrustedHosts)) {
+                        $currentTrustedHosts -split ',' | ForEach-Object { $_.Trim() }
+                    } else {
+                        @()
+                    }
+                    
+                    # Add server if not already present
+                    if ($serverName -notin $hostList) {
+                        Set-Item WSMan:\localhost\Client\TrustedHosts -Value $serverName -Concatenate -Force -ErrorAction SilentlyContinue
+                    }
+                }
+        }
+        try {
+            
+            $session = New-PSSession -ComputerName $serverName -Credential $Credential -ErrorAction SilentlyContinue
+            if ($null -eq $session) {
+                return $null
+            }
+            return $session
+        } catch {
+            return $null
+        }
+    }
+    catch {
+        return $null
+    }
+}
+
 function Unprotect-BitwardenConfig {
     param (
         [Parameter(Mandatory=$true)]
@@ -127,7 +168,8 @@ $bitwarden_form.Add_Shown({
         # Retrieve the ADM_Credential
         Update-StatusLabel -text "Authenticating with Bitwarden..."
         $script:ADM_Credential = Get-BitwardenAuthentication -ClientId $clientId -ClientSecret $clientSecret -MasterPassword $masterPassword -CredentialName $credentialName
-        if ($script:ADM_Credential) {       
+        if ($script:ADM_Credential) {
+            Update-StatusLabel -text "Connecting..."       
             # Get all jump host names from the jumphost.json file
             # Test if the file exists
             $jumpHostsFileContent = Get-Content -Path $PSScriptRoot\"jumphost.json" | ConvertFrom-Json
@@ -146,74 +188,16 @@ $bitwarden_form.Add_Shown({
                 $script:JumpHost = $null
                 foreach ($jumpHost in $jumpHosts) {
                     try {
+                        #. (Join-Path $PSScriptRoot "..\Modules\Get-Session.psm1") -Force
                         #Import-Module "$PSScriptRoot\..\Modules\Get-Session.psm1" -Force
                         $session = Get-Session -serverName $jumpHost -Credential $script:ADM_Credential
                         if ($session) {
                             Write-Log "Successfully created session to $jumpHost" -Level "Info"
                             $script:JumpHost = $jumpHost
-
-                            # 1. Define the correct path to modules
-                            $scriptDir = if ($MyInvocation.MyCommand.Path) { 
-                                Split-Path $MyInvocation.MyCommand.Path -Parent 
-                            } else { 
-                                $PSScriptRoot 
-                            }
-                            $localModulesPath = Join-Path $scriptDir "..\Modules"
-
-                            # Check if the path actually exists before trying to copy
-                            if (-not (Test-Path $localModulesPath)) {
-                                Write-Log "Local modules path '$localModulesPath' does not exist." -Level "Error"
-                                [system.windows.forms.messagebox]::Show(
-                                    "Local modules path '$localModulesPath' does not exist.",
-                                    "Error",
-                                    [System.Windows.Forms.MessageBoxButtons]::OK,
-                                    [System.Windows.Forms.MessageBoxIcon]::Error
-                                )
-                                return
-                            }
-
-                            # 2. Get all .psm1 files
-                            $moduleFiles = Get-ChildItem -Path $localModulesPath -Filter *.psm1
-
-                            foreach ($file in $moduleFiles) {
-                                $moduleName = $file.BaseName
-                                # Define the destination path on the remote server
-                                $remoteBaseDir = "C:\Program Files\WindowsPowerShell\Modules"
-                                $remoteModuleDir = "$remoteBaseDir\$moduleName"
-                                
-                                Write-Log "Copying module '$moduleName' to $jumpHost`:$remoteModuleDir"
-
-                                # 3. Create the directory on the remote host if it doesn't exist
-                                # We use Invoke-Command because Copy-Item fails if the destination folder isn't there.
-                                Invoke-Command -Session $session -ArgumentList $remoteModuleDir -ScriptBlock {
-                                    param($targetDir)
-                                    if (-not (Test-Path -Path $targetDir)) {
-                                        New-Item -Path $targetDir -ItemType Directory -Force | Out-Null
-                                        Write-Log "Created directory $targetDir on remote host." -Level "Info"
-                                    }
-                                }
-
-                                # 4. Copy the file to the session
-                                # Destination must include the filename because we are copying a file to a folder
-                                try {
-                                    Copy-Item -Path $file.FullName -Destination "$remoteModuleDir\$($file.Name)" -ToSession $session -Force -ErrorAction Stop
-                                    Write-Log "Successfully copied $($file.Name) to $jumpHost`:$remoteModuleDir" -Level "Info"
-                                }
-                                catch {
-                                    Write-Log "Failed to copy $($file.Name) to $jumpHost`:$remoteModuleDir. Error: $_" -Level "Error"
-                                    [System.Windows.Forms.MessageBox]::Show(
-                                        "Error, check logs for details.",
-                                        "Error",
-                                        [System.Windows.Forms.MessageBoxButtons]::OK,
-                                        [System.Windows.Forms.MessageBoxIcon]::Error
-                                    )
-
-                                }
                             }
                             Remove-PSSession -Session $session -ErrorAction SilentlyContinue
                             break  # Exit the loop if a session is successfully created
                         }
-                    }
                     catch {
                         Write-Log "Failed to create session to `$jumpHost: $_" -Level "Warning"
                     }

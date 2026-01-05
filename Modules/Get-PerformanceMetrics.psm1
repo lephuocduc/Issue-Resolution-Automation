@@ -129,7 +129,6 @@ function Get-PerformanceMetrics {
 
         # Collect performance samples
         for ($i = 1; $i -le $Samples; $i++) {
-            Update-StatusLabel -text "Collecting sample $i of $Samples with $Interval seconds interval."
             $sampleResult = Invoke-Command -Session $Session -ScriptBlock $sampleScriptBlock -ArgumentList $totalMemory, $ownerCache
             
             $cpuSamples.Add($sampleResult.CpuSample) # Add CPU sample to collection
@@ -201,8 +200,6 @@ function Get-PerformanceMetrics {
         }
 
     } catch {
-        Update-StatusLabel -text "Error collecting performance metrics: $_"
-        Write-Log "Error collecting performance metrics: $_" "Error"
         throw
     }
 }

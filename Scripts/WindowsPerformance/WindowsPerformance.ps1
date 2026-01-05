@@ -276,6 +276,7 @@ $okButton.Add_Click({
         }
 
         Update-StatusLabel -text "Collecting performance data from $serverName..."
+        Update-StatusLabel -text "Collecting 3 samples at 2-second intervals..."
         $ScriptBlock = {
             param ($params)
             $serverName = $params.ServerName

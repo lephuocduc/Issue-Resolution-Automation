@@ -58,7 +58,7 @@ Param(
     [Parameter(Mandatory= $false)]
     [string]$JumpHost,
     [Parameter(Mandatory= $false)]
-    [hashtable]$ModuleContents
+    [string]$ModuleContents
 )
 
 <#

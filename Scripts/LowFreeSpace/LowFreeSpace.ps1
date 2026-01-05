@@ -4,7 +4,7 @@ Param(
     [Parameter(Mandatory= $false)]
     [string]$JumpHost,
     [Parameter(Mandatory= $false)]
-    [hashtable]$ModuleContents
+    [string]$ModuleContents
 )
 # Temporary workaround for testing
 if (-not $ADM_Credential) {

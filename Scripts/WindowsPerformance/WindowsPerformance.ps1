@@ -314,7 +314,6 @@ $okButton.Add_Click({
         $result = Invoke-Command -Session $JumpHostSession -ScriptBlock $ScriptBlock -ArgumentList $params
         if ($result) {
             Update-StatusLabel -text $result
-            [System.Windows.Forms.MessageBox]::Show($result, "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error) | Out-Null
         }
 
         # Export the report back to the local machine

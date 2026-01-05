@@ -56,8 +56,11 @@ Param(
     [Parameter(Mandatory= $false)]
     [System.Management.Automation.PSCredential]$ADM_Credential,
     [Parameter(Mandatory= $false)]
-    [string]$JumpHost
+    [string]$JumpHost,
+    [Parameter(Mandatory= $false)]
+    [hashtable]$ModuleContents
 )
+
 <#
 # Temporary workaround for testing
 if (-not $ADM_Credential) {
@@ -182,7 +185,7 @@ $ticketNumberTextBox.Add_KeyDown({
         $e.SuppressKeyPress = $true
     }
 })
-
+<#
 $modulesToImport = @(
     "$PSScriptRoot\..\..\Modules\Get-Session.psm1",
     "$PSScriptRoot\..\..\Modules\Test-ServerAvailability.psm1",
@@ -194,10 +197,11 @@ $modulesToImport = @(
     "$PSScriptRoot\..\..\Modules\Remove-Session.psm1",
     "$PSScriptRoot\..\..\Modules\Write-WindowsEventLog.psm1",
     "$PSScriptRoot\..\..\Modules\Write-Log.psm1"
-)
+)#>
 
 $JumpHostSession = Get-Session -serverName $JumpHost -Credential $ADM_Credential
 
+<#
 foreach ($modulePath in $modulesToImport) {
     try {
         # Read the module content
@@ -215,7 +219,10 @@ foreach ($modulePath in $modulesToImport) {
         [System.Windows.Forms.MessageBox]::Show("Error importing module $([System.IO.Path]::GetFileNameWithoutExtension($modulePath)) : $_", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error) | Out-Null
         exit 1
     }
-}
+}#>
+
+# Pass $ModuleContents  to remote session
+Invoke-Command -Session $JumpHostSession -ScriptBlock $ModuleContents
 
 # OK Button
 $okButton = New-Object System.Windows.Forms.Button

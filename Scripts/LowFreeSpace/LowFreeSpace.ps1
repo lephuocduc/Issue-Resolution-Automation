@@ -196,7 +196,6 @@ $JumpHostSession = Get-Session -serverName $JumpHost -Credential $ADM_Credential
 }#>
 
 # Pass $ModuleContents  to remote session
-#Invoke-Command -ComputerName RemotePC -ScriptBlock $Content -Credential (Get-Credential)
 Invoke-Command -Session $JumpHostSession -ScriptBlock $ModuleContents
 
 # OK Button
@@ -212,9 +211,8 @@ $okButton.Add_Click({
         $serverName = $textBoxServerName.Text.Trim()
         $ticketNumber = $ticketNumberTextBox.Text
 
-        # Import necessary modules to a variable then pass to remote session
-        
-
+        # Prepare parameters for remote script
+        Update-StatusLabel -text "Validating inputs..."
         $params = @{
             ServerName     = $serverName      
             DiskName       = $diskName

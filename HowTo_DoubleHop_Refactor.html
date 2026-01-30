@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <title>How to Refactor a Script for Double Hop &lpar;Nested Remoting&rpar;</title>
+            <style>
+/* From extension vscode.github */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.vscode-dark img[src$=\#gh-light-mode-only],
+.vscode-light img[src$=\#gh-dark-mode-only],
+.vscode-high-contrast:not(.vscode-high-contrast-light) img[src$=\#gh-light-mode-only],
+.vscode-high-contrast-light img[src$=\#gh-dark-mode-only] {
+	display: none;
+}
+
+</style>
+            <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex/dist/katex.min.css">
+<link href="https://cdn.jsdelivr.net/npm/katex-copytex@latest/dist/katex-copytex.min.css" rel="stylesheet" type="text/css">
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Microsoft/vscode/extensions/markdown-language-features/media/markdown.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Microsoft/vscode/extensions/markdown-language-features/media/highlight.css">
+<style>
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe WPC', 'Segoe UI', system-ui, 'Ubuntu', 'Droid Sans', sans-serif;
+                font-size: 14px;
+                line-height: 1.6;
+            }
+        </style>
+        <style>
+.task-list-item {
+    list-style-type: none;
+}
+
+.task-list-item-checkbox {
+    margin-left: -20px;
+    vertical-align: middle;
+    pointer-events: none;
+}
+</style>
+<style>
+:root {
+  --color-note: #0969da;
+  --color-tip: #1a7f37;
+  --color-warning: #9a6700;
+  --color-severe: #bc4c00;
+  --color-caution: #d1242f;
+  --color-important: #8250df;
+}
+
+</style>
+<style>
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-note: #2f81f7;
+    --color-tip: #3fb950;
+    --color-warning: #d29922;
+    --color-severe: #db6d28;
+    --color-caution: #f85149;
+    --color-important: #a371f7;
+  }
+}
+
+</style>
+<style>
+.markdown-alert {
+  padding: 0.5rem 1rem;
+  margin-bottom: 16px;
+  color: inherit;
+  border-left: .25em solid #888;
+}
+
+.markdown-alert>:first-child {
+  margin-top: 0
+}
+
+.markdown-alert>:last-child {
+  margin-bottom: 0
+}
+
+.markdown-alert .markdown-alert-title {
+  display: flex;
+  font-weight: 500;
+  align-items: center;
+  line-height: 1
+}
+
+.markdown-alert .markdown-alert-title .octicon {
+  margin-right: 0.5rem;
+  display: inline-block;
+  overflow: visible !important;
+  vertical-align: text-bottom;
+  fill: currentColor;
+}
+
+.markdown-alert.markdown-alert-note {
+  border-left-color: var(--color-note);
+}
+
+.markdown-alert.markdown-alert-note .markdown-alert-title {
+  color: var(--color-note);
+}
+
+.markdown-alert.markdown-alert-important {
+  border-left-color: var(--color-important);
+}
+
+.markdown-alert.markdown-alert-important .markdown-alert-title {
+  color: var(--color-important);
+}
+
+.markdown-alert.markdown-alert-warning {
+  border-left-color: var(--color-warning);
+}
+
+.markdown-alert.markdown-alert-warning .markdown-alert-title {
+  color: var(--color-warning);
+}
+
+.markdown-alert.markdown-alert-tip {
+  border-left-color: var(--color-tip);
+}
+
+.markdown-alert.markdown-alert-tip .markdown-alert-title {
+  color: var(--color-tip);
+}
+
+.markdown-alert.markdown-alert-caution {
+  border-left-color: var(--color-caution);
+}
+
+.markdown-alert.markdown-alert-caution .markdown-alert-title {
+  color: var(--color-caution);
+}
+
+</style>
+        
+        </head>
+        <body class="vscode-body vscode-light">
+            <h1 id="how-to-refactor-a-script-for-double-hop-nested-remoting">How to Refactor a Script for Double Hop (Nested Remoting)</h1>
+<p>This guide details how to convert a standard &quot;Single Hop&quot; PowerShell script (Local Machine → Target Server) into a &quot;Double Hop&quot; script (Local Machine → Jump Host → Target Server).</p>
+<h2 id="the-core-concept">The Core Concept</h2>
+<p><strong>Double Hop</strong> solves network or security segmentation where your local machine cannot reach the Target Server directly, but can reach a &quot;Jump Host&quot; which can.</p>
+<ul>
+<li><strong>Before:</strong> Execution happens on <strong>Local Machine</strong>. Logic connects directly to Target.</li>
+<li><strong>After:</strong> Execution happens on <strong>Jump Host</strong>. Local Machine sends instructions (ScriptBlock) to Jump Host. Jump Host connects to Target.</li>
+</ul>
+<hr>
+<h2 id="5-step-refactoring-process">5-Step Refactoring Process</h2>
+<h3 id="1-update-parameters-the-setup">1. Update Parameters (The Setup)</h3>
+<p><strong>Modify the <code>Param</code> block:</strong></p>
+<pre><code class="language-powershell"><span class="hljs-keyword">Param</span>(   
+    <span class="hljs-comment"># Credential is used for connecting to the jump host and target server</span>
+    [<span class="hljs-type">Parameter</span>(<span class="hljs-type">Mandatory</span>=<span class="hljs-variable">$true</span>)]
+    [<span class="hljs-type">System.Management.Automation.PSCredential</span>]<span class="hljs-variable">$ADM_Credential</span>,
+
+    <span class="hljs-comment"># The intermediate servers</span>
+    [<span class="hljs-type">Parameter</span>(<span class="hljs-type">Mandatory</span>=<span class="hljs-variable">$true</span>)]
+    [<span class="hljs-built_in">string</span>[]]<span class="hljs-variable">$JumpHost</span>,
+
+    <span class="hljs-comment"># Allow passing module code content directly</span>
+    [<span class="hljs-type">Parameter</span>(<span class="hljs-type">Mandatory</span>=<span class="hljs-variable">$true</span>)]
+    [<span class="hljs-built_in">string</span>]<span class="hljs-variable">$ModuleContents</span>
+)
+</code></pre>
+<h3 id="2-establish-outer-session--hydrate-the-bridge">2. Establish Outer Session &amp; Hydrate (The Bridge)</h3>
+<p>Before the GUI opens, connect to the Jump Host and send it the necessary functions/modules. The Jump Host doesn't have local files, so we must pass to it.</p>
+<p><strong>Add this after inputs:</strong></p>
+<pre><code class="language-powershell"><span class="hljs-comment"># 1. Connect to Jump Host</span>
+<span class="hljs-variable">$JumpHostSession</span> = <span class="hljs-built_in">New-PSSession</span> <span class="hljs-literal">-ComputerName</span> <span class="hljs-variable">$JumpHost</span> <span class="hljs-literal">-Credential</span> <span class="hljs-variable">$ADM_Credential</span>
+
+<span class="hljs-comment"># 2. Send local modules to Jump Host</span>
+<span class="hljs-built_in">Invoke-Command</span> <span class="hljs-literal">-Session</span> <span class="hljs-variable">$JumpHostSession</span> <span class="hljs-literal">-ScriptBlock</span> <span class="hljs-variable">$ModuleContents</span>
+</code></pre>
+<h3 id="3-split-the-brain-gui-vs-logic">3. Split the Brain (GUI vs. Logic)</h3>
+<p>In a normal script, the GUI Event Handler (e.g., <code>$okButton_Click</code>) runs the logic. In Double Hop, the GUI <strong>only</strong> gathers inputs.</p>
+<p><strong>Refactor <code>$okButton_Click</code>:</strong></p>
+<ul>
+<li><strong>KEEP:</strong> Validation logic (Checking if text boxes are empty).</li>
+<li><strong>REMOVE:</strong> Direct calls to functional cmdlets (<code>Get-Service</code>, <code>Test-ServerAvailability</code>).</li>
+<li><strong>ADD:</strong> Parameter packaging.</li>
+</ul>
+<pre><code class="language-powershell"><span class="hljs-variable">$okButton</span>.Add_Click({
+    <span class="hljs-comment"># 1. Gather Inputs</span>
+    <span class="hljs-variable">$serverName</span> = <span class="hljs-variable">$textBoxServerName</span>.Text
+    <span class="hljs-variable">$diskName</span> = <span class="hljs-variable">$diskTextBox</span>.Text
+    <span class="hljs-variable">$ticket</span> = <span class="hljs-variable">$ticketNumberTextBox</span>.Text
+
+    <span class="hljs-comment"># 2. Package everything (including credentials!) into a Hashtable</span>
+    <span class="hljs-comment"># The remote session cannot see local variables.</span>
+    <span class="hljs-variable">$params</span> = <span class="hljs-selector-tag">@</span>{
+        ServerName     = <span class="hljs-variable">$serverName</span>
+        DiskName       = <span class="hljs-variable">$diskName</span>
+        TicketNumber   = <span class="hljs-variable">$ticket</span>
+        ADM_Credential = <span class="hljs-variable">$ADM_Credential</span>
+    }
+
+    <span class="hljs-comment"># ... Continued in Step 4 ...</span>
+})
+</code></pre>
+<h3 id="4-wrapper-scriptblock-the-remote-payload">4. Wrapper ScriptBlock (The Remote Payload)</h3>
+<p>This is the most critical step. You must wrap your original business logic into a <code>ScriptBlock</code>. This block will be serialized and sent to the Jump Host.</p>
+<pre><code class="language-powershell">    <span class="hljs-comment"># ... Inside $okButton.Add_Click ...</span>
+
+    <span class="hljs-variable">$ScriptBlock</span> = {
+        <span class="hljs-keyword">param</span> (<span class="hljs-variable">$params</span>) <span class="hljs-comment"># Accepts the hashtable we created</span>
+
+        <span class="hljs-comment"># UNPACK parameters</span>
+        <span class="hljs-variable">$Target</span>    = <span class="hljs-variable">$params</span>.ServerName
+        <span class="hljs-variable">$Creds</span>     = <span class="hljs-variable">$params</span>.ADM_Credential
+        <span class="hljs-variable">$Disk</span>      = <span class="hljs-variable">$params</span>.DiskName
+        <span class="hljs-variable">$Ticket</span>    = <span class="hljs-variable">$params</span>.TicketNumber
+
+        <span class="hljs-comment"># --- LOGIC RUNNING ON JUMP HOST START ---</span>
+
+        <span class="hljs-comment"># 1. Create Inner Session (The Second Hop)</span>
+        <span class="hljs-comment"># We use the passed $Creds.</span>
+        <span class="hljs-variable">$TargetSession</span> = <span class="hljs-built_in">Get-Session</span> <span class="hljs-literal">-serverName</span> <span class="hljs-variable">$Target</span> <span class="hljs-literal">-Credential</span> <span class="hljs-variable">$Creds</span>
+        
+        <span class="hljs-keyword">if</span> (<span class="hljs-operator">-not</span> <span class="hljs-variable">$TargetSession</span>) { <span class="hljs-keyword">return</span> <span class="hljs-string">&quot;Failed to connect to target&quot;</span> }
+
+        <span class="hljs-comment"># 2. Run your original logic using the Inner Session</span>
+        <span class="hljs-comment"># Replace local calls with calls using the session</span>
+        <span class="hljs-variable">$DiskInfo</span> = <span class="hljs-built_in">Get-DiskSpaceDetails</span> <span class="hljs-literal">-Session</span> <span class="hljs-variable">$TargetSession</span> <span class="hljs-literal">-DiskName</span> <span class="hljs-variable">$Disk</span>
+
+        <span class="hljs-comment"># 3. Return results</span>
+        <span class="hljs-comment"># Return simple objects (Strings, Numbers, PSCustomObjects)</span>
+        <span class="hljs-keyword">return</span> <span class="hljs-string">&quot;Analysis complete. Free space: <span class="hljs-variable">$</span>(<span class="hljs-variable">$DiskInfo</span>.FreePercentage)%&quot;</span>
+
+        <span class="hljs-comment"># --- LOGIC RUNNING ON JUMP HOST END ---</span>
+    }
+
+    <span class="hljs-comment"># EXECUTE the block</span>
+    <span class="hljs-variable">$result</span> = <span class="hljs-built_in">Invoke-Command</span> <span class="hljs-literal">-Session</span> <span class="hljs-variable">$JumpHostSession</span> <span class="hljs-literal">-ScriptBlock</span> <span class="hljs-variable">$ScriptBlock</span> <span class="hljs-literal">-ArgumentList</span> <span class="hljs-variable">$params</span>
+    
+    <span class="hljs-comment"># Then we can update Local GUI with result $result</span>
+    <span class="hljs-comment"># E.g Update-StatusLabel -text $result</span>
+</code></pre>
+<h3 id="5-return-file-handling-serialization">5. Return File Handling (Serialization)</h3>
+<p>If your script typically generates a report (HTML/CSV) and opens it, you can't just <code>Start-Process</code> inside the ScriptBlock (that would open a window on the Jump Host!).</p>
+<p><strong>Pattern:</strong></p>
+<ol>
+<li><strong>Remote:</strong> Read the file content.</li>
+<li><strong>Return:</strong> Return an object with the content string.</li>
+<li><strong>Local:</strong> Save content to a temp file and <code>Start-Process</code> locally.</li>
+</ol>
+<p><strong>In Remote Logic ($ScriptBlock):</strong></p>
+<pre><code class="language-powershell"><span class="hljs-variable">$reportPath</span> = <span class="hljs-built_in">Export-DiskReport</span> ...
+<span class="hljs-keyword">if</span> (<span class="hljs-variable">$reportPath</span>) {
+    <span class="hljs-variable">$content</span> = <span class="hljs-built_in">Get-Content</span> <span class="hljs-variable">$reportPath</span> <span class="hljs-literal">-Raw</span>
+    <span class="hljs-keyword">return</span> [<span class="hljs-type">PSCustomObject</span>]<span class="hljs-selector-tag">@</span>{
+        <span class="hljs-built_in">Type</span> = <span class="hljs-string">&quot;File&quot;</span>
+        Name = <span class="hljs-string">&quot;Report.html&quot;</span>
+        Content = <span class="hljs-variable">$content</span>
+    }
+}
+</code></pre>
+<p><strong>In Local Logic (After Invoke-Command):</strong></p>
+<pre><code class="language-powershell"><span class="hljs-variable">$result</span> = <span class="hljs-built_in">Invoke-Command</span> ...
+<span class="hljs-keyword">if</span> (<span class="hljs-variable">$result</span>.Type <span class="hljs-operator">-eq</span> <span class="hljs-string">&quot;File&quot;</span>) {
+    <span class="hljs-variable">$localPath</span> = <span class="hljs-string">&quot;<span class="hljs-variable">$env:TEMP</span>\<span class="hljs-variable">$</span>(<span class="hljs-variable">$result</span>.Name)&quot;</span>
+    <span class="hljs-variable">$result</span>.Content | <span class="hljs-built_in">Out-File</span> <span class="hljs-variable">$localPath</span>
+    <span class="hljs-built_in">Start-Process</span> <span class="hljs-variable">$localPath</span>
+}
+</code></pre>
+
+            <script async src="https://cdn.jsdelivr.net/npm/katex-copytex@latest/dist/katex-copytex.min.js"></script>
+            
+        </body>
+        </html>

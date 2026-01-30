@@ -261,7 +261,7 @@ $main_form.Controls.Add($label)
 $comboBox = New-Object System.Windows.Forms.ComboBox
 #$comboBox.Location = New-Object System.Drawing.Point(110, 50)  # Centered horizontally - REMOVE THIS LINE
 $comboBox.Size = New-Object System.Drawing.Size ([Math]::Round(200 * $scaleX), [Math]::Round(25 * $scaleY)) # set the size of combobox
-$comboBox.Items.AddRange(@('Low Free Space','Windows Performance'))  # Add items to the dropdown
+$comboBox.Items.AddRange(@('Demo- Double Hop','Demo- Single Hop','Low Free Space','Windows Performance'))  # Add items to the dropdown
 $comboBox.DropDownStyle = 'DropDown' # Allow text editing in the ComboBox
 # Calculate the horizontal center for the ComboBox
 $combobox_width = $comboBox.Size.Width
@@ -317,6 +317,12 @@ $okButton.Add_Click({
             )
             return
         }
+        "Demo- Double Hop" {
+            . (Join-Path $PSScriptRoot "..\Scripts\Demos\Demo-DoubleHop.ps1") -ADM_Credential $script:ADM_Credential -JumpHost $script:JumpHost -ModuleContents $script:ModuleContents
+        }
+        "Demo- Single Hop" {
+            . (Join-Path $PSScriptRoot "..\Scripts\Demos\Demo-SingleHop.ps1") -ADM_Credential $script:ADM_Credential -JumpHost $script:JumpHost -ModuleContents $script:ModuleContents
+        }
         "Low Free Space" {
             . (Join-Path $PSScriptRoot "..\Scripts\LowFreeSpace\LowFreeSpace.ps1") -ADM_Credential $script:ADM_Credential -JumpHost $script:JumpHost -ModuleContents $script:ModuleContents
         }
@@ -369,6 +375,7 @@ if ($script:ADM_Credential -and $script:JumpHost) {
     # Show the main form after Bitwarden authentication
     $main_form.ShowDialog()
 }
+
 
 
 

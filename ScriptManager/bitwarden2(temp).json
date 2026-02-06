@@ -1,0 +1,37 @@
+{
+    "bitwarden": {
+        "clientId": "user.a70e6672-6b16-4539-be6c-b327002104f7",
+        "clientSecret": "LFXVMuhkdDcokVMAdWETV79fLy87Xn",
+        "masterPassword": "#q+m:ZcQjhQ.M7q",
+        "customer": {
+            "SCCUK": [
+                {
+                    "domain": "sch.com",
+                    "credentialName": "adm credentials"
+                },
+                {
+                    "domain": "scc.com",
+                    "credentialName": "adm credentials-2"
+                },
+                {
+                    "domain": "local",
+                    "credentialName": "adm credentials-3"
+                }
+            ],
+            "STB": [
+                {
+                    "domain": "hosted.com",
+                    "credentialName": "adm credentials-4"
+                },
+                {
+                    "domain": "domain2.com",
+                    "credentialName": "adm credentials-5"
+                },
+                {
+                    "domain": "local",
+                    "credentialName": "adm credentials-6"
+                }
+            ]
+        }
+    }
+}

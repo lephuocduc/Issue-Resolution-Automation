@@ -2,6 +2,7 @@
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
+
 $script:ModuleContents = $Content
 
 # Import the Get-BitwardenAuthentication module

@@ -1,4 +1,4 @@
-<#
+
 Test Cases in Test Clear-SystemCache:
 1. "Throws error for null session": Verifies that the function throws an error when the session parameter is null.
 2. "Only deletes old Windows Update cache files older than 5 days": Ensures that only files older than 5 days are deleted from the Windows Update cache.
@@ -11,8 +11,8 @@ Test Cases in Test Compress-IISLogs:
 1. "Only compresses and deletes old IIS logs older than 6 months": Ensures that only IIS logs older than 6 months are compressed and deleted.
 2. "Does not compress or delete when IIS log path does not exist": Verifies that no compression or deletion occurs when the IIS log path does not exist.
 
-#>
-<#
+
+
 # Check for Pester 5.7.1 and exit if not available
 $PesterModule = Get-Module -ListAvailable -Name Pester | Where-Object { $_.Version -eq "5.7.1" }
 if (-not $PesterModule) {
@@ -261,4 +261,3 @@ Describe "Test Compress-IISLogs" {
 }
 
 $env:UNIT_TEST = $null
-#>

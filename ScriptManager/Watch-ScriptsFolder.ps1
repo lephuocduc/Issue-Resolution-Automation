@@ -1,7 +1,7 @@
 $scriptManagerPath = Join-Path $PSScriptRoot "ScriptManager.ps1"
 $scriptsRootPath = Join-Path $PSScriptRoot "..\Scripts"
 $modulesPath = Join-Path $PSScriptRoot "..\Modules"
-
+ 
 # Helper function to insert spaces before capital letters
 function Split-CamelCase {
     param (
